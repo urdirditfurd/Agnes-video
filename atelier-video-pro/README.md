@@ -53,6 +53,20 @@ Configurez-les dans l’écran 1 (panneau « Configuration API ») ou au premier
 3. **Écran 3** — Suivez la progression (images → vidéos Agnes → assemblage).
 4. **Écran 4** — Lisez et téléchargez le MP4 ; regénérez une scène si besoin.
 
+### Mode EXPRESS (5 secondes)
+
+Objectif : **≤ 60 s** de bout en bout pour 1 clip.
+
+| Étape | Optimisation |
+|---|---|
+| Image | Pollinations `turbo` 720×1280, timeout 12 s, sinon canvas local |
+| Upload Agnes | JPEG compressé (max 720 px) — upload beaucoup plus léger |
+| Pipeline | Image → Agnes **immédiatement** (pas d’attente entre phases) |
+| Polling | Dès 0,5 s, puis toutes les **1 s** |
+| Montage | 1 clip = pas de FFmpeg |
+
+> Le temps serveur Agnes reste variable (file d’attente plateforme). On coupe tout le gras côté app.
+
 ### Exemple démo
 
 **« Le voyage d'une goutte d'eau »** est pré-rempli. Durée cible **1 min** → ~6 clips de 10 s.

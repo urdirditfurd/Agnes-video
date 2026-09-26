@@ -100,9 +100,9 @@
 
   document.getElementById('btn-demo').addEventListener('click', () => {
     document.getElementById('script-input').value = window.CONFIG.DEMO_SCRIPT;
-    document.getElementById('duration-select').value = '1min';
+    // Garde la durée choisie (5s EXPRESS par défaut)
     document.getElementById('style-select').value = 'cinematic';
-    toast('Script démo chargé', 'success');
+    toast('Script démo chargé — durée actuelle conservée', 'success');
   });
 
   // Pré-remplir au démarrage
@@ -253,6 +253,13 @@
 
   document.getElementById('btn-generate').addEventListener('click', () => startGeneration(false));
 
+  function formatEta(seconds) {
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return m + 'min ' + s + 's';
+  }
+
   async function startGeneration(isResume) {
     if (!state.plan) return;
 
@@ -282,69 +289,112 @@
     const clipKey = clipDurationKey(targetDuration);
     const scenes = state.plan.scenes;
     const total = scenes.length;
+    /** Mode EXPRESS : durée 5s ou un seul clip → pipeline turbo ≤60s */
+    const express = clipKey === '5s' || (total === 1 && targetDuration === '5s');
+    const budget = (window.CONFIG.VIDEO && window.CONFIG.VIDEO.expressBudgetSec) || 60;
+
+    if (window.ImageGenerator) window.ImageGenerator.setExpressMode(express);
+    if (window.VideoOrchestrator) window.VideoOrchestrator.setExpressMode(express);
+
     let imagesDone = scenes.filter((s) => s.imageUrl || s.status === 'image_done' || s.status === 'video_done').length;
     let videosDone = scenes.filter((s) => s.videoUrl || s.status === 'video_done').length;
 
+    let ticker = null;
     function updateGlobal(msg) {
       const progress = ((imagesDone + videosDone) / (total * 2)) * 100;
       document.getElementById('global-bar').style.width = Math.min(100, progress) + '%';
       document.getElementById('global-status').textContent = msg;
       const elapsed = (Date.now() - state.startedAt) / 1000;
-      const done = imagesDone + videosDone;
-      const remaining = total * 2 - done;
-      if (done > 0 && remaining > 0) {
-        const eta = Math.round((elapsed / done) * remaining);
-        document.getElementById('eta-text').textContent = '≈ ' + formatEta(eta) + ' restant';
+      if (express) {
+        const left = Math.max(0, budget - elapsed);
+        document.getElementById('eta-text').textContent =
+          'Express 5s · ' + Math.round(elapsed) + 's écoulées · budget ' + budget + 's (reste ≈ ' + Math.round(left) + 's)';
       } else {
-        document.getElementById('eta-text').textContent = '';
+        const done = imagesDone + videosDone;
+        const remaining = total * 2 - done;
+        if (done > 0 && remaining > 0) {
+          document.getElementById('eta-text').textContent = '≈ ' + formatEta((elapsed / done) * remaining) + ' restant';
+        } else {
+          document.getElementById('eta-text').textContent = '';
+        }
       }
     }
 
-    function formatEta(seconds) {
-      if (seconds < 60) return Math.round(seconds) + 's';
-      const m = Math.floor(seconds / 60);
-      const s = Math.round(seconds % 60);
-      return m + 'min ' + s + 's';
+    if (express) {
+      ticker = setInterval(() => {
+        const elapsed = (Date.now() - state.startedAt) / 1000;
+        const left = Math.max(0, budget - elapsed);
+        const statusEl = document.getElementById('eta-text');
+        if (statusEl) {
+          statusEl.textContent =
+            'Express 5s · ' + Math.round(elapsed) + 's · budget ' + budget + 's (reste ≈ ' + Math.round(left) + 's)';
+        }
+      }, 500);
     }
 
     try {
-      updateGlobal('Génération des images…');
-      await window.ImageGenerator.generateAll(
-        scenes,
-        state.characterSeeds,
-        (sceneId, info) => {
-          updateCard(sceneId, info);
-          if (info.status === 'image_done') {
-            imagesDone++;
-            updateGlobal('Images : ' + imagesDone + '/' + total);
-            window.StateStore.checkpoint(state.plan);
-          }
-          if (info.status === 'failed') {
-            window.StateStore.checkpoint(state.plan);
-          }
-        },
-        window.CONFIG.IMAGE.maxParallel
-      );
+      if (express) {
+        updateGlobal('Mode EXPRESS — image turbo puis Agnes…');
+        await window.VideoOrchestrator.processPipeline(
+          scenes,
+          clipKey,
+          state.characterSeeds,
+          (sceneId, info) => {
+            updateCard(sceneId, info);
+            if (info.status === 'image_done') {
+              imagesDone = Math.min(total, imagesDone + 1);
+              updateGlobal('Image OK — envoi Agnes…');
+              window.StateStore.checkpoint(state.plan);
+            }
+            if (info.status === 'video_done') {
+              videosDone = Math.min(total, videosDone + 1);
+              updateGlobal('Vidéo prête');
+              window.StateStore.checkpoint(state.plan);
+            }
+            if (info.status === 'failed') {
+              window.StateStore.checkpoint(state.plan);
+            }
+            if (info.status === 'generating' || info.status === 'video_generating' || info.status === 'video_polling') {
+              updateGlobal(info.message || 'En cours…');
+            }
+          },
+          state.stopController.signal
+        );
+      } else {
+        updateGlobal('Génération des images…');
+        await window.ImageGenerator.generateAll(
+          scenes,
+          state.characterSeeds,
+          (sceneId, info) => {
+            updateCard(sceneId, info);
+            if (info.status === 'image_done') {
+              imagesDone++;
+              updateGlobal('Images : ' + imagesDone + '/' + total);
+              window.StateStore.checkpoint(state.plan);
+            }
+            if (info.status === 'failed') window.StateStore.checkpoint(state.plan);
+          },
+          window.CONFIG.IMAGE.maxParallel
+        );
 
-      if (state.stopController.signal.aborted) throw new Error('Arrêt demandé');
+        if (state.stopController.signal.aborted) throw new Error('Arrêt demandé');
 
-      updateGlobal('Génération des vidéos Agnes…');
-      await window.VideoOrchestrator.processAll(
-        scenes,
-        clipKey,
-        (sceneId, info) => {
-          updateCard(sceneId, info);
-          if (info.status === 'video_done') {
-            videosDone++;
-            updateGlobal('Vidéos : ' + videosDone + '/' + total);
-            window.StateStore.checkpoint(state.plan);
-          }
-          if (info.status === 'failed') {
-            window.StateStore.checkpoint(state.plan);
-          }
-        },
-        state.stopController.signal
-      );
+        updateGlobal('Génération des vidéos Agnes…');
+        await window.VideoOrchestrator.processAll(
+          scenes,
+          clipKey,
+          (sceneId, info) => {
+            updateCard(sceneId, info);
+            if (info.status === 'video_done') {
+              videosDone++;
+              updateGlobal('Vidéos : ' + videosDone + '/' + total);
+              window.StateStore.checkpoint(state.plan);
+            }
+            if (info.status === 'failed') window.StateStore.checkpoint(state.plan);
+          },
+          state.stopController.signal
+        );
+      }
 
       if (state.stopController.signal.aborted) throw new Error('Arrêt demandé');
 
@@ -353,16 +403,16 @@
 
       updateGlobal(doneVideos === 1 ? 'Finalisation…' : 'Assemblage final…');
 
-      // TTS non bloquant (ne retarde plus la vidéo)
-      try {
-        const voiceId = document.getElementById('voice-select').value;
-        window.TTS.speak(
-          window.TTS.buildNarrationScript(scenes).slice(0, 120),
-          voiceId,
-          1
-        ).catch(function () { /* ignore */ });
-      } catch (e) {
-        console.warn('[TTS] prévisualisation ignorée', e);
+      // Pas de TTS en express (gain de temps) ; sinon non bloquant
+      if (!express) {
+        try {
+          const voiceId = document.getElementById('voice-select').value;
+          window.TTS.speak(
+            window.TTS.buildNarrationScript(scenes).slice(0, 120),
+            voiceId,
+            1
+          ).catch(function () { /* ignore */ });
+        } catch (e) { /* ignore */ }
       }
 
       const finalUrl = await window.Assembler.assembleSafe(
@@ -375,12 +425,14 @@
       document.getElementById('final-video').src = finalUrl;
       document.getElementById('btn-download').href = finalUrl;
 
-      updateGlobal('Terminé — ' + doneVideos + '/' + total + ' clips');
+      const elapsed = Math.round((Date.now() - state.startedAt) / 1000);
+      updateGlobal('Terminé en ' + elapsed + 's — ' + doneVideos + '/' + total + ' clips');
       window.StateStore.checkpoint(state.plan);
+      toast(express ? ('Express terminé en ' + elapsed + 's') : 'Vidéo prête', 'success');
       setTimeout(() => {
         showScreen(4);
         setStatus(null);
-      }, 800);
+      }, 400);
     } catch (e) {
       if (e.message === 'Arrêt demandé') {
         toast('Génération arrêtée — progression sauvegardée', 'success');
@@ -391,6 +443,10 @@
       }
       setStatus(null);
       window.StateStore.checkpoint(state.plan);
+    } finally {
+      if (ticker) clearInterval(ticker);
+      if (window.ImageGenerator) window.ImageGenerator.setExpressMode(false);
+      if (window.VideoOrchestrator) window.VideoOrchestrator.setExpressMode(false);
     }
   }
 

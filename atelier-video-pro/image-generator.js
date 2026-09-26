@@ -1,14 +1,20 @@
 /* ══════════════════════════════════════════════════════════════════
-   IMAGE GENERATOR — Gemini → Pollinations → Stable Horde
-   Cache IndexedDB + seed personnage pour cohérence.
+   IMAGE GENERATOR — Mode EXPRESS (≤12s) + qualité
+   Turbo Pollinations → compress JPEG → fallback canvas instantané
    ══════════════════════════════════════════════════════════════════ */
 
 window.ImageGenerator = (() => {
   const CFG = () => window.CONFIG || {};
   const CACHE_DB = () => (CFG().STORAGE && CFG().STORAGE.imageCacheDb) || 'avp_image_cache';
 
+  let expressMode = false;
+
   function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
+  }
+
+  function setExpressMode(on) {
+    expressMode = !!on;
   }
 
   function getKey(name) {
@@ -57,7 +63,7 @@ window.ImageGenerator = (() => {
 
   function hashPrompt(prompt, seed) {
     let h = 0;
-    const s = prompt + '|' + (seed || 0);
+    const s = (expressMode ? 'fast|' : '') + prompt + '|' + (seed || 0);
     for (let i = 0; i < s.length; i++) {
       h = ((h << 5) - h + s.charCodeAt(i)) | 0;
     }
@@ -73,6 +79,96 @@ window.ImageGenerator = (() => {
     });
   }
 
+  function fetchWithTimeout(url, ms, options) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    const opts = Object.assign({}, options || {}, { signal: ctrl.signal });
+    return fetch(url, opts).finally(() => clearTimeout(timer));
+  }
+
+  /** Compresse / redimensionne pour upload Agnes rapide. */
+  function compressDataUrl(dataUrl, maxWidth, quality) {
+    const imgCfg = CFG().IMAGE || {};
+    const mw = maxWidth || imgCfg.agnesMaxWidth || 720;
+    const q = quality != null ? quality : (imgCfg.agnesJpegQuality || 0.82);
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth || img.width;
+        let h = img.naturalHeight || img.height;
+        if (w > mw) {
+          h = Math.round(h * (mw / w));
+          w = mw;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', q));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = () => reject(new Error('Compression image impossible'));
+      img.src = dataUrl;
+    });
+  }
+
+  /** Prompt court = génération plus rapide. */
+  function shortenPrompt(prompt) {
+    const raw = String(prompt || '');
+    if (raw.length <= 280) return raw;
+    return raw.slice(0, 280).replace(/\s+\S*$/, '') + ', cinematic portrait 9:16';
+  }
+
+  /** Fallback instantané si Pollinations trop lent. */
+  function generateCanvasFallback(scene, seed) {
+    const canvas = document.createElement('canvas');
+    const imgCfg = CFG().IMAGE || {};
+    canvas.width = expressMode ? (imgCfg.fastWidth || 720) : 720;
+    canvas.height = expressMode ? (imgCfg.fastHeight || 1280) : 1280;
+    const ctx = canvas.getContext('2d');
+
+    const palettes = {
+      joie: ['#f7d794', '#f5cd79', '#f19066'],
+      tristesse: ['#3d5a80', '#98c1d9', '#1b263b'],
+      colere: ['#c0392b', '#e74c3c', '#2c3e50'],
+      peur: ['#2c3e50', '#34495e', '#7f8c8d'],
+      amour: ['#e8a0bf', '#ba6f8e', '#5c3d5e'],
+      surprise: ['#f8c291', '#e17055', '#6c5ce7'],
+      determination: ['#2d3436', '#636e72', '#fdcb6e'],
+      serenite: ['#74b9ff', '#a29bfe', '#dfe6e9'],
+      neutre: ['#2f3640', '#718093', '#dcdde1']
+    };
+    const colors = palettes[scene.emotion] || palettes.neutre;
+    const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    g.addColorStop(0, colors[0]);
+    g.addColorStop(0.55, colors[1]);
+    g.addColorStop(1, colors[2]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Voile / profondeur (pas de texte)
+    const rng = (seed || 1) % 1000;
+    for (let i = 0; i < 8; i++) {
+      ctx.beginPath();
+      const x = ((rng * (i + 3) * 37) % canvas.width);
+      const y = ((rng * (i + 5) * 53) % canvas.height);
+      const r = 40 + ((rng + i * 17) % 120);
+      const rad = ctx.createRadialGradient(x, y, 0, x, y, r);
+      rad.addColorStop(0, 'rgba(255,255,255,0.18)');
+      rad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = rad;
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    return canvas.toDataURL('image/jpeg', 0.85);
+  }
+
   async function generateWithGemini(prompt, seed) {
     const key = getKey('gemini');
     if (!key) throw new Error('Clé Gemini manquante');
@@ -82,13 +178,14 @@ window.ImageGenerator = (() => {
       contents: [{
         role: 'user',
         parts: [{
-          text: 'Generate an image: ' + prompt + '. Portrait 9:16, high quality. Seed: ' + (seed || 'random')
+          text: 'Generate an image: ' + shortenPrompt(prompt) + '. Portrait 9:16. Seed: ' + (seed || 'random')
         }]
       }],
       generationConfig: { responseModalities: ['IMAGE'] }
     };
 
-    const res = await fetch(url, {
+    const timeout = expressMode ? 10000 : 25000;
+    const res = await fetchWithTimeout(url, timeout, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -103,26 +200,32 @@ window.ImageGenerator = (() => {
   }
 
   async function generateWithPollinations(prompt, seed) {
-    const img = CFG().IMAGE || { width: 1080, height: 1920 };
-    const encoded = encodeURIComponent(prompt);
+    const img = CFG().IMAGE || {};
+    const w = expressMode ? (img.fastWidth || 720) : (img.width || 1080);
+    const h = expressMode ? (img.fastHeight || 1280) : (img.height || 1920);
+    const model = expressMode ? (img.fastModel || 'turbo') : (img.qualityModel || 'flux');
+    const timeout = expressMode ? (img.fastTimeoutMs || 12000) : 45000;
+    const short = shortenPrompt(prompt);
+    const encoded = encodeURIComponent(short);
     const url =
       CFG().ENDPOINTS.pollinations +
       encoded +
-      '?width=' + img.width +
-      '&height=' + img.height +
+      '?width=' + w +
+      '&height=' + h +
       '&seed=' + (seed || Math.floor(Math.random() * 1e6)) +
-      '&nologo=true&model=flux';
+      '&nologo=true&model=' + encodeURIComponent(model) +
+      '&enhance=false';
 
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, timeout);
     if (!res.ok) throw new Error('Pollinations HTTP ' + res.status);
     const blob = await res.blob();
     return blobToDataUrl(blob);
   }
 
   async function generateWithStableHorde(prompt, seed) {
+    if (expressMode) throw new Error('StableHorde désactivé en mode express');
     const key = getKey('stableHorde') || '0000000000';
     const img = CFG().IMAGE || { width: 1024, height: 1536 };
-    // Stable Horde exige souvent des multiples de 64
     const w = Math.min(1024, Math.floor(img.width / 64) * 64) || 576;
     const h = Math.min(1536, Math.floor(img.height / 64) * 64) || 1024;
 
@@ -130,11 +233,11 @@ window.ImageGenerator = (() => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: key },
       body: JSON.stringify({
-        prompt: prompt,
+        prompt: shortenPrompt(prompt),
         params: {
           width: w,
           height: h,
-          steps: 25,
+          steps: 20,
           seed: seed != null ? String(seed) : undefined
         },
         nsfw: false,
@@ -145,10 +248,10 @@ window.ImageGenerator = (() => {
 
     if (!submit.ok) throw new Error('StableHorde submit HTTP ' + submit.status);
     const { id } = await submit.json();
-    if (!id) throw new Error('StableHorde: pas d\'id');
+    if (!id) throw new Error("StableHorde: pas d'id");
 
-    for (let i = 0; i < 60; i++) {
-      await sleep(3000);
+    for (let i = 0; i < 40; i++) {
+      await sleep(2500);
       const check = await fetch(CFG().ENDPOINTS.stableHorde + '/generate/check/' + id);
       const cdata = await check.json();
       if (cdata.done) break;
@@ -158,10 +261,8 @@ window.ImageGenerator = (() => {
     const sdata = await status.json();
     const imgUrl = sdata.generations && sdata.generations[0] && sdata.generations[0].img;
     if (!imgUrl) throw new Error("StableHorde: pas d'image");
-
     const imgRes = await fetch(imgUrl);
-    const blob = await imgRes.blob();
-    return blobToDataUrl(blob);
+    return blobToDataUrl(await imgRes.blob());
   }
 
   const PROVIDERS = {
@@ -176,7 +277,6 @@ window.ImageGenerator = (() => {
     }
     const charId = scene.characters[0];
     if (characterSeeds && characterSeeds[charId] != null) return characterSeeds[charId];
-
     if (window.CharacterBible) {
       const entry = window.CharacterBible.getById(charId);
       if (entry) return entry.styleSeed;
@@ -184,9 +284,6 @@ window.ImageGenerator = (() => {
     return Math.floor(Math.random() * 1e6);
   }
 
-  /**
-   * Génère une image pour une scène (cache → chaîne de fallback).
-   */
   async function generateImage(scene, characterSeeds, onProgress) {
     const prompt = scene.imagePrompt;
     const seed = resolveSeed(scene, characterSeeds);
@@ -198,45 +295,47 @@ window.ImageGenerator = (() => {
       return cached;
     }
 
-    const order = (CFG().MODELS && CFG().MODELS.imageProviders) || ['pollinations', 'gemini', 'stableHorde'];
-    const maxRetries = (CFG().IMAGE && CFG().IMAGE.maxRetries) || 2;
+    const models = CFG().MODELS || {};
+    const order = expressMode
+      ? (models.imageProvidersFast || ['pollinations'])
+      : (models.imageProviders || ['pollinations', 'gemini', 'stableHorde']);
+    const maxRetries = expressMode ? 1 : ((CFG().IMAGE && CFG().IMAGE.maxRetries) || 1);
     let lastError = null;
 
     for (let p = 0; p < order.length; p++) {
       const providerKey = order[p];
       const api = PROVIDERS[providerKey];
       if (!api) continue;
-
-      // Skip immédiat si clé absente (pas de retry inutile)
-      if (providerKey === 'gemini' && !getKey('gemini')) {
-        console.warn('[ImageGenerator] Gemini ignoré (pas de clé)');
-        continue;
-      }
+      if (providerKey === 'gemini' && !getKey('gemini')) continue;
 
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-          if (onProgress) {
-            onProgress(api.name + (attempt ? ' (retry ' + (attempt + 1) + ')' : '…'));
-          }
-          const data = await api.fn(prompt, seed);
+          if (onProgress) onProgress(api.name + (expressMode ? ' turbo…' : '…'));
+          let data = await api.fn(prompt, seed);
+          data = await compressDataUrl(data);
           await cachePut(key, data);
           return data;
         } catch (e) {
           lastError = e;
           console.warn('[ImageGenerator] ' + api.name + ' échec :', e.message);
-          // Pas d'attente longue : clé manquante / erreur client → provider suivant
-          if (/manquante|HTTP 4\d\d/.test(e.message)) break;
-          if (attempt < maxRetries - 1) await sleep(800 * (attempt + 1));
+          if (expressMode) break;
+          if (/manquante|HTTP 4\d\d|abort/i.test(e.message)) break;
         }
       }
+    }
+
+    // Express : jamais bloquer — canvas instantané
+    if (expressMode) {
+      if (onProgress) onProgress('Fallback local…');
+      const local = generateCanvasFallback(scene, seed);
+      const compressed = await compressDataUrl(local);
+      await cachePut(key, compressed);
+      return compressed;
     }
 
     throw lastError || new Error("Toutes les APIs d'image ont échoué");
   }
 
-  /**
-   * Génération parallèle limitée (file d'attente).
-   */
   async function generateAll(scenes, characterSeeds, onSceneDone, concurrency) {
     const limit = concurrency || (CFG().IMAGE && CFG().IMAGE.maxParallel) || 3;
     const queue = scenes.slice();
@@ -249,7 +348,6 @@ window.ImageGenerator = (() => {
           const scene = queue.shift();
           if (!scene) break;
 
-          // Reprise : déjà générée
           if (scene.imageUrl && (scene.status === 'image_done' || scene.status === 'video_done')) {
             results.set(scene.id, scene.imageUrl);
             if (onSceneDone) onSceneDone(scene.id, { status: 'image_done', data: scene.imageUrl, resumed: true });
@@ -277,5 +375,12 @@ window.ImageGenerator = (() => {
     return results;
   }
 
-  return { generateImage, generateAll, cacheGet, hashPrompt };
+  return {
+    generateImage: generateImage,
+    generateAll: generateAll,
+    cacheGet: cacheGet,
+    hashPrompt: hashPrompt,
+    compressDataUrl: compressDataUrl,
+    setExpressMode: setExpressMode
+  };
 })();

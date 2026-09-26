@@ -1,9 +1,8 @@
 /* ══════════════════════════════════════════════════════════════════
-   CONFIG — Clés API et paramètres centraux (APIs swappables)
+   CONFIG — Mode EXPRESS : objectif ≤ 60s pour une vidéo 5s
    ══════════════════════════════════════════════════════════════════ */
 
 window.CONFIG = {
-  // Clés stockées en localStorage via ces noms de clés (jamais en dur ici)
   API_KEYS: {
     agnes: 'agnes_api_key',
     gemini: 'gemini_api_key',
@@ -26,37 +25,47 @@ window.CONFIG = {
     agnes: 'agnes-video-v2.0',
     gemini: 'gemini-2.0-flash-exp',
     deepseek: 'deepseek-chat',
-    /** Ordre de fallback image — Pollinations d'abord (gratuit + rapide) */
-    imageProviders: ['pollinations', 'gemini', 'stableHorde']
+    /** Qualité longue durée */
+    imageProviders: ['pollinations', 'gemini', 'stableHorde'],
+    /** Express 5s : turbo uniquement, pas de Stable Horde */
+    imageProvidersFast: ['pollinations']
   },
 
   VIDEO: {
     frameRate: 24,
-    /** Frames Agnes : 5s ≈ 121, 10s ≈ 241 */
     durations: { '5s': 121, '10s': 241 },
     defaultDuration: '5s',
     maxParallel: 5,
     maxRetries: 2,
-    retryBaseMs: 2000,
-    /** Espacement entre créations (multi-clips). 1 seul clip = aucun délai. */
+    retryBaseMs: 1500,
     createIntervalMs: 45000,
     createIntervalMin: 30000,
     createIntervalMax: 90000,
     createIntervalSafe: 60000,
-    /** Polling agressif : premier check rapide, puis intervalle court */
-    pollInitialDelaySec: 2,
-    pollIntervalSec: 3,
-    pollIntervalShortSec: 2,
-    maxPollAttempts: 120
+    pollInitialDelaySec: 0.5,
+    pollIntervalSec: 2,
+    pollIntervalShortSec: 1,
+    maxPollAttempts: 90,
+    /** Budget temps pour un clip 5s (UI) */
+    expressBudgetSec: 60
   },
 
   IMAGE: {
     width: 1080,
     height: 1920,
+    /** Express : plus petit = beaucoup plus rapide */
+    fastWidth: 720,
+    fastHeight: 1280,
+    fastModel: 'turbo',
+    qualityModel: 'flux',
+    /** Timeout image express (ensuite fallback canvas instantané) */
+    fastTimeoutMs: 12000,
+    /** Compression avant envoi Agnes (upload 5–10× plus rapide) */
+    agnesMaxWidth: 720,
+    agnesJpegQuality: 0.82,
     defaultStyle: 'cinematic',
     maxParallel: 3,
-    maxRetries: 2,
-    /** Pollinations en premier = plus rapide sans clé Gemini */
+    maxRetries: 1,
     preferFastProvider: true
   },
 
@@ -99,6 +108,5 @@ window.CONFIG = {
     blobDb: 'avp_blob_store'
   },
 
-  /** Script de démo — « Le voyage d'une goutte d'eau » (~1 min) */
   DEMO_SCRIPT: `Une goutte d'eau naît au sommet d'une montagne enneigée. Elle tremble, puis se détache et glisse sur la glace. Le vent la pousse vers un ruisseau lumineux. Elle danse entre les cailloux et les racines. Dans la forêt, elle croise un cerf qui boit à la source. Plus loin, le ruisseau grossit et devient rivière. La goutte file sous un pont de pierre. Un enfant jette un caillou ; des cercles se forment. La nuit tombe, la lune se reflète sur l'eau. Au matin, la rivière rejoint l'océan. La goutte s'évapore, monte dans le ciel, et redevient nuage. Un nouveau voyage commence.`
 };
