@@ -184,3 +184,16 @@ button:active, .primary:active { transform: scale(0.98); }
 .eta-text { font-size: 0.75rem; color: var(--dim); margin-top: 0.3rem; }
 
 .full-width { flex: 1 1 100%; }
+.toast {
+  position: fixed; top: 1.5rem; left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: var(--ink); color: #fff;
+  padding: 0.8rem 1.4rem; border-radius: 10px;
+  font-size: 0.85rem; font-weight: 500;
+  z-index: 1000; opacity: 0;
+  transition: transform 0.35s, opacity 0.35s;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast-success { background: #2d8a4e; }
+.toast-error { background: #c0392b; }
+.toast-warn { background: #d4a017; }
