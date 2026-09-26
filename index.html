@@ -13,6 +13,65 @@
   <p>Transformez un script en vidéo longue, automatiquement.</p>
 </header>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     PANNEAU CONFIGURATION API — AJOUTÉ
+     ═══════════════════════════════════════════════════════════════ -->
+<section id="api-panel" class="api-panel">
+  <h2>🔑 Configuration des APIs</h2>
+
+  <div class="api-row">
+    <label for="api-key-agnes">
+      <strong>Agnes AI</strong> <span class="required">requis</span>
+      <small>Génération vidéo · <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a></small>
+    </label>
+    <div class="api-input-group">
+      <input type="password" id="api-key-agnes" placeholder="sk-..." autocomplete="off" spellcheck="false">
+      <button type="button" class="btn-icon" data-toggle-visibility="api-key-agnes" title="Afficher/Masquer">👁</button>
+      <button type="button" class="btn-test" data-test-api="agnes">Tester</button>
+    </div>
+    <div class="api-status" id="status-agnes">Non configuré</div>
+  </div>
+
+  <div class="api-row">
+    <label for="api-key-gemini">
+      <strong>Gemini 2.0 Flash</strong> <span class="optional">optionnel</span>
+      <small>Génération image · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></small>
+    </label>
+    <div class="api-input-group">
+      <input type="password" id="api-key-gemini" placeholder="AIza..." autocomplete="off" spellcheck="false">
+      <button type="button" class="btn-icon" data-toggle-visibility="api-key-gemini">👁</button>
+      <button type="button" class="btn-test" data-test-api="gemini">Tester</button>
+    </div>
+    <div class="api-status" id="status-gemini">Non configuré</div>
+  </div>
+
+  <div class="api-row">
+    <label for="api-key-deepseek">
+      <strong>DeepSeek</strong> <span class="optional">optionnel</span>
+      <small>Enrichissement du script · <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a></small>
+    </label>
+    <div class="api-input-group">
+      <input type="password" id="api-key-deepseek" placeholder="sk-..." autocomplete="off" spellcheck="false">
+      <button type="button" class="btn-icon" data-toggle-visibility="api-key-deepseek">👁</button>
+      <button type="button" class="btn-test" data-test-api="deepseek">Tester</button>
+    </div>
+    <div class="api-status" id="status-deepseek">Non configuré</div>
+  </div>
+
+  <div class="api-actions">
+    <button type="button" id="btn-save-keys" class="primary">💾 Enregistrer toutes les clés</button>
+    <button type="button" id="btn-clear-keys" class="secondary">🗑 Effacer</button>
+  </div>
+
+  <p class="api-hint">
+    💡 Les clés sont stockées dans ton navigateur (localStorage) et ne sont jamais envoyées ailleurs qu'aux APIs concernées.
+    <strong>Pollinations.ai</strong> et <strong>Stable Horde</strong> sont utilisés en fallback gratuit sans clé.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ÉCRAN 1 — Saisie du script
+     ═══════════════════════════════════════════════════════════════ -->
 <section id="screen-1" class="screen active">
   <h2>1. Votre histoire</h2>
   <textarea id="script-input" placeholder="Écrivez votre histoire ici…">Le soleil se lève sur la vallée endormie. Léa ouvre les yeux lentement. Elle se lève et regarde par la fenêtre. Devant elle, la brume recouvre encore les champs. Soudain, un éclair de lumière traverse le ciel. Léa sursaute. Elle descend l'escalier en courant. Dans la cuisine, sa mère prépare le café. Léa lui raconte ce qu'elle a vu. Sa mère sourit doucement. Ensemble, elles sortent sur la terrasse. Le ciel est maintenant d'un bleu éclatant. Léa lève la main vers le soleil. Une nouvelle journée commence.</textarea>
@@ -29,13 +88,25 @@
       </select>
     </label>
 
+    <label>Durée par clip
+      <select id="clip-duration-select">
+        <option value="5s">5 secondes</option>
+        <option value="10s" selected>10 secondes</option>
+      </select>
+    </label>
+
     <label>Style visuel
       <select id="style-select">
-        <option value="cinematic">Cinématique</option>
+        <option value="cinematic" selected>Cinématique</option>
         <option value="anime">Anime</option>
         <option value="realistic">Réaliste</option>
         <option value="watercolor">Aquarelle</option>
         <option value="noir">Noir & Blanc</option>
+        <option value="cartoon">Cartoon</option>
+        <option value="cyberpunk">Cyberpunk</option>
+        <option value="ghibli">Studio Ghibli</option>
+        <option value="pixar">Pixar 3D</option>
+        <option value="comic">Comic book</option>
       </select>
     </label>
 
@@ -49,9 +120,20 @@
     </label>
   </div>
 
+  <div class="row">
+    <label class="full-width">Prompt global additionnel (ambiance, lumière, époque…)
+      <textarea id="global-prompt" placeholder="Ex: lumière dorée de fin de journée, ambiance onirique, style cinéma des années 80…" style="min-height:80px;"></textarea>
+    </label>
+  </div>
+
+  <div id="clip-count-preview" class="clip-count-preview">
+    📊 Estimation : <strong id="clip-count-value">6 clips</strong> seront générés (10s par clip).
+  </div>
+
   <button id="btn-analyze" class="primary">Analyser le script →</button>
 </section>
 
+<!-- ÉCRAN 2 : Prévisualisation -->
 <section id="screen-2" class="screen">
   <h2>2. Scènes détectées</h2>
   <div id="scenes-preview" class="scenes-grid"></div>
@@ -61,16 +143,22 @@
   </div>
 </section>
 
+<!-- ÉCRAN 3 : Génération -->
 <section id="screen-3" class="screen">
   <h2>3. Génération en cours</h2>
   <div class="global-progress">
     <div class="bar"><div id="global-bar" class="fill"></div></div>
     <p id="global-status">En attente…</p>
+    <p id="global-eta" class="eta-text"></p>
   </div>
   <div id="scenes-progress" class="scenes-grid"></div>
-  <button id="btn-stop" class="danger">⏹ Arrêter</button>
+  <div class="row">
+    <button id="btn-stop" class="danger">⏹ Arrêter</button>
+    <button id="btn-export-zip" class="secondary">📦 Exporter les clips (ZIP)</button>
+  </div>
 </section>
 
+<!-- ÉCRAN 4 : Lecture finale -->
 <section id="screen-4" class="screen">
   <h2>4. Votre vidéo</h2>
   <video id="final-video" controls playsinline></video>
@@ -92,6 +180,7 @@
 <script src="video-orchestrator.js"></script>
 <script src="tts.js"></script>
 <script src="assembler.js"></script>
+<script src="api-manager.js"></script>  <!-- NOUVEAU -->
 <script src="app.js"></script>
 </body>
 </html>
