@@ -1,3 +1,7 @@
+// Initialisation du gestionnaire API
+window.ApiManager.bind();
+window.ApiManager.refreshAllUI();
+
 /* ══════════════════════════════════════════════════════════════════
    APP — Orchestration générale + UI
    ══════════════════════════════════════════════════════════════════ */
@@ -27,6 +31,14 @@
     const script = document.getElementById('script-input').value;
     const duration = document.getElementById('duration-select').value;
     const style = document.getElementById('style-select').value;
+     const globalPrompt = document.getElementById('global-prompt')?.value.trim() || '';
+// ... après plan.scenes.forEach(...) :
+if (globalPrompt) {
+  plan.scenes.forEach(s => {
+    s.imagePrompt += '. Additional direction: ' + globalPrompt;
+    s.motionPrompt += '. ' + globalPrompt;
+  });
+}
 
     try {
       setStatus('Analyse du script…');
@@ -184,20 +196,39 @@
   }
 
   function checkApiKeys() {
-    const missing = [];
-    if (!localStorage.getItem('agnes_api_key')) missing.push('Agnes (vidéo)');
-    if (!localStorage.getItem('gemini_api_key')) missing.push('Gemini (image, optionnel)');
-    if (missing.length) {
-      const msg = 'Clés API manquantes : ' + missing.join(', ') +
-        '\n\nVoulez-vous les saisir maintenant ?';
-      if (confirm(msg)) {
-        const agnes = prompt('Clé Agnes AI (sk-…) :', localStorage.getItem('agnes_api_key') || '');
-        if (agnes) localStorage.setItem('agnes_api_key', agnes.trim());
-        const gemini = prompt('Clé Gemini (AIza…) :', localStorage.getItem('gemini_api_key') || '');
-        if (gemini) localStorage.setItem('gemini_api_key', gemini.trim());
-      }
+  const hasAgnes = !!window.ApiManager.getKey('agnes');
+  if (!hasAgnes) {
+    // Affiche un message dans la barre de statut mais ne bloque pas
+    setStatus('🔑 Configurez votre clé Agnes AI pour commencer');
+    setTimeout(() => setStatus(null), 5000);
+  }
+}
     }
   }
 
   checkApiKeys();
 })();
+function updateClipCountPreview() {
+  const durationKey = document.getElementById('duration-select').value;
+  const clipKey = document.getElementById('clip-duration-select').value;
+  const totalSec = window.CONFIG.STORY.clipDurations[durationKey] || 60;
+  const clipSec = window.CONFIG.STORY.clipDurations[clipKey] || 10;
+  const count = Math.max(1, Math.round(totalSec / clipSec));
+  const el = document.getElementById('clip-count-value');
+  if (el) el.textContent = count + ' clip' + (count > 1 ? 's' : '');
+}
+
+document.getElementById('duration-select')?.addEventListener('change', updateClipCountPreview);
+document.getElementById('clip-duration-select')?.addEventListener('change', updateClipCountPreview);
+updateClipCountPreview();
+window.showToast = function(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('visible'));
+  setTimeout(() => {
+    el.classList.remove('visible');
+    setTimeout(() => el.remove(), 300);
+  }, 2500);
+};
