@@ -51,11 +51,18 @@ window.Assembler = (() => {
   async function assemble(scenes, options, onProgress) {
     const opts = options || {};
     const audioUrl = opts.audioUrl || null;
+    const completed = (scenes || []).filter((s) => s.videoUrl);
+    if (!completed.length) throw new Error('Aucun clip à assembler');
+
+    // Fast path : 1 seul clip sans audio → pas de FFmpeg (gain ~10–30s)
+    if (completed.length === 1 && !audioUrl) {
+      if (onProgress) onProgress('Clip unique — pas d\'assemblage nécessaire');
+      return completed[0].videoUrl;
+    }
+
     const ff = await loadFFmpeg(onProgress);
 
     if (onProgress) onProgress('Préparation des clips…');
-    const completed = (scenes || []).filter((s) => s.videoUrl);
-    if (!completed.length) throw new Error('Aucun clip à assembler');
 
     const inputFiles = [];
     for (let i = 0; i < completed.length; i++) {

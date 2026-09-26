@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════════
    VIDEO ORCHESTRATOR — Queue Agnes + parallélisation + retry
-   Réutilise la logique rate-limit de Agnes.html (intervalle ~62s).
+   Optimisé : polling rapide (surtout clips 5s), pas d'attente inutile.
    ══════════════════════════════════════════════════════════════════ */
 
 window.VideoOrchestrator = (() => {
@@ -20,7 +20,7 @@ window.VideoOrchestrator = (() => {
     return cfg().MODELS || {};
   }
 
-  let createIntervalMs = V().createIntervalMs || 62000;
+  let createIntervalMs = V().createIntervalMs || 45000;
   let consecutiveSuccess = 0;
 
   function sleep(ms) {
@@ -32,7 +32,19 @@ window.VideoOrchestrator = (() => {
     return (localStorage.getItem(keyName) || '').trim();
   }
 
-  /** Fetch avec gestion 429 / 503 (comme Atelier Vidéo original). */
+  function isShortClip(durationKey) {
+    return durationKey === '5s';
+  }
+
+  function pollIntervalFor(durationKey) {
+    const video = V();
+    if (isShortClip(durationKey)) {
+      return video.pollIntervalShortSec || 2;
+    }
+    return video.pollIntervalSec || 3;
+  }
+
+  /** Fetch avec gestion 429 / 503. */
   async function apiFetch(url, options, label, stopSignal) {
     const video = V();
     for (let attempt = 0; attempt < 7; attempt++) {
@@ -42,28 +54,28 @@ window.VideoOrchestrator = (() => {
 
         if (res.status === 429) {
           consecutiveSuccess = 0;
-          const safe = video.createIntervalSafe || 75000;
+          const safe = video.createIntervalSafe || 60000;
           const max = video.createIntervalMax || 90000;
           if (createIntervalMs < safe) {
             createIntervalMs = Math.min(createIntervalMs + 8000, max);
           }
-          const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
+          const wait = [10, 20, 30, 45, 60, 90, 120][Math.min(attempt, 6)];
           console.warn('[VideoOrchestrator] ' + label + ' 429, attente ' + wait + 's');
           await sleep(wait * 1000);
           continue;
         }
 
         if (res.status === 503) {
-          const wait = [5, 10, 15, 20, 30, 45][Math.min(attempt, 5)];
+          const wait = [3, 6, 10, 15, 20, 30][Math.min(attempt, 5)];
           await sleep(wait * 1000);
           continue;
         }
 
         if (res.ok) {
           consecutiveSuccess++;
-          const min = video.createIntervalMin || 62000;
-          if (consecutiveSuccess >= 3 && createIntervalMs > min) {
-            createIntervalMs = Math.max(createIntervalMs - 4000, min);
+          const min = video.createIntervalMin || 30000;
+          if (consecutiveSuccess >= 2 && createIntervalMs > min) {
+            createIntervalMs = Math.max(createIntervalMs - 5000, min);
             consecutiveSuccess = 0;
           }
         }
@@ -71,7 +83,7 @@ window.VideoOrchestrator = (() => {
         return res;
       } catch (e) {
         if (e.message === 'Arrêt demandé') throw e;
-        const wait = [3, 5, 8, 12, 20, 30][Math.min(attempt, 5)];
+        const wait = [2, 4, 6, 10, 15, 20][Math.min(attempt, 5)];
         await sleep(wait * 1000);
       }
     }
@@ -83,9 +95,8 @@ window.VideoOrchestrator = (() => {
     if (!key) throw new Error('Clé Agnes manquante');
 
     const framesMap = V().durations || { '5s': 121, '10s': 241 };
-    // Pour durées cibles longues, chaque clip reste 5s ou 10s
-    const clipKey = (durationKey === '5s') ? '5s' : '10s';
-    const frames = framesMap[clipKey] || 241;
+    const clipKey = durationKey === '5s' ? '5s' : '10s';
+    const frames = framesMap[clipKey] || 121;
 
     const body = {
       model: M().agnes || 'agnes-video-v2.0',
@@ -120,14 +131,27 @@ window.VideoOrchestrator = (() => {
     return id;
   }
 
-  async function poll(videoId, onProgress, stopSignal) {
-    const pollSec = V().pollIntervalSec || 8;
-    const maxAttempts = V().maxPollAttempts || 100;
+  /**
+   * Polling agressif :
+   * - 1er check après 2s (pas 8s)
+   * - puis toutes les 2–3s selon durée du clip
+   */
+  async function poll(videoId, onProgress, stopSignal, durationKey) {
+    const video = V();
+    const initialDelay = video.pollInitialDelaySec != null ? video.pollInitialDelaySec : 2;
+    const intervalSec = pollIntervalFor(durationKey);
+    const maxAttempts = video.maxPollAttempts || 120;
     const model = M().agnes || 'agnes-video-v2.0';
+
+    if (initialDelay > 0) {
+      if (onProgress) onProgress('Démarrage…');
+      await sleep(initialDelay * 1000);
+    }
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (stopSignal && stopSignal.aborted) throw new Error('Arrêt demandé');
-      await sleep(pollSec * 1000);
+
+      if (attempt > 0) await sleep(intervalSec * 1000);
 
       const url =
         E().agnesPoll +
@@ -143,7 +167,8 @@ window.VideoOrchestrator = (() => {
 
       const d = await res.json();
       const status = d.status || 'unknown';
-      if (onProgress) onProgress('Création — ' + (d.progress || 0) + '%');
+      const progress = d.progress || 0;
+      if (onProgress) onProgress('Création — ' + progress + '%');
 
       if (['completed', 'succeeded', 'done'].indexOf(status) !== -1) {
         const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url);
@@ -158,8 +183,8 @@ window.VideoOrchestrator = (() => {
   }
 
   async function withRetry(fn, label, onProgress) {
-    const maxRetries = V().maxRetries || 3;
-    const base = V().retryBaseMs || 4000;
+    const maxRetries = V().maxRetries || 2;
+    const base = V().retryBaseMs || 2000;
     let lastErr;
     for (let i = 0; i < maxRetries; i++) {
       try {
@@ -167,16 +192,19 @@ window.VideoOrchestrator = (() => {
       } catch (e) {
         if (e.message === 'Arrêt demandé') throw e;
         lastErr = e;
-        const wait = base * Math.pow(2, i);
-        if (onProgress) onProgress(label + ' — retry ' + (i + 1) + '/' + maxRetries + ' dans ' + (wait / 1000) + 's');
-        await sleep(wait);
+        if (i < maxRetries - 1) {
+          const wait = base * Math.pow(2, i);
+          if (onProgress) {
+            onProgress(label + ' — retry ' + (i + 1) + '/' + maxRetries + ' dans ' + (wait / 1000) + 's');
+          }
+          await sleep(wait);
+        }
       }
     }
     throw lastErr;
   }
 
   async function processScene(scene, durationKey, onProgress, stopSignal) {
-    // Reprise : déjà fait
     if (scene.videoUrl && scene.status === 'video_done') {
       if (onProgress) onProgress({ status: 'video_done', url: scene.videoUrl, resumed: true });
       return scene.videoUrl;
@@ -200,7 +228,8 @@ window.VideoOrchestrator = (() => {
       () => poll(
         videoId,
         (msg) => onProgress && onProgress({ status: 'video_polling', message: msg }),
-        stopSignal
+        stopSignal,
+        durationKey
       ),
       'Polling',
       (msg) => onProgress && onProgress({ status: 'video_polling', message: msg })
@@ -213,15 +242,15 @@ window.VideoOrchestrator = (() => {
   }
 
   /**
-   * Traitement avec limite de concurrence + espacement des créations.
-   * Les créations Agnes sont sérialisées (rate-limit), le polling est parallèle.
+   * Créations espacées seulement s'il y a plusieurs clips.
+   * 1 clip (ex. durée 5s) → zéro attente artificielle.
    */
   async function processAll(scenes, durationKey, onSceneProgress, stopSignal) {
     const results = [];
     const pending = scenes.filter((s) => !(s.videoUrl && s.status === 'video_done'));
     const pollingTasks = [];
 
-    createIntervalMs = V().createIntervalMs || 62000;
+    createIntervalMs = V().createIntervalMs || 45000;
     consecutiveSuccess = 0;
 
     for (let i = 0; i < pending.length; i++) {
@@ -230,7 +259,9 @@ window.VideoOrchestrator = (() => {
 
       try {
         scene.status = 'video_generating';
-        if (onSceneProgress) onSceneProgress(scene.id, { status: 'video_generating', message: 'Création…' });
+        if (onSceneProgress) {
+          onSceneProgress(scene.id, { status: 'video_generating', message: 'Création…' });
+        }
 
         const videoId = await withRetry(
           () => createTask(scene.imageUrl, scene.motionPrompt, durationKey, stopSignal),
@@ -245,7 +276,8 @@ window.VideoOrchestrator = (() => {
           () => poll(
             videoId,
             (msg) => onSceneProgress && onSceneProgress(scene.id, { status: 'video_polling', message: msg }),
-            stopSignal
+            stopSignal,
+            durationKey
           ),
           'Polling',
           (msg) => onSceneProgress && onSceneProgress(scene.id, { status: 'video_polling', message: msg })
@@ -265,15 +297,15 @@ window.VideoOrchestrator = (() => {
         if (onSceneProgress) onSceneProgress(scene.id, { status: 'failed', error: e.message });
       }
 
-      // Espacement entre créations (rate-limit Agnes)
-      if (i < pending.length - 1 && !(stopSignal && stopSignal.aborted)) {
+      // Pas d'attente après le dernier ; pas d'attente si un seul clip
+      if (pending.length > 1 && i < pending.length - 1 && !(stopSignal && stopSignal.aborted)) {
         const waitSec = Math.ceil(createIntervalMs / 1000);
         for (let r = waitSec; r > 0; r--) {
           if (stopSignal && stopSignal.aborted) break;
           if (onSceneProgress) {
             onSceneProgress(pending[i + 1].id, {
               status: 'pending',
-              message: 'File d\'attente — ' + r + 's'
+              message: "File d'attente — " + r + 's'
             });
           }
           await sleep(1000);
@@ -283,7 +315,6 @@ window.VideoOrchestrator = (() => {
 
     await Promise.allSettled(pollingTasks);
 
-    // Scènes déjà reprises
     scenes.forEach((s) => {
       if (s.videoUrl && s.status === 'video_done' && !results.find((r) => r.sceneId === s.id)) {
         results.push({ sceneId: s.id, url: s.videoUrl });

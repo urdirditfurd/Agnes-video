@@ -777,7 +777,10 @@ function estimateGenerationTime(numFrames) {
         const mid = Math.floor(sorted.length / 2);
         return sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
     }
-    return 30000 + numFrames * 500;
+    // Estimation plus réaliste (surtout 5s) — sert uniquement à l'ETA UI
+    if (numFrames <= 121) return 45000;
+    if (numFrames <= 153) return 55000;
+    return 25000 + numFrames * 250;
 }
 function updateTimingDisplay() {
     const cache = loadTimingCache();
@@ -1356,21 +1359,22 @@ async function createVideoTask(imageDataUri, prompt) {
 }
 
 async function pollVideo(videoId, onProgress) {
-    const estimatedMs = estimateGenerationTime(state.durationFrames);
-    const estimatedSec = estimatedMs / 1000;
+    // Clips courts (5s / 121 frames) : polling immédiat et serré
+    // Plus d'attente artificielle de 20–70s avant le 1er check
+    const shortClip = state.durationFrames <= 153;
+    const initialDelay = shortClip ? 2 : 5;
+    const pollEvery = shortClip ? 2 : Math.min(POLL_INTERVAL_SEC, 4);
 
-    let remaining = Math.max(20, Math.floor(estimatedSec * 0.8));
-    while (remaining > 0) {
+    for (let d = initialDelay; d > 0; d--) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
-        onProgress('Votre vidéo se prépare… — ' + remaining + 's');
+        onProgress('Votre vidéo se prépare… — ' + d + 's');
         await sleep(1000);
-        remaining--;
     }
 
     for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
         if (attempt > 0) {
-            let r = POLL_INTERVAL_SEC;
+            let r = pollEvery;
             while (r > 0) {
                 if (state.stopRequested) throw new Error('Arrêt demandé');
                 onProgress('L\'image prend vie… — ' + r + 's');

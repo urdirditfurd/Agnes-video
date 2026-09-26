@@ -26,24 +26,28 @@ window.CONFIG = {
     agnes: 'agnes-video-v2.0',
     gemini: 'gemini-2.0-flash-exp',
     deepseek: 'deepseek-chat',
-    /** Ordre de fallback image (swappable) */
-    imageProviders: ['gemini', 'pollinations', 'stableHorde']
+    /** Ordre de fallback image — Pollinations d'abord (gratuit + rapide) */
+    imageProviders: ['pollinations', 'gemini', 'stableHorde']
   },
 
   VIDEO: {
     frameRate: 24,
     /** Frames Agnes : 5s ≈ 121, 10s ≈ 241 */
     durations: { '5s': 121, '10s': 241 },
-    defaultDuration: '10s',
+    defaultDuration: '5s',
     maxParallel: 5,
-    maxRetries: 3,
-    retryBaseMs: 4000,
-    createIntervalMs: 62000,
-    createIntervalMin: 62000,
+    maxRetries: 2,
+    retryBaseMs: 2000,
+    /** Espacement entre créations (multi-clips). 1 seul clip = aucun délai. */
+    createIntervalMs: 45000,
+    createIntervalMin: 30000,
     createIntervalMax: 90000,
-    createIntervalSafe: 75000,
-    pollIntervalSec: 8,
-    maxPollAttempts: 100
+    createIntervalSafe: 60000,
+    /** Polling agressif : premier check rapide, puis intervalle court */
+    pollInitialDelaySec: 2,
+    pollIntervalSec: 3,
+    pollIntervalShortSec: 2,
+    maxPollAttempts: 120
   },
 
   IMAGE: {
@@ -51,7 +55,9 @@ window.CONFIG = {
     height: 1920,
     defaultStyle: 'cinematic',
     maxParallel: 3,
-    maxRetries: 3
+    maxRetries: 2,
+    /** Pollinations en premier = plus rapide sans clé Gemini */
+    preferFastProvider: true
   },
 
   STORY: {

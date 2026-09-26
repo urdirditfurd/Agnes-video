@@ -351,14 +351,16 @@
       const doneVideos = scenes.filter((s) => s.videoUrl).length;
       if (!doneVideos) throw new Error('Aucun clip vidéo généré');
 
-      updateGlobal('Assemblage final…');
-      const voiceId = document.getElementById('voice-select').value;
+      updateGlobal(doneVideos === 1 ? 'Finalisation…' : 'Assemblage final…');
+
+      // TTS non bloquant (ne retarde plus la vidéo)
       try {
-        await window.TTS.speak(
-          window.TTS.buildNarrationScript(scenes).slice(0, 200),
+        const voiceId = document.getElementById('voice-select').value;
+        window.TTS.speak(
+          window.TTS.buildNarrationScript(scenes).slice(0, 120),
           voiceId,
           1
-        );
+        ).catch(function () { /* ignore */ });
       } catch (e) {
         console.warn('[TTS] prévisualisation ignorée', e);
       }

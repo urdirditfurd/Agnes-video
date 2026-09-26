@@ -198,14 +198,20 @@ window.ImageGenerator = (() => {
       return cached;
     }
 
-    const order = (CFG().MODELS && CFG().MODELS.imageProviders) || ['gemini', 'pollinations', 'stableHorde'];
-    const maxRetries = (CFG().IMAGE && CFG().IMAGE.maxRetries) || 3;
+    const order = (CFG().MODELS && CFG().MODELS.imageProviders) || ['pollinations', 'gemini', 'stableHorde'];
+    const maxRetries = (CFG().IMAGE && CFG().IMAGE.maxRetries) || 2;
     let lastError = null;
 
     for (let p = 0; p < order.length; p++) {
       const providerKey = order[p];
       const api = PROVIDERS[providerKey];
       if (!api) continue;
+
+      // Skip immédiat si clé absente (pas de retry inutile)
+      if (providerKey === 'gemini' && !getKey('gemini')) {
+        console.warn('[ImageGenerator] Gemini ignoré (pas de clé)');
+        continue;
+      }
 
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -218,7 +224,9 @@ window.ImageGenerator = (() => {
         } catch (e) {
           lastError = e;
           console.warn('[ImageGenerator] ' + api.name + ' échec :', e.message);
-          await sleep(1000 * Math.pow(2, attempt));
+          // Pas d'attente longue : clé manquante / erreur client → provider suivant
+          if (/manquante|HTTP 4\d\d/.test(e.message)) break;
+          if (attempt < maxRetries - 1) await sleep(800 * (attempt + 1));
         }
       }
     }
