@@ -36,7 +36,8 @@
       </label>
     </div>
     <div class="actions">
-      <button type="button" id="btn-save-keys" class="secondary">Enregistrer les clés</button>
+      <button type="button" id="btn-test-keys" class="secondary">Tester les clés</button>
+      <button type="button" id="btn-save-keys" class="primary">Enregistrer les clés</button>
       <span id="api-status" class="api-status">Clés non configurées</span>
     </div>
   </div>
@@ -129,20 +130,21 @@
   <span id="status-text">…</span>
 </div>
 
-<script src="config.js?v=20260926c"></script>
-<script src="character-bible.js?v=20260926c"></script>
-<script src="story-parser.js?v=20260926c"></script>
-<script src="state-store.js?v=20260926c"></script>
-<script src="image-generator.js?v=20260926c"></script>
-<script src="video-orchestrator.js?v=20260926c"></script>
-<script src="tts.js?v=20260926c"></script>
-<script src="assembler.js?v=20260926c"></script>
-<script src="app.js?v=20260926c"></script>
+<script src="config.js?v=20260926d"></script>
+<script src="api-manager.js?v=20260926d"></script>
+<script src="character-bible.js?v=20260926d"></script>
+<script src="story-parser.js?v=20260926d"></script>
+<script src="state-store.js?v=20260926d"></script>
+<script src="image-generator.js?v=20260926d"></script>
+<script src="video-orchestrator.js?v=20260926d"></script>
+<script src="tts.js?v=20260926d"></script>
+<script src="assembler.js?v=20260926d"></script>
+<script src="app.js?v=20260926d"></script>
 <script>
   (function () {
     var el = document.getElementById('build-label');
     var b = (window.CONFIG && window.CONFIG.BUILD) || '?';
-    if (el) el.textContent = 'build ' + b + ' — si ≠ 20260926c → Ctrl+F5';
+    if (el) el.textContent = 'build ' + b + ' — si ≠ 20260926d → Ctrl+F5';
   })();
 </script>
 </body>

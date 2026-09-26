@@ -79,16 +79,50 @@
     }
   }
 
-  document.getElementById('btn-save-keys').addEventListener('click', () => {
+  document.getElementById('btn-save-keys').addEventListener('click', async () => {
     const agnes = document.getElementById('agnes-key').value.trim();
     const gemini = document.getElementById('gemini-key').value.trim();
-    if (agnes) localStorage.setItem(window.CONFIG.API_KEYS.agnes, agnes);
-    if (gemini) localStorage.setItem(window.CONFIG.API_KEYS.gemini, gemini);
+    if (window.ApiManager) {
+      if (agnes) window.ApiManager.setKey('agnes', agnes);
+      if (gemini) window.ApiManager.setKey('gemini', gemini);
+    } else {
+      if (agnes) localStorage.setItem(window.CONFIG.API_KEYS.agnes, agnes);
+      if (gemini) localStorage.setItem(window.CONFIG.API_KEYS.gemini, gemini);
+    }
     document.getElementById('agnes-key').value = '';
     document.getElementById('gemini-key').value = '';
     refreshApiStatus();
     toast('Clés enregistrées', 'success');
   });
+
+  const btnTest = document.getElementById('btn-test-keys');
+  if (btnTest) {
+    btnTest.addEventListener('click', async () => {
+      const agnes = document.getElementById('agnes-key').value.trim();
+      if (agnes && window.ApiManager) window.ApiManager.setKey('agnes', agnes);
+      const gemini = document.getElementById('gemini-key').value.trim();
+      if (gemini && window.ApiManager) window.ApiManager.setKey('gemini', gemini);
+
+      setStatus('Test des clés…');
+      try {
+        if (!window.ApiManager) throw new Error('ApiManager manquant — Ctrl+F5');
+        const a = await window.ApiManager.testKey('agnes');
+        const g = await window.ApiManager.testKey('gemini');
+        const status = document.getElementById('api-status');
+        const parts = [
+          'Agnes: ' + a.msg,
+          g.msg === 'Clé non configurée' ? 'Gemini: optionnel' : 'Gemini: ' + g.msg
+        ];
+        status.textContent = parts.join(' · ');
+        status.classList.toggle('ok', a.ok);
+        toast(a.ok ? a.msg : ('Agnes: ' + a.msg), a.ok ? 'success' : 'error');
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+      setStatus(null);
+      refreshApiStatus();
+    });
+  }
 
   document.getElementById('link-settings').addEventListener('click', (e) => {
     e.preventDefault();
@@ -131,9 +165,12 @@
       state.plan = plan;
       state.characterSeeds = {};
 
+      // Seeds indexés par id personnage (+ alias nom) — jamais par scene.id
       plan.characters.forEach((c) => {
         const seed = window.CharacterBible.getSeed(c.name);
-        state.characterSeeds[c.id] = seed != null ? seed : Math.floor(Math.random() * 1e6);
+        const value = seed != null ? seed : Math.floor(Math.random() * 1e6);
+        state.characterSeeds[c.id] = value;
+        state.characterSeeds[c.name] = value;
       });
 
       window.StateStore.savePlan(plan);
@@ -370,7 +407,53 @@
           state.stopController.signal
         );
       } else {
-        updateGlobal('Génération des images…');
+        // Pipeline streaming : dès qu'une image est prête → lance sa vidéo (max 5)
+        updateGlobal('Pipeline streaming images + vidéos…');
+        const videoQueue = [];
+        let activeVideos = 0;
+        const MAX_VIDEOS = (window.CONFIG.VIDEO && window.CONFIG.VIDEO.maxParallel) || 5;
+        const videoWaiters = [];
+
+        const drainVideos = () => {
+          while (activeVideos < MAX_VIDEOS && videoQueue.length > 0) {
+            const scene = videoQueue.shift();
+            if (!scene || !scene.imageUrl) continue;
+            if (scene.videoUrl && scene.status === 'video_done') {
+              videosDone++;
+              continue;
+            }
+            activeVideos++;
+            const p = window.VideoOrchestrator.processScene(
+              scene,
+              clipKey,
+              (info) => {
+                updateCard(scene.id, info);
+                if (info.message) {
+                  const card = document.getElementById('card-' + scene.id);
+                  if (card) {
+                    const st = card.querySelector('.status-text');
+                    if (st && info.status === 'video_polling') st.textContent = info.message;
+                  }
+                }
+                if (info.status === 'video_done') {
+                  videosDone++;
+                  updateGlobal('Images ' + imagesDone + '/' + total + ' · Vidéos ' + videosDone + '/' + total);
+                  window.StateStore.checkpoint(state.plan);
+                }
+                if (info.status === 'failed') window.StateStore.checkpoint(state.plan);
+              },
+              state.stopController.signal
+            ).catch((e) => {
+              scene.status = 'failed';
+              updateCard(scene.id, { status: 'failed', error: e.message });
+            }).finally(() => {
+              activeVideos--;
+              drainVideos();
+            });
+            videoWaiters.push(p);
+          }
+        };
+
         await window.ImageGenerator.generateAll(
           scenes,
           state.characterSeeds,
@@ -378,31 +461,26 @@
             updateCard(sceneId, info);
             if (info.status === 'image_done') {
               imagesDone++;
-              updateGlobal('Images : ' + imagesDone + '/' + total);
+              updateGlobal('Images ' + imagesDone + '/' + total + ' · Vidéos ' + videosDone + '/' + total);
               window.StateStore.checkpoint(state.plan);
+              const scene = scenes.find((s) => s.id === sceneId);
+              if (scene) {
+                videoQueue.push(scene);
+                drainVideos();
+              }
             }
             if (info.status === 'failed') window.StateStore.checkpoint(state.plan);
           },
           window.CONFIG.IMAGE.maxParallel
         );
 
-        if (state.stopController.signal.aborted) throw new Error('Arrêt demandé');
-
-        updateGlobal('Génération des vidéos Agnes…');
-        await window.VideoOrchestrator.processAll(
-          scenes,
-          clipKey,
-          (sceneId, info) => {
-            updateCard(sceneId, info);
-            if (info.status === 'video_done') {
-              videosDone++;
-              updateGlobal('Vidéos : ' + videosDone + '/' + total);
-              window.StateStore.checkpoint(state.plan);
-            }
-            if (info.status === 'failed') window.StateStore.checkpoint(state.plan);
-          },
-          state.stopController.signal
-        );
+        // Attendre la fin des vidéos en cours / en file
+        while (activeVideos > 0 || videoQueue.length > 0) {
+          if (state.stopController.signal.aborted) throw new Error('Arrêt demandé');
+          drainVideos();
+          await new Promise((r) => setTimeout(r, 500));
+        }
+        await Promise.allSettled(videoWaiters);
       }
 
       if (state.stopController.signal.aborted) throw new Error('Arrêt demandé');
@@ -577,6 +655,18 @@
 
   refreshApiStatus();
 
+  // Garde-fou anti-cache : l'utilisateur doit voir build 20260926c
+  const expectedBuild = '20260926d';
+  const actualBuild = (window.CONFIG && window.CONFIG.BUILD) || '';
+  if (actualBuild !== expectedBuild) {
+    console.warn('[AVP] Build attendu ' + expectedBuild + ', reçu ' + actualBuild);
+    toast('Ancienne version détectée — faites Ctrl+F5', 'error');
+  } else {
+    console.log('[AVP] build ' + actualBuild + ' OK — patches perf actifs');
+  }
+
+  window.showToast = toast;
+
   // Restaurer un plan précédent si présent
   const saved = window.StateStore.loadPlan();
   if (saved && saved.scenes && saved.scenes.length) {
@@ -584,7 +674,9 @@
     state.characterSeeds = {};
     (saved.characters || []).forEach((c) => {
       const seed = window.CharacterBible.getSeed(c.name);
-      state.characterSeeds[c.id] = seed != null ? seed : Math.floor(Math.random() * 1e6);
+      const value = seed != null ? seed : Math.floor(Math.random() * 1e6);
+      state.characterSeeds[c.id] = value;
+      state.characterSeeds[c.name] = value;
     });
   }
 })();

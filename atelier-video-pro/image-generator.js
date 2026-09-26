@@ -201,13 +201,13 @@ window.ImageGenerator = (() => {
 
   async function generateWithPollinations(prompt, seed) {
     const img = CFG().IMAGE || {};
-    const w = expressMode ? (img.fastWidth || 720) : (img.width || 1080);
-    const h = expressMode ? (img.fastHeight || 1280) : (img.height || 1920);
+    const w = expressMode ? (img.fastWidth || 720) : Math.min(img.width || 1080, 1080);
+    const h = expressMode ? (img.fastHeight || 1280) : Math.min(img.height || 1920, 1920);
     const model = expressMode ? (img.fastModel || 'turbo') : (img.qualityModel || 'flux');
     const timeout = expressMode ? (img.fastTimeoutMs || 12000) : 45000;
     const short = shortenPrompt(prompt);
     const encoded = encodeURIComponent(short);
-    const url =
+    const targetUrl =
       CFG().ENDPOINTS.pollinations +
       encoded +
       '?width=' + w +
@@ -216,10 +216,31 @@ window.ImageGenerator = (() => {
       '&nologo=true&model=' + encodeURIComponent(model) +
       '&enhance=false';
 
-    const res = await fetchWithTimeout(url, timeout);
-    if (!res.ok) throw new Error('Pollinations HTTP ' + res.status);
-    const blob = await res.blob();
-    return blobToDataUrl(blob);
+    // 1) Direct → 2) proxies CORS si bloqué
+    const proxies = (CFG().ENDPOINTS && CFG().ENDPOINTS.corsProxies) || [];
+    const urls = [targetUrl].concat(
+      proxies.map((p) => (p.indexOf('url=') !== -1 ? p + encodeURIComponent(targetUrl) : p + encodeURIComponent(targetUrl)))
+    );
+
+    let lastErr = null;
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        console.log('[ImageGenerator] Pollinations try', i === 0 ? 'direct' : 'proxy');
+        const res = await fetchWithTimeout(urls[i], timeout);
+        if (!res.ok) throw new Error('Pollinations HTTP ' + res.status);
+        const blob = await res.blob();
+        if (!blob || blob.size < 100) throw new Error('Image vide');
+        // Vérifie que c'est bien une image (les proxies HTML échouent ici)
+        if (blob.type && blob.type.indexOf('image') === -1 && blob.type.indexOf('octet') === -1) {
+          throw new Error('Réponse non-image (' + blob.type + ')');
+        }
+        return await blobToDataUrl(blob);
+      } catch (e) {
+        lastErr = e;
+        console.warn('[ImageGenerator] Pollinations échec:', e.message);
+      }
+    }
+    throw lastErr || new Error('Pollinations inaccessible');
   }
 
   async function generateWithStableHorde(prompt, seed) {
@@ -276,7 +297,14 @@ window.ImageGenerator = (() => {
       return Math.floor(Math.random() * 1e6);
     }
     const charId = scene.characters[0];
-    if (characterSeeds && characterSeeds[charId] != null) return characterSeeds[charId];
+    // Seeds indexés par id personnage (jamais par scene.id)
+    if (characterSeeds) {
+      if (characterSeeds[charId] != null) return characterSeeds[charId];
+      if (window.CharacterBible) {
+        const entry = window.CharacterBible.getById(charId);
+        if (entry && characterSeeds[entry.name] != null) return characterSeeds[entry.name];
+      }
+    }
     if (window.CharacterBible) {
       const entry = window.CharacterBible.getById(charId);
       if (entry) return entry.styleSeed;
@@ -381,6 +409,7 @@ window.ImageGenerator = (() => {
     cacheGet: cacheGet,
     hashPrompt: hashPrompt,
     compressDataUrl: compressDataUrl,
+    compressDataUri: compressDataUrl,
     setExpressMode: setExpressMode
   };
 })();

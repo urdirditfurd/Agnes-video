@@ -41,10 +41,54 @@ window.VideoOrchestrator = (() => {
     return durationKey === '5s' || expressMode;
   }
 
-  function pollIntervalFor(durationKey) {
-    const video = V();
-    if (isShortClip(durationKey)) return video.pollIntervalShortSec || 1;
-    return video.pollIntervalSec || 2;
+  /** Polling adaptatif : rapide au début, plus lent ensuite */
+  function adaptivePollWait(attempt, durationKey) {
+    if (isShortClip(durationKey)) {
+      if (attempt < 8) return 2000;
+      if (attempt < 30) return 3000;
+      return 5000;
+    }
+    if (attempt < 5) return 4000;
+    if (attempt < 15) return 8000;
+    return 12000;
+  }
+
+  // ── Cache IndexedDB des URLs vidéo (évite régénération) ─────────
+  function openVideoDB() {
+    return new Promise((resolve, reject) => {
+      const r = indexedDB.open('avp_video_cache', 1);
+      r.onupgradeneeded = () => {
+        if (!r.result.objectStoreNames.contains('videos')) {
+          r.result.createObjectStore('videos', { keyPath: 'key' });
+        }
+      };
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+  }
+
+  async function videoCacheGet(sceneId) {
+    try {
+      const db = await openVideoDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction('videos', 'readonly');
+        const req = tx.objectStore('videos').get(sceneId);
+        req.onsuccess = () => resolve((req.result && req.result.url) || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function videoCachePut(sceneId, url) {
+    try {
+      const db = await openVideoDB();
+      const tx = db.transaction('videos', 'readwrite');
+      tx.objectStore('videos').put({ key: sceneId, url: url, ts: Date.now() });
+    } catch (e) {
+      console.warn('[VideoOrchestrator] cache vidéo', e);
+    }
   }
 
   async function apiFetch(url, options, label, stopSignal) {
@@ -203,7 +247,6 @@ window.VideoOrchestrator = (() => {
   async function poll(videoId, onProgress, stopSignal, durationKey) {
     const video = V();
     const initialDelay = video.pollInitialDelaySec != null ? video.pollInitialDelaySec : 1;
-    const intervalSec = pollIntervalFor(durationKey);
     const maxPollMs = video.maxPollMs || 720000;
     const model = M().agnes || 'agnes-video-v2.0';
     const started = Date.now();
@@ -217,7 +260,10 @@ window.VideoOrchestrator = (() => {
     let attempt = 0;
     while (true) {
       if (stopSignal && stopSignal.aborted) throw new Error('Arrêt demandé');
-      if (attempt > 0) await sleep(Math.round(intervalSec * 1000));
+      if (attempt > 0) {
+        const wait = adaptivePollWait(attempt, durationKey);
+        await sleep(wait);
+      }
       attempt++;
 
       const elapsed = Date.now() - started;
@@ -320,6 +366,16 @@ window.VideoOrchestrator = (() => {
       return scene.videoUrl;
     }
 
+    // Cache IndexedDB
+    const cached = await videoCacheGet(scene.id);
+    if (cached) {
+      scene.videoUrl = cached;
+      scene.status = 'video_done';
+      console.log('[VideoOrchestrator] cache hit', scene.id);
+      if (onProgress) onProgress({ status: 'video_done', url: cached, fromCache: true });
+      return cached;
+    }
+
     // Reprise : on a déjà un videoId → reprendre le poll sans recréer
     if (scene.videoId && !scene.videoUrl) {
       scene.status = 'video_polling';
@@ -332,6 +388,7 @@ window.VideoOrchestrator = (() => {
       );
       scene.videoUrl = videoUrl;
       scene.status = 'video_done';
+      await videoCachePut(scene.id, videoUrl);
       if (onProgress) onProgress({ status: 'video_done', url: videoUrl });
       return videoUrl;
     }
@@ -362,6 +419,7 @@ window.VideoOrchestrator = (() => {
 
     scene.videoUrl = videoUrl;
     scene.status = 'video_done';
+    await videoCachePut(scene.id, videoUrl);
     if (onProgress) onProgress({ status: 'video_done', url: videoUrl });
     return videoUrl;
   }

@@ -4,7 +4,7 @@
 
 window.CONFIG = {
   /** Incrémenter à chaque release — force le navigateur à recharger le JS */
-  BUILD: '20260926c',
+  BUILD: '20260926d',
 
   API_KEYS: {
     agnes: 'agnes_api_key',
@@ -21,6 +21,11 @@ window.CONFIG = {
     geminiText: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent',
     deepseek: 'https://api.deepseek.com/v1/chat/completions',
     pollinations: 'https://image.pollinations.ai/prompt/',
+    /** Proxies CORS optionnels (fallback si fetch direct bloqué) */
+    corsProxies: [
+      'https://corsproxy.io/?',
+      'https://api.allorigins.win/raw?url='
+    ],
     stableHorde: 'https://stablehorde.net/api/v2'
   },
 

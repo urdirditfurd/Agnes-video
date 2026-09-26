@@ -86,14 +86,17 @@ Chaque scène a un statut : `pending` | `generating` | `image_done` | `video_gen
 | Fichier | Rôle |
 |---|---|
 | `config.js` | Endpoints, modèles, parallélisme, APIs swappables |
+| `api-manager.js` | Clés + test Agnes sans faux négatif CORS |
 | `story-parser.js` | Découpage script → scènes / chapitres |
 | `character-bible.js` | Descriptions verrouillées + seed fixe |
-| `image-generator.js` | Gemini → Pollinations → Stable Horde |
-| `video-orchestrator.js` | Queue Agnes, rate-limit ~62 s, retry |
-| `assembler.js` | FFmpeg.wasm concat + audio optionnel |
+| `image-generator.js` | Pollinations (+ proxy CORS) → Gemini → Horde + compression |
+| `video-orchestrator.js` | Queue Agnes, cache vidéo, polling adaptatif |
+| `assembler.js` | FFmpeg.wasm concat + fallback |
 | `tts.js` | Voix off (Web Speech) |
 | `state-store.js` | Persistance / reprise |
-| `app.js` | UI 4 écrans |
+| `app.js` | UI 4 écrans + pipeline streaming |
+
+**Perf build `20260926d`** : streaming image→vidéo, cache IndexedDB, compression JPEG, test clés Agnes, poll adaptatif ~12 min.
 
 Chaque provider est swappable via `config.js` → `MODELS.imageProviders` et `ENDPOINTS`.
 

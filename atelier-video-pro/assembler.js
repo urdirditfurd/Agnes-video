@@ -1,7 +1,6 @@
 /* ══════════════════════════════════════════════════════════════════
-   ASSEMBLER — Montage final avec FFmpeg.wasm
-   Note : import dynamique CDN requis (pas d'inline local) pour
-   charger FFmpeg uniquement au moment du montage.
+   ASSEMBLER — Montage FFmpeg.wasm + fallback robuste
+   Nécessite parfois crossOriginIsolated (COOP/COEP) pour SharedArrayBuffer.
    ══════════════════════════════════════════════════════════════════ */
 
 window.Assembler = (() => {
@@ -11,26 +10,35 @@ window.Assembler = (() => {
   async function loadFFmpeg(onProgress) {
     if (loaded && ffmpeg) return ffmpeg;
 
-    if (onProgress) onProgress('Chargement de FFmpeg.wasm…');
+    try {
+      if (onProgress) onProgress('Chargement de FFmpeg.wasm…');
 
-    // Import dynamique CDN — exception documentée (module ESM distant)
-    const ffmpegMod = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
-    const utilMod = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
+      if (typeof crossOriginIsolated !== 'undefined' && !crossOriginIsolated) {
+        console.warn('[FFmpeg] crossOriginIsolated=false — SharedArrayBuffer peut échouer');
+      }
 
-    ffmpeg = new ffmpegMod.FFmpeg();
-    ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
-    ffmpeg.on('progress', ({ progress }) => {
-      if (onProgress) onProgress('Montage ' + Math.round(progress * 100) + '%');
-    });
+      const ffmpegMod = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+      const utilMod = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
 
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-    await ffmpeg.load({
-      coreURL: await utilMod.toBlobURL(baseURL + '/ffmpeg-core.js', 'text/javascript'),
-      wasmURL: await utilMod.toBlobURL(baseURL + '/ffmpeg-core.wasm', 'application/wasm')
-    });
+      ffmpeg = new ffmpegMod.FFmpeg();
+      ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
+      ffmpeg.on('progress', ({ progress }) => {
+        if (onProgress) onProgress('Montage ' + Math.round(progress * 100) + '%');
+      });
 
-    loaded = true;
-    return ffmpeg;
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      await ffmpeg.load({
+        coreURL: await utilMod.toBlobURL(baseURL + '/ffmpeg-core.js', 'text/javascript'),
+        wasmURL: await utilMod.toBlobURL(baseURL + '/ffmpeg-core.wasm', 'application/wasm')
+      });
+
+      loaded = true;
+      console.log('[FFmpeg] Chargé');
+      return ffmpeg;
+    } catch (e) {
+      console.error('[FFmpeg] Échec chargement :', e);
+      throw new Error("FFmpeg.wasm n'a pas pu charger (connexion / isolation navigateur)");
+    }
   }
 
   async function fetchAsUint8(url) {
@@ -43,25 +51,18 @@ window.Assembler = (() => {
     return new Uint8Array(await res.arrayBuffer());
   }
 
-  /**
-   * Concatène les clips dans l'ordre narratif.
-   * Options : { audioUrl, transition }
-   * @returns {Promise<string>} Object URL du MP4 final
-   */
   async function assemble(scenes, options, onProgress) {
     const opts = options || {};
     const audioUrl = opts.audioUrl || null;
     const completed = (scenes || []).filter((s) => s.videoUrl);
     if (!completed.length) throw new Error('Aucun clip à assembler');
 
-    // Fast path : 1 seul clip sans audio → pas de FFmpeg (gain ~10–30s)
     if (completed.length === 1 && !audioUrl) {
-      if (onProgress) onProgress('Clip unique — pas d\'assemblage nécessaire');
+      if (onProgress) onProgress("Clip unique — pas d'assemblage nécessaire");
       return completed[0].videoUrl;
     }
 
     const ff = await loadFFmpeg(onProgress);
-
     if (onProgress) onProgress('Préparation des clips…');
 
     const inputFiles = [];
@@ -78,6 +79,11 @@ window.Assembler = (() => {
     }
 
     if (!inputFiles.length) throw new Error('Aucun clip téléchargeable (CORS ?)');
+    if (inputFiles.length === 1 && !audioUrl) {
+      // Un seul clip récupéré → pas besoin de concat
+      const single = await ff.readFile(inputFiles[0]);
+      return URL.createObjectURL(new Blob([single.buffer], { type: 'video/mp4' }));
+    }
 
     const listContent = inputFiles.map((f) => "file '" + f + "'").join('\n');
     await ff.writeFile('list.txt', new TextEncoder().encode(listContent));
@@ -94,32 +100,36 @@ window.Assembler = (() => {
 
     if (audioUrl) {
       if (onProgress) onProgress('Ajout de la piste audio…');
-      const audioData = await fetchAsUint8(audioUrl);
-      await ff.writeFile('audio.mp3', audioData);
-      await ff.exec([
-        '-i', 'output_raw.mp4',
-        '-i', 'audio.mp3',
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        '-shortest',
-        'output_final.mp4'
-      ]);
-      finalFile = 'output_final.mp4';
+      try {
+        const audioData = await fetchAsUint8(audioUrl);
+        await ff.writeFile('audio.mp3', audioData);
+        await ff.exec([
+          '-i', 'output_raw.mp4',
+          '-i', 'audio.mp3',
+          '-c:v', 'copy',
+          '-c:a', 'aac',
+          '-shortest',
+          'output_final.mp4'
+        ]);
+        finalFile = 'output_final.mp4';
+      } catch (e) {
+        console.warn('[Assembler] audio ignoré :', e.message);
+      }
     }
 
     if (onProgress) onProgress('Finalisation…');
     const out = await ff.readFile(finalFile);
-    const blob = new Blob([out.buffer], { type: 'video/mp4' });
-    return URL.createObjectURL(blob);
+    return URL.createObjectURL(new Blob([out.buffer], { type: 'video/mp4' }));
   }
 
-  /**
-   * Mode dégradé sans FFmpeg : renvoie le premier clip (preview).
-   */
   async function assembleFallback(scenes, onProgress) {
     if (onProgress) onProgress('Mode dégradé (sans FFmpeg)…');
     const completed = (scenes || []).filter((s) => s.videoUrl);
     if (!completed.length) throw new Error('Aucun clip');
+    // Si plusieurs clips : on renvoie le premier (lecteur) — ZIP non dispo ici
+    if (completed.length > 1 && onProgress) {
+      onProgress(completed.length + ' clips — FFmpeg KO, lecture du 1er');
+    }
     return completed[0].videoUrl;
   }
 
