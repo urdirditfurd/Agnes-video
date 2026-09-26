@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atelier Vidéo Pro</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <h1>🎬 Atelier Vidéo Pro</h1>
+  <p>Transformez un script en vidéo longue, automatiquement.</p>
+</header>
+
+<section id="screen-1" class="screen active">
+  <h2>1. Votre histoire</h2>
+  <textarea id="script-input" placeholder="Écrivez votre histoire ici…">Le soleil se lève sur la vallée endormie. Léa ouvre les yeux lentement. Elle se lève et regarde par la fenêtre. Devant elle, la brume recouvre encore les champs. Soudain, un éclair de lumière traverse le ciel. Léa sursaute. Elle descend l'escalier en courant. Dans la cuisine, sa mère prépare le café. Léa lui raconte ce qu'elle a vu. Sa mère sourit doucement. Ensemble, elles sortent sur la terrasse. Le ciel est maintenant d'un bleu éclatant. Léa lève la main vers le soleil. Une nouvelle journée commence.</textarea>
+
+  <div class="row">
+    <label>Durée cible
+      <select id="duration-select">
+        <option value="5s">5 secondes</option>
+        <option value="10s">10 secondes</option>
+        <option value="30s">30 secondes</option>
+        <option value="1min" selected>1 minute</option>
+        <option value="5min">5 minutes</option>
+        <option value="20min">20 minutes</option>
+      </select>
+    </label>
+
+    <label>Style visuel
+      <select id="style-select">
+        <option value="cinematic">Cinématique</option>
+        <option value="anime">Anime</option>
+        <option value="realistic">Réaliste</option>
+        <option value="watercolor">Aquarelle</option>
+        <option value="noir">Noir & Blanc</option>
+      </select>
+    </label>
+
+    <label>Voix off
+      <select id="voice-select">
+        <option value="fr-FR-DeniseNeural">Denise (FR)</option>
+        <option value="fr-FR-HenriNeural">Henri (FR)</option>
+        <option value="fr-FR-EloiseNeural">Éloïse (FR)</option>
+        <option value="en-US-JennyNeural">Jenny (EN)</option>
+      </select>
+    </label>
+  </div>
+
+  <button id="btn-analyze" class="primary">Analyser le script →</button>
+</section>
+
+<section id="screen-2" class="screen">
+  <h2>2. Scènes détectées</h2>
+  <div id="scenes-preview" class="scenes-grid"></div>
+  <div class="row">
+    <button id="btn-back-1" class="secondary">← Modifier le script</button>
+    <button id="btn-generate" class="primary">Générer tout →</button>
+  </div>
+</section>
+
+<section id="screen-3" class="screen">
+  <h2>3. Génération en cours</h2>
+  <div class="global-progress">
+    <div class="bar"><div id="global-bar" class="fill"></div></div>
+    <p id="global-status">En attente…</p>
+  </div>
+  <div id="scenes-progress" class="scenes-grid"></div>
+  <button id="btn-stop" class="danger">⏹ Arrêter</button>
+</section>
+
+<section id="screen-4" class="screen">
+  <h2>4. Votre vidéo</h2>
+  <video id="final-video" controls playsinline></video>
+  <div class="row">
+    <a id="btn-download" class="primary" download="atelier-video.mp4">⬇ Télécharger</a>
+    <button id="btn-restart" class="secondary">↺ Nouvelle vidéo</button>
+  </div>
+</section>
+
+<div id="status-bar" class="status-bar hidden">
+  <span class="spinner"></span>
+  <span id="status-text">…</span>
+</div>
+
+<script src="config.js"></script>
+<script src="character-bible.js"></script>
+<script src="story-parser.js"></script>
+<script src="image-generator.js"></script>
+<script src="video-orchestrator.js"></script>
+<script src="tts.js"></script>
+<script src="assembler.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
