@@ -65,7 +65,9 @@ Objectif : **≤ 60 s** de bout en bout pour 1 clip.
 | Polling | Dès 0,5 s, puis toutes les **1 s** |
 | Montage | 1 clip = pas de FFmpeg |
 
-> Le temps serveur Agnes reste variable (file d’attente plateforme). On coupe tout le gras côté app.
+> Le temps **serveur Agnes** (souvent 1–5 min, parfois plus) est indépendant de l’app.  
+> On ne coupe plus le poll à 60 s : on attend jusqu’à ~8 min tant que le % avance.  
+> En cas d’échec : **Reprendre la génération** reprend le poll avec le même `videoId`.
 
 ### Exemple démo
 

@@ -44,9 +44,14 @@ window.CONFIG = {
     createIntervalSafe: 60000,
     pollInitialDelaySec: 0.5,
     pollIntervalSec: 2,
-    pollIntervalShortSec: 1,
-    maxPollAttempts: 90,
-    /** Budget temps pour un clip 5s (UI) */
+    /** Express : 2s (assez réactif, moins de spam API) */
+    pollIntervalShortSec: 2,
+    /** Plafond absolu d'attente Agnes (~8 min) — leur serveur est souvent lent */
+    maxPollMs: 480000,
+    /** Si la progression n'avance plus pendant ce délai → timeout */
+    pollStallMs: 180000,
+    maxPollAttempts: 240,
+    /** Objectif UI côté app (image+envoi) — PAS un kill switch Agnes */
     expressBudgetSec: 60
   },
 

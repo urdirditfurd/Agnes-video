@@ -159,33 +159,66 @@ window.VideoOrchestrator = (() => {
     return id;
   }
 
+  /**
+   * Poll jusqu'à complétion Agnes.
+   * - Ne coupe PAS à 60s (le budget express = image+envoi seulement)
+   * - Continue tant que la progression avance
+   * - Timeout seulement si plafond absolu OU stall prolongé sans progrès
+   */
   async function poll(videoId, onProgress, stopSignal, durationKey) {
     const video = V();
     const initialDelay = video.pollInitialDelaySec != null ? video.pollInitialDelaySec : 0.5;
     const intervalSec = pollIntervalFor(durationKey);
-    const maxAttempts = video.maxPollAttempts || 90;
+    const maxPollMs = video.maxPollMs || 480000;
+    const stallMs = video.pollStallMs || 180000;
     const model = M().agnes || 'agnes-video-v2.0';
+    const started = Date.now();
+    let lastProgress = -1;
+    let lastProgressAt = Date.now();
 
     if (initialDelay > 0) {
-      if (onProgress) onProgress('Envoi OK — check…');
+      if (onProgress) onProgress('Envoi OK — Agnes démarre…');
       await sleep(Math.round(initialDelay * 1000));
     }
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let attempt = 0;
+    while (true) {
       if (stopSignal && stopSignal.aborted) throw new Error('Arrêt demandé');
       if (attempt > 0) await sleep(Math.round(intervalSec * 1000));
+      attempt++;
+
+      const elapsed = Date.now() - started;
+      if (elapsed > maxPollMs) {
+        throw new Error(
+          'Timeout Agnes après ' + Math.round(elapsed / 1000) +
+          's (dernier progrès ' + Math.max(0, lastProgress) + '%) — réessayez / Reprendre'
+        );
+      }
+      if (lastProgress >= 0 && (Date.now() - lastProgressAt) > stallMs && elapsed > 90000) {
+        throw new Error(
+          'Agnes bloqué à ' + lastProgress + '% depuis ' +
+          Math.round(stallMs / 1000) + 's — réessayez'
+        );
+      }
 
       const url =
         E().agnesPoll +
         '?video_id=' + encodeURIComponent(videoId) +
         '&model_name=' + encodeURIComponent(model);
 
-      const res = await apiFetch(
-        url,
-        { headers: { Authorization: 'Bearer ' + getAgnesKey() } },
-        'Polling',
-        stopSignal
-      );
+      let res;
+      try {
+        res = await apiFetch(
+          url,
+          { headers: { Authorization: 'Bearer ' + getAgnesKey() } },
+          'Polling',
+          stopSignal
+        );
+      } catch (e) {
+        if (e.message === 'Arrêt demandé') throw e;
+        if (onProgress) onProgress('Réseau… ' + Math.round(elapsed / 1000) + 's');
+        continue;
+      }
 
       let d;
       try {
@@ -194,22 +227,31 @@ window.VideoOrchestrator = (() => {
         continue;
       }
 
-      const status = d.status || 'unknown';
-      const progress = d.progress || 0;
-      if (onProgress) onProgress('Agnes ' + progress + '%');
+      const status = String(d.status || 'unknown').toLowerCase();
+      const progress = Number(d.progress) || 0;
+      const elapsedSec = Math.round(elapsed / 1000);
 
-      if (['completed', 'succeeded', 'done'].indexOf(status) !== -1) {
-        const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url);
+      if (progress > lastProgress) {
+        lastProgress = progress;
+        lastProgressAt = Date.now();
+      }
+
+      if (onProgress) {
+        onProgress('Agnes ' + progress + '% · ' + elapsedSec + 's');
+      }
+
+      if (['completed', 'succeeded', 'done', 'success'].indexOf(status) !== -1) {
+        const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url) || d.video_url;
         if (!videoUrl) throw new Error("Terminé mais pas d'URL");
         return videoUrl;
       }
-      if (['failed', 'error', 'cancelled'].indexOf(status) !== -1) {
-        throw new Error('Échec (' + status + ')');
+      if (['failed', 'error', 'cancelled', 'canceled'].indexOf(status) !== -1) {
+        throw new Error('Échec Agnes (' + status + ')');
       }
     }
-    throw new Error('Timeout polling');
   }
 
+  /** Retry uniquement les erreurs réseau / création — PAS les timeouts de poll. */
   async function withRetry(fn, label, onProgress) {
     const maxRetries = expressMode ? 2 : (V().maxRetries || 2);
     const base = expressMode ? 1000 : (V().retryBaseMs || 1500);
@@ -219,12 +261,11 @@ window.VideoOrchestrator = (() => {
         return await fn();
       } catch (e) {
         if (e.message === 'Arrêt demandé') throw e;
+        if (/Timeout|bloqué/i.test(e.message)) throw e;
         lastErr = e;
         if (i < maxRetries - 1) {
           const wait = base * (i + 1);
-          if (onProgress) {
-            onProgress(label + ' retry ' + (i + 1) + '…');
-          }
+          if (onProgress) onProgress(label + ' retry ' + (i + 1) + '…');
           await sleep(wait);
         }
       }
@@ -236,6 +277,22 @@ window.VideoOrchestrator = (() => {
     if (scene.videoUrl && scene.status === 'video_done') {
       if (onProgress) onProgress({ status: 'video_done', url: scene.videoUrl, resumed: true });
       return scene.videoUrl;
+    }
+
+    // Reprise : on a déjà un videoId → reprendre le poll sans recréer
+    if (scene.videoId && !scene.videoUrl) {
+      scene.status = 'video_polling';
+      if (onProgress) onProgress({ status: 'video_polling', message: 'Reprise poll Agnes…' });
+      const videoUrl = await poll(
+        scene.videoId,
+        (msg) => onProgress && onProgress({ status: 'video_polling', message: msg }),
+        stopSignal,
+        durationKey
+      );
+      scene.videoUrl = videoUrl;
+      scene.status = 'video_done';
+      if (onProgress) onProgress({ status: 'video_done', url: videoUrl });
+      return videoUrl;
     }
 
     if (!scene.imageUrl) throw new Error('Image manquante pour la scène ' + scene.index);
@@ -251,16 +308,15 @@ window.VideoOrchestrator = (() => {
 
     scene.videoId = videoId;
     scene.status = 'video_polling';
+    if (onProgress) {
+      onProgress({ status: 'video_polling', message: 'Poll Agnes…', videoId: videoId });
+    }
 
-    const videoUrl = await withRetry(
-      () => poll(
-        videoId,
-        (msg) => onProgress && onProgress({ status: 'video_polling', message: msg }),
-        stopSignal,
-        durationKey
-      ),
-      'Polling',
-      (msg) => onProgress && onProgress({ status: 'video_polling', message: msg })
+    const videoUrl = await poll(
+      videoId,
+      (msg) => onProgress && onProgress({ status: 'video_polling', message: msg, videoId: videoId }),
+      stopSignal,
+      durationKey
     );
 
     scene.videoUrl = videoUrl;
@@ -295,16 +351,16 @@ window.VideoOrchestrator = (() => {
 
         scene.videoId = videoId;
         scene.status = 'video_polling';
+        if (onSceneProgress) {
+          onSceneProgress(scene.id, { status: 'video_polling', message: 'Poll Agnes…', videoId: videoId });
+        }
 
-        const pollPromise = withRetry(
-          () => poll(
-            videoId,
-            (msg) => onSceneProgress && onSceneProgress(scene.id, { status: 'video_polling', message: msg }),
-            stopSignal,
-            durationKey
-          ),
-          'Polling',
-          (msg) => onSceneProgress && onSceneProgress(scene.id, { status: 'video_polling', message: msg })
+        // Pas de withRetry sur le poll (évite double timeout inutile)
+        const pollPromise = poll(
+          videoId,
+          (msg) => onSceneProgress && onSceneProgress(scene.id, { status: 'video_polling', message: msg, videoId: videoId }),
+          stopSignal,
+          durationKey
         ).then((url) => {
           scene.videoUrl = url;
           scene.status = 'video_done';
@@ -368,6 +424,21 @@ window.VideoOrchestrator = (() => {
       }
 
       try {
+        // Reprise après timeout : on a déjà un videoId → poll uniquement
+        if (scene.videoId && !scene.videoUrl) {
+          if (onSceneProgress) {
+            onSceneProgress(scene.id, { status: 'video_polling', message: 'Reprise Agnes…' });
+          }
+          const url = await processScene(
+            scene,
+            durationKey,
+            (info) => onSceneProgress && onSceneProgress(scene.id, info),
+            stopSignal
+          );
+          results.push({ sceneId: scene.id, url: url });
+          continue;
+        }
+
         if (!(scene.imageUrl && (scene.status === 'image_done' || scene.status === 'video_done'))) {
           if (onSceneProgress) onSceneProgress(scene.id, { status: 'generating', message: 'Image turbo…' });
           const data = await window.ImageGenerator.generateImage(

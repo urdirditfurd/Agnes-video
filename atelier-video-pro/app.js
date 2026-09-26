@@ -291,7 +291,6 @@
     const total = scenes.length;
     /** Mode EXPRESS : durée 5s ou un seul clip → pipeline turbo ≤60s */
     const express = clipKey === '5s' || (total === 1 && targetDuration === '5s');
-    const budget = (window.CONFIG.VIDEO && window.CONFIG.VIDEO.expressBudgetSec) || 60;
 
     if (window.ImageGenerator) window.ImageGenerator.setExpressMode(express);
     if (window.VideoOrchestrator) window.VideoOrchestrator.setExpressMode(express);
@@ -300,15 +299,20 @@
     let videosDone = scenes.filter((s) => s.videoUrl || s.status === 'video_done').length;
 
     let ticker = null;
+    let lastAgnesMsg = '';
+
     function updateGlobal(msg) {
       const progress = ((imagesDone + videosDone) / (total * 2)) * 100;
       document.getElementById('global-bar').style.width = Math.min(100, progress) + '%';
       document.getElementById('global-status').textContent = msg;
       const elapsed = (Date.now() - state.startedAt) / 1000;
       if (express) {
-        const left = Math.max(0, budget - elapsed);
+        // Le budget 60s = objectif image+envoi ; Agnes serveur peut prendre plusieurs minutes
+        const phase = /Agnes/i.test(msg) || /Agnes/i.test(lastAgnesMsg)
+          ? 'Attente serveur Agnes (souvent 1–5 min) · '
+          : 'Préparation locale · ';
         document.getElementById('eta-text').textContent =
-          'Express 5s · ' + Math.round(elapsed) + 's écoulées · budget ' + budget + 's (reste ≈ ' + Math.round(left) + 's)';
+          phase + Math.round(elapsed) + 's écoulées' + (lastAgnesMsg ? ' · ' + lastAgnesMsg : '');
       } else {
         const done = imagesDone + videosDone;
         const remaining = total * 2 - done;
@@ -323,12 +327,13 @@
     if (express) {
       ticker = setInterval(() => {
         const elapsed = (Date.now() - state.startedAt) / 1000;
-        const left = Math.max(0, budget - elapsed);
         const statusEl = document.getElementById('eta-text');
-        if (statusEl) {
-          statusEl.textContent =
-            'Express 5s · ' + Math.round(elapsed) + 's · budget ' + budget + 's (reste ≈ ' + Math.round(left) + 's)';
-        }
+        if (!statusEl) return;
+        const phase = lastAgnesMsg
+          ? 'Attente serveur Agnes (souvent 1–5 min) · '
+          : 'Préparation locale · ';
+        statusEl.textContent =
+          phase + Math.round(elapsed) + 's' + (lastAgnesMsg ? ' · ' + lastAgnesMsg : '');
       }, 500);
     }
 
@@ -348,6 +353,7 @@
             }
             if (info.status === 'video_done') {
               videosDone = Math.min(total, videosDone + 1);
+              lastAgnesMsg = '';
               updateGlobal('Vidéo prête');
               window.StateStore.checkpoint(state.plan);
             }
@@ -355,7 +361,10 @@
               window.StateStore.checkpoint(state.plan);
             }
             if (info.status === 'generating' || info.status === 'video_generating' || info.status === 'video_polling') {
+              if (info.status === 'video_polling' && info.message) lastAgnesMsg = info.message;
               updateGlobal(info.message || 'En cours…');
+              // Sauvegarde videoId dès le début du poll → bouton Reprendre utile
+              if (info.status === 'video_polling') window.StateStore.checkpoint(state.plan);
             }
           },
           state.stopController.signal
