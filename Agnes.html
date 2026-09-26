@@ -503,8 +503,10 @@
 
 <canvas id="noSleepCanvas" width="2" height="2"></canvas>
 <video id="noSleepVideo" playsinline muted loop></video>
-
 <script>
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ══════════════════════════════════════════════════════════════════
 const API_BASE = 'https://apihub.agnes-ai.com/v1';
 const POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
 const MODEL_VIDEO = 'agnes-video-v2.0';
@@ -526,23 +528,33 @@ const MAX_VISIBLE_QUEUE = 30;
 const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
 const THUMBNAIL_MAX_WIDTH = 200;
 
+// ══════════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════════
 let toastTimeout = null;
 function showToast(message, type = 'success', duration = 2500) {
     const toast = document.getElementById('toast');
     const icon = document.getElementById('toast-icon');
     const text = document.getElementById('toast-text');
     if (!toast || !icon || !text) return;
+
     toast.classList.remove('visible', 'success', 'error', 'warn');
     void toast.offsetWidth;
+
     const icons = { success: '✓', error: '✕', warn: '⚠' };
     icon.textContent = icons[type] || '✓';
     text.textContent = message;
     toast.classList.add(type);
+
     requestAnimationFrame(() => toast.classList.add('visible'));
+
     if (toastTimeout) clearTimeout(toastTimeout);
     toastTimeout = setTimeout(() => toast.classList.remove('visible'), duration);
 }
 
+// ══════════════════════════════════════════════════════════════════
+// ANTI-VEILLE — Wake Lock API + fallback canvas capturé en flux vidéo
+// ══════════════════════════════════════════════════════════════════
 let wakeLockSentinel = null;
 let wakeLockEnabled = false;
 let canvasStream = null;
@@ -580,30 +592,38 @@ function startCanvasStream() {
         const canvas = document.getElementById('noSleepCanvas');
         const video = document.getElementById('noSleepVideo');
         if (!canvas || !video) return false;
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return false;
+
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         if (typeof canvas.captureStream !== 'function') {
             console.warn('[Canvas Stream] captureStream non supporté');
             return false;
         }
+
         canvasStream = canvas.captureStream(1);
+
         let toggle = false;
         canvasInterval = setInterval(() => {
             toggle = !toggle;
             ctx.fillStyle = toggle ? '#000000' : '#010101';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }, 1000);
+
         video.srcObject = canvasStream;
         video.muted = true;
         video.playsInline = true;
+
         const playPromise = video.play();
         if (playPromise && playPromise.catch) {
             playPromise.catch(e => {
                 console.warn('[Video fallback] Lecture refusée :', e.message);
             });
         }
+
         console.log('[Canvas Stream] Actif');
         return true;
     } catch (e) {
@@ -634,15 +654,19 @@ function stopCanvasStream() {
 
 async function activateWakeLock() {
     let success = false;
+
     if (isWakeLockSupported()) {
         success = await requestWakeLockAPI();
     }
+
     if (!success) {
         success = startCanvasStream();
     }
+
     if (!success && !canvasStream) {
         success = startCanvasStream();
     }
+
     return success;
 }
 
@@ -656,17 +680,23 @@ function updateWakeStatus() {
     const txt = document.getElementById('wake-status-text');
     const btn = document.getElementById('wake-toggle-btn');
     if (!el || !txt || !btn) return;
+
     el.classList.remove('active', 'warn');
+
     const hasAnyMechanism = isWakeLockSupported() ||
         (document.getElementById('noSleepCanvas')?.captureStream);
+
     if (!hasAnyMechanism) {
         el.classList.add('warn');
         txt.textContent = '⚠️ Non supporté par ce navigateur';
         btn.style.display = 'none';
         return;
     }
+
     btn.style.display = 'inline-block';
+
     const isActive = wakeLockSentinel !== null || canvasStream !== null;
+
     if (wakeLockEnabled && isActive) {
         el.classList.add('active');
         txt.textContent = '✅ L\'écran reste allumé';
@@ -677,4 +707,1029 @@ function updateWakeStatus() {
         btn.textContent = 'Désactiver';
     } else {
         txt.textContent = '💤 Veille automatique';
-        btn
+        btn.textContent = 'Garder l\'écran allumé';
+    }
+}
+
+async function toggleWakeLock() {
+    if (wakeLockEnabled) {
+        wakeLockEnabled = false;
+        await deactivateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '0'); } catch (e) {}
+        showToast('Veille automatique réactivée', 'warn');
+    } else {
+        wakeLockEnabled = true;
+        const ok = await activateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) {}
+
+        if (ok) {
+            showToast('L\'écran va rester allumé', 'success');
+        } else {
+            showToast('Activez manuellement dans les réglages', 'warn');
+        }
+    }
+    updateWakeStatus();
+}
+
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLockEnabled) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+});
+
+async function ensureWakeLockActive() {
+    if (!wakeLockEnabled) return;
+    if (wakeLockSentinel === null && canvasStream === null) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CACHE DES TEMPS
+// ══════════════════════════════════════════════════════════════════
+function loadTimingCache() {
+    try { return JSON.parse(localStorage.getItem(TIMING_CACHE_KEY) || '{}'); }
+    catch (e) { return {}; }
+}
+function saveTimingCache(cache) {
+    try { localStorage.setItem(TIMING_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+}
+function recordGenerationTime(numFrames, durationMs) {
+    const cache = loadTimingCache();
+    const key = String(numFrames);
+    if (!cache[key]) cache[key] = [];
+    cache[key].push(durationMs);
+    if (cache[key].length > 10) cache[key] = cache[key].slice(-10);
+    saveTimingCache(cache);
+    updateTimingDisplay();
+}
+function estimateGenerationTime(numFrames) {
+    const cache = loadTimingCache();
+    const samples = cache[String(numFrames)];
+    if (samples && samples.length > 0) {
+        const sorted = [...samples].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
+    }
+    return 30000 + numFrames * 500;
+}
+function updateTimingDisplay() {
+    const cache = loadTimingCache();
+    const all = Object.values(cache).flat();
+    const speedEl = document.getElementById('stat-speed');
+    const samplesEl = document.getElementById('stat-samples');
+    if (!speedEl || !samplesEl) return;
+    if (all.length === 0) {
+        speedEl.textContent = 'en attente de données';
+        samplesEl.textContent = '0 génération';
+        return;
+    }
+    const avg = all.reduce((a, b) => a + b, 0) / all.length;
+    speedEl.textContent = (avg / 1000).toFixed(1) + ' s en moyenne';
+    samplesEl.textContent = all.length + ' génération' + (all.length > 1 ? 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PRESETS DE PROMPT
+// ══════════════════════════════════════════════════════════════════
+const PROMPT_PRESETS = [
+    { label: '🌬️ Vent léger',
+      text: 'Anime doucement l\'image comme si le temps s\'arrêtait. Un vent léger fait bouger les cheveux et les feuilles. La lumière est chaude et dorée. Garde chaque sujet exactement identique à la photo originale.' },
+    { label: '💭 Rêve éveillé',
+      text: 'Prolonge cette image dans un rêve éveillé. Mouvements très lents, respiration visible, lumière douce et diffuse. Atmosphère onirique et paisible. Le sujet reste identique à la photo.' },
+    { label: '🌅 Golden hour',
+      text: 'Anime cette image avec une lumière dorée de fin de journée. Longues ombres chaudes, reflets lumineux, ambiance cinématographique. Le sujet reste identique à la photo originale.' },
+    { label: '🌙 Nuit calme',
+      text: 'Prolonge cette image dans une ambiance nocturne paisible. Lumière bleutée, reflets argentés, mouvement très lent. Le sujet reste identique à la photo.' },
+    { label: '⚫ Noir & blanc',
+      text: 'Anime cette image en noir et blanc élégant. Contraste doux, grain subtil, ambiance photographique classique. Le sujet reste identique à la photo.' },
+    { label: '🎬 Cinématique',
+      text: 'Anime cette image avec une esthétique cinématographique. Mouvement de caméra lent, lumière dramatique, profondeur de champ. Le sujet reste identique à la photo originale.' },
+    { label: '🌫️ Brume poétique',
+      text: 'Prolonge cette image dans une brume douce et poétique. Halo lumineux, particules flottantes, atmosphère mystérieuse. Le sujet reste identique à la photo.' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// EFFETS VISUELS
+// ══════════════════════════════════════════════════════════════════
+const AMBIANCE_EFFECTS = [
+    { id: 'cinematic', name: 'Cinématique', emoji: '🎬', desc: 'Éclairage dramatique, grain film',
+      prompt: 'cinematic film look, dramatic lighting, subtle film grain, shallow depth of field, professional color grading, movie-like atmosphere. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'golden-hour', name: 'Golden Hour', emoji: '🌅', desc: 'Lumière chaude dorée',
+      prompt: 'golden hour warm sunlight, soft amber glow, long shadows, luminous atmosphere, hazy warm tones. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'bw', name: 'Noir & Blanc', emoji: '⚫', desc: 'Désaturation élégante',
+      prompt: 'elegant black and white, high contrast monochrome, deep blacks and luminous whites. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'pastel-dream', name: 'Pastel Rêveur', emoji: '🌸', desc: 'Teintes douces, flou léger',
+      prompt: 'soft pastel color palette, dreamy diffused light, gentle dreamlike atmosphere, subtle glow. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'neon-urban', name: 'Néon Urbain', emoji: '🌆', desc: 'Reflets colorés nocturnes',
+      prompt: 'neon-soaked night atmosphere, colorful reflections, cinematic urban glow, magenta and cyan accents. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'vintage-super8', name: 'Vintage Super 8', emoji: '📽️', desc: 'Grain, vignettage, chaleur',
+      prompt: 'vintage Super 8 film aesthetic, grainy texture, subtle vignette, warm faded colors, soft focus edges. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'dramatic-contrast', name: 'Contraste Dramatique', emoji: '🌓', desc: 'Ombres profondes',
+      prompt: 'high contrast dramatic lighting, deep shadows, bright highlights, chiaroscuro effect. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'misty', name: 'Brume Mystique', emoji: '🌫️', desc: 'Halo atmosphérique',
+      prompt: 'atmospheric mist, soft haze, diffused glowing light, mystical fog, ethereal atmosphere. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'chiaroscuro', name: 'Chiaroscuro', emoji: '🕯️', desc: 'Clair-obscur pictural',
+      prompt: 'chiaroscuro painting lighting, single source of warm light, deep surrounding darkness. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'tropical', name: 'Tropical Saturé', emoji: '🌴', desc: 'Couleurs vives',
+      prompt: 'vibrant tropical color palette, saturated warm colors, lush green and turquoise. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'moonlight', name: 'Clair de Lune', emoji: '🌙', desc: 'Ambiance bleutée',
+      prompt: 'cool moonlight atmosphere, blue and silver tones, soft lunar glow, peaceful night mood. Preserve the exact subject identity, face, pose, and clothing.' },
+    { id: 'sunrise', name: 'Aube Douce', emoji: '🌄', desc: 'Premières lueurs',
+      prompt: 'dawn light, soft pink and pale blue sky tones, gentle awakening atmosphere. Preserve the exact subject identity, face, pose, and clothing.' }
+];
+
+const STYLIZE_EFFECTS = [
+    { id: 'simpson', name: 'Les Simpson', emoji: '🍩', desc: 'Transformation cartoon',
+      prompt: 'The Simpsons cartoon style, yellow-skinned characters, thick black outlines, flat saturated colors, Matt Groening art style. Transform the entire image into this cartoon style.' },
+    { id: 'ghibli', name: 'Studio Ghibli', emoji: '🌿', desc: 'Transformation anime',
+      prompt: 'Studio Ghibli anime style, Hayao Miyazaki aesthetic, hand-painted watercolor backgrounds, cel-shaded characters. Transform the entire image into this anime style.' },
+    { id: 'manga-nb', name: 'Manga N&B', emoji: '🖤', desc: 'Transformation manga',
+      prompt: 'black and white Japanese manga style, stark ink outlines, dramatic screentones, high contrast. Transform the entire image into this manga style.' },
+    { id: 'polar', name: 'Polar / Film Noir', emoji: '🕵️', desc: 'Transformation N&B',
+      prompt: 'classic film noir aesthetic, high contrast black and white, dramatic chiaroscuro, 1940s detective atmosphere. Transform the entire image into this noir style.' },
+    { id: 'cyberpunk', name: 'Cyberpunk', emoji: '🌃', desc: 'Transformation futuriste',
+      prompt: 'cyberpunk futuristic aesthetic, neon pink and cyan lighting, holographic advertisements, Blade Runner atmosphere. Transform the entire image into this cyberpunk style.' },
+    { id: 'pixar', name: 'Pixar 3D', emoji: '✨', desc: 'Transformation 3D',
+      prompt: 'high-quality 3D computer animation, Pixar-style rendering, subsurface scattering, cinematic lighting. Transform the entire image into this 3D animated style.' },
+    { id: 'bd-franco', name: 'BD franco-belge', emoji: '📘', desc: 'Transformation ligne claire',
+      prompt: 'Franco-Belgian bande dessinée style, ligne claire technique, uniform clean ink outlines, flat vivid colors. Transform the entire image into this comic book style.' },
+    { id: 'watercolor', name: 'Aquarelle', emoji: '🎨', desc: 'Transformation aquarelle',
+      prompt: 'dreamy watercolor painting aesthetic, soft bleeding edges, translucent washes, paper texture. Transform the entire image into this watercolor style.' },
+    { id: 'oil', name: 'Peinture à l\'huile', emoji: '🖼️', desc: 'Transformation huile',
+      prompt: 'classical oil painting style, visible impasto brushstrokes, rich textured paint, old master technique. Transform the entire image into this oil painting style.' },
+    { id: 'claymation', name: 'Claymation', emoji: '🧱', desc: 'Transformation claymation',
+      prompt: 'claymation stop-motion animation, plasticine texture, fingerprint details, Aardman Studios style. Transform the entire image into this claymation style.' },
+    { id: 'vaporwave', name: 'Vaporwave', emoji: '🌴', desc: 'Transformation 90s',
+      prompt: 'vaporwave aesthetic, nostalgic 90s imagery, pastel gradient, VHS quality. Transform the entire image into this vaporwave style.' },
+    { id: 'surrealist', name: 'Surréaliste', emoji: '🌀', desc: 'Transformation surréaliste',
+      prompt: 'surrealist aesthetic, impossible juxtapositions, dreamlike distortions, Salvador Dali influence. Transform the entire image into this surrealist style.' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// MOUVEMENTS
+// ══════════════════════════════════════════════════════════════════
+const RANDOM_ACTIONS = [
+    'the subject slowly raises a hand toward the camera, fingers trembling slightly',
+    'a single tear rolls down the subject\'s cheek in extreme slow motion',
+    'the subject turns their head slowly, eyes closing, breathing softly',
+    'the subject\'s hair moves gently in an imperceptible breeze',
+    'the subject stands still, only their chest rising and falling with breath',
+    'the subject\'s eyes open slowly, revealing an intense gaze directly at the camera',
+    'the subject extends a hand as if reaching for something just out of frame',
+    'the subject lifts their chin slightly, a silent gesture of presence',
+    'the subject walks slowly toward the camera, each step deliberate',
+    'the subject looks down at their own hands, discovering them for the first time',
+    'the subject\'s body shivers involuntarily, a wave of emotion passing through',
+    'the subject leans forward slightly, closing the distance with the viewer'
+];
+
+const RANDOM_CAMERA = [
+    'slow dolly-in, camera gliding forward almost imperceptibly',
+    'static locked-off frame, subject moves within fixed borders',
+    'handheld, slight tremor, camera breathing with the subject',
+    'slow pan following the subject\'s movement',
+    'subtle parallax movement revealing depth',
+    'high angle looking down, subject appears small and vulnerable',
+    'low angle looking up, subject appears powerful',
+    'rack focus from foreground to subject',
+    'camera drifts backward slowly, revealing a bit more of the environment'
+];
+
+const RANDOM_LIGHTING = [
+    'soft diffused natural light',
+    'warm golden hour backlight',
+    'dramatic side lighting with deep shadows',
+    'gentle ambient glow, almost shadowless',
+    'cool moonlight atmosphere',
+    'warm interior candlelight flicker',
+    'cinematic rim lighting emphasizing the silhouette'
+];
+
+const INTENSITY_PRESETS = {
+    subtle: 'very subtle movement, barely perceptible change, minimal animation, gentle and quiet',
+    moderate: 'moderate movement, clear but controlled motion, balanced energy',
+    strong: 'strong dynamic movement, energetic motion, pronounced physical action'
+};
+
+const FRAMING_PRESETS = {
+    close: 'extreme close-up framing, tight on the subject, intimate and intense',
+    medium: 'medium shot, subject framed from waist up, balanced composition',
+    wide: 'wide shot, subject framed with the environment visible'
+};
+   // ══════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const state = {
+    images: [],
+    isRunning: false,
+    stopRequested: false,
+    queue: [],
+    completed: 0,
+    failed: 0,
+    selectedEffect: null,
+    mainPrompt: '',
+    framing: 'random',
+    intensity: 'random',
+    durationFrames: 153,
+    isLoadingImages: false,
+    creationAttemptsSinceLastError: 0
+};
+
+// ══════════════════════════════════════════════════════════════════
+// CLÉ API
+// ══════════════════════════════════════════════════════════════════
+function getApiKey() {
+    try { return (localStorage.getItem(API_KEY_STORAGE) || '').trim(); }
+    catch (e) { return ''; }
+}
+
+function saveApiKey() {
+    const input = document.getElementById('api-key-input');
+    if (!input) return;
+    const key = input.value.trim();
+
+    if (!key) {
+        try { localStorage.removeItem(API_KEY_STORAGE); } catch (e) {}
+        updateApiPanel();
+        showToast('Clé supprimée', 'warn');
+        return;
+    }
+
+    if (!key.startsWith('sk-')) {
+        if (!confirm('La clé ne commence pas par "sk-". La sauvegarder quand même ?')) {
+            return;
+        }
+    }
+
+    try {
+        localStorage.setItem(API_KEY_STORAGE, key);
+        updateApiPanel();
+        showToast('Clé API enregistrée ✓', 'success');
+        input.blur();
+    } catch (e) {
+        showToast('Erreur lors de la sauvegarde', 'error');
+    }
+}
+
+function updateApiPanel() {
+    const panel = document.getElementById('api-panel');
+    const input = document.getElementById('api-key-input');
+    const statusLine = document.getElementById('api-status-line');
+    const statusText = document.getElementById('api-status-text');
+    const key = getApiKey();
+
+    if (!panel || !input || !statusLine || !statusText) return;
+
+    if (key) {
+        panel.classList.add('ok');
+        statusLine.classList.add('ok');
+        statusText.textContent = 'Clé API active · ' + key.slice(0, 8) + '…' + key.slice(-4);
+        input.value = key;
+        input.placeholder = '';
+    } else {
+        panel.classList.remove('ok');
+        statusLine.classList.remove('ok');
+        statusText.textContent = 'Aucune clé API enregistrée';
+        input.value = '';
+        input.placeholder = 'Collez votre clé API ici (sk-...)';
+    }
+    updateGenerateBtn();
+}
+
+function updateGenerateBtn() {
+    const btn = document.getElementById('generate-btn');
+    if (!btn) return;
+    const hasImages = state.images.length > 0;
+    const hasKey = !!getApiKey();
+    btn.disabled = !hasImages || !hasKey || state.isRunning || state.isLoadingImages;
+
+    if (state.isLoadingImages) {
+        btn.textContent = 'Chargement des images… (' + state.images.length + ')';
+    } else if (state.isRunning) {
+        const total = state.queue.length;
+        const done = state.completed + state.failed;
+        btn.textContent = 'Création en cours… (' + done + '/' + total + ')';
+    } else if (!hasKey) {
+        btn.textContent = 'Ajoutez votre clé API';
+    } else if (!hasImages) {
+        btn.textContent = 'Ajoutez des images';
+    } else {
+        btn.textContent = 'Créer ' + state.images.length + ' vidéo' + (state.images.length > 1 ? 's' : '');
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ══════════════════════════════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function log(msg) { console.log('[Atelier] ' + msg); }
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const txt = document.getElementById('status-text');
+    if (!bar || !txt) return;
+    if (text) { bar.classList.add('visible'); txt.textContent = text; }
+    else bar.classList.remove('visible');
+}
+function randomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+function formatEta(seconds) {
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return m + 'm' + (s > 0 ? ' ' + s + 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRAITEMENT DES IMAGES
+// ══════════════════════════════════════════════════════════════════
+function fileToDataUri(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Erreur lecture'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function generateThumbnail(dataUri) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ratio = img.height / img.width;
+                canvas.width = THUMBNAIL_MAX_WIDTH;
+                canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * ratio);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            } catch (e) { resolve(dataUri); }
+        };
+        img.onerror = () => resolve(dataUri);
+        img.src = dataUri;
+    });
+}
+
+async function processOneFile(file) {
+    if (!file.type.startsWith('image/')) return null;
+    if (file.size > MAX_IMAGE_SIZE) {
+        log('Image trop lourde ignorée : ' + file.name);
+        return null;
+    }
+    try {
+        const dataUri = await fileToDataUri(file);
+        const thumbnail = await generateThumbnail(dataUri);
+        return { file: file, dataUri: dataUri, thumbnail: thumbnail, id: Date.now() + Math.random() };
+    } catch (e) {
+        log('Erreur traitement ' + file.name + ' : ' + e.message);
+        return null;
+    }
+}
+
+async function handleFiles(files) {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (!imageFiles.length) return;
+
+    state.isLoadingImages = true;
+    updateGenerateBtn();
+    setStatus('Chargement de ' + imageFiles.length + ' image' + (imageFiles.length > 1 ? 's' : '') + '…');
+
+    const uploadZone = document.getElementById('upload-zone');
+    uploadZone.classList.add('loading');
+
+    const BATCH = 5;
+    let processed = 0;
+
+    for (let i = 0; i < imageFiles.length; i += BATCH) {
+        const batch = imageFiles.slice(i, i + BATCH);
+        const results = await Promise.allSettled(batch.map(f => processOneFile(f)));
+        for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) {
+                state.images.push(r.value);
+                processed++;
+            }
+        }
+        renderImages();
+        setStatus('Chargement des images… ' + processed + '/' + imageFiles.length);
+    }
+
+    state.isLoadingImages = false;
+    uploadZone.classList.remove('loading');
+    setStatus(null);
+    updateGenerateBtn();
+}
+
+function removeImage(id) {
+    state.images = state.images.filter(img => img.id !== id);
+    renderImages();
+}
+
+function renderImages() {
+    const grid = document.getElementById('images-grid');
+    grid.innerHTML = state.images.map(img => {
+        return '<div class="image-card">' +
+            '<img src="' + (img.thumbnail || img.dataUri) + '" alt="" loading="lazy">' +
+            '<button class="remove-btn" data-remove="' + img.id + '">✕</button>' +
+            '</div>';
+    }).join('');
+
+    grid.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeImage(parseFloat(btn.dataset.remove));
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDU — PRESETS
+// ══════════════════════════════════════════════════════════════════
+function renderPromptPresets() {
+    const container = document.getElementById('prompt-presets');
+    container.innerHTML = PROMPT_PRESETS.map((p, i) => {
+        return '<div class="prompt-preset" data-preset="' + i + '">' + esc(p.label) + '</div>';
+    }).join('');
+
+    container.querySelectorAll('.prompt-preset').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.preset, 10);
+            const preset = PROMPT_PRESETS[idx];
+            if (!preset) return;
+            const ta = document.getElementById('main-prompt');
+            ta.value = preset.text;
+            state.mainPrompt = preset.text;
+            ta.focus();
+            showToast('Exemple appliqué', 'success', 1200);
+        });
+    });
+}
+
+function renderStyles() {
+    const container = document.getElementById('styles-grid');
+    let html = '';
+
+    html += '<div class="no-style-card ' + (state.selectedEffect === null ? 'selected' : '') + '" data-effect="none">' +
+        (state.selectedEffect === null
+            ? '✓ Aucun effet sélectionné — votre prompt seul gère les vidéos'
+            : '🚫 Aucun effet visuel (utiliser seulement mon prompt)') +
+        '</div>';
+
+    html += '<div class="style-category-header">✨ Effets d\'ambiance</div>';
+    html += '<div class="style-category-desc">Ces effets préservent votre image. Seule l\'ambiance change.</div>';
+    html += AMBIANCE_EFFECTS.map(s => {
+        return '<div class="style-card ' + (state.selectedEffect === s.id ? 'selected' : '') + '" data-effect="' + s.id + '">' +
+            '<div class="style-emoji">' + s.emoji + '</div>' +
+            '<div>' +
+                '<div class="style-name">' + esc(s.name) + '</div>' +
+                '<div class="style-desc">' + esc(s.desc) + '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+
+    html += '<div class="style-category-header">🎭 Transformations stylistiques</div>';
+    html += '<div class="style-category-desc">Ces effets transforment radicalement votre image.</div>';
+    html += STYLIZE_EFFECTS.map(s => {
+        return '<div class="style-card ' + (state.selectedEffect === s.id ? 'selected' : '') + '" data-effect="' + s.id + '">' +
+            '<div class="style-emoji">' + s.emoji + '</div>' +
+            '<div>' +
+                '<div class="style-name">' + esc(s.name) + '</div>' +
+                '<div class="style-desc">' + esc(s.desc) + '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('[data-effect]').forEach(el => {
+        el.addEventListener('click', () => {
+            const val = el.dataset.effect;
+            state.selectedEffect = (val === 'none') ? null : val;
+            renderStyles();
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONSTRUCTION DU PROMPT
+// ══════════════════════════════════════════════════════════════════
+function buildPrompt() {
+    const allEffects = AMBIANCE_EFFECTS.concat(STYLIZE_EFFECTS);
+    const effect = state.selectedEffect ? allEffects.find(s => s.id === state.selectedEffect) : null;
+
+    const isAmbiance = effect && AMBIANCE_EFFECTS.some(s => s.id === state.selectedEffect);
+    const isStylize = effect && STYLIZE_EFFECTS.some(s => s.id === state.selectedEffect);
+    const hasUserPrompt = state.mainPrompt && state.mainPrompt.trim().length > 0;
+
+    const parts = [];
+
+    if (isStylize) {
+        parts.push('Animate this image as the starting frame. Transform the entire image into the following artistic style:');
+    } else {
+        parts.push(
+            'Animate this exact image as the starting frame. ' +
+            'The subject must remain IDENTICAL to the input image: same face, same expression, same clothing, same pose, same identity. ' +
+            'This is a CONTINUATION of the source image, not a re-imagination. ' +
+            'Preserve the exact composition, framing, and layout of the original image. ' +
+            'The camera does NOT change the subject. Only subtle motion, breathing, light, and atmosphere are animated.'
+        );
+    }
+
+    if (effect) {
+        parts.push(effect.prompt);
+        if (isStylize) {
+            parts.push('Maintain the same subject, pose, and composition as the source image, but reinterpret everything in this new style.');
+        }
+    }
+
+    if (hasUserPrompt) {
+        if (isStylize) {
+            parts.push('Additional artistic direction (applied on top of the style): ' + state.mainPrompt.trim());
+        } else {
+            parts.push('Artistic direction (highest priority, must not change the subject identity or composition): ' + state.mainPrompt.trim());
+        }
+    }
+
+    if (state.framing !== 'random' && FRAMING_PRESETS[state.framing]) {
+        parts.push(FRAMING_PRESETS[state.framing]);
+    }
+
+    if (state.intensity !== 'random' && INTENSITY_PRESETS[state.intensity]) {
+        parts.push(INTENSITY_PRESETS[state.intensity]);
+    } else {
+        parts.push('moderate movement, clear but controlled motion');
+    }
+
+    parts.push(randomItem(RANDOM_ACTIONS));
+    parts.push(randomItem(RANDOM_CAMERA));
+    parts.push(randomItem(RANDOM_LIGHTING));
+    parts.push('Sound design: minimal foley, soft ambient textures, no music, no instruments, no dialogue');
+    parts.push('Portrait orientation 9:16 vertical, 24fps, no text, no subtitles, no watermarks, consistent character design with the source image');
+
+    return parts.join('. ');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// API AGNES
+// ══════════════════════════════════════════════════════════════════
+async function apiFetch(url, options = {}, label = 'API') {
+    for (let attempt = 0; attempt < 7; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        try {
+            const res = await fetch(url, options);
+            if (res.status === 429) {
+                state.creationAttemptsSinceLastError = 0;
+                if (createIntervalMs < CREATE_INTERVAL_SAFE) {
+                    createIntervalMs = Math.min(createIntervalMs + 8000, CREATE_INTERVAL_MAX);
+                    log('429 détecté → intervalle porté à ' + (createIntervalMs / 1000) + 's');
+                }
+                const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
+                log(label + ' : 429, attente ' + wait + 's');
+                setStatus('L\'intelligence artificielle se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.status === 503) {
+                const wait = [5, 10, 15, 20, 30, 45][Math.min(attempt, 5)];
+                log(label + ' : 503, attente ' + wait + 's');
+                setStatus('Votre vidéo se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.ok && createIntervalMs > CREATE_INTERVAL_MIN) {
+                state.creationAttemptsSinceLastError++;
+                if (state.creationAttemptsSinceLastError >= 3) {
+                    createIntervalMs = Math.max(createIntervalMs - 4000, CREATE_INTERVAL_MIN);
+                    state.creationAttemptsSinceLastError = 0;
+                    log('3 succès consécutifs → intervalle ramené à ' + (createIntervalMs / 1000) + 's');
+                }
+            }
+            return res;
+        } catch (e) {
+            if (e.message === 'Arrêt demandé') throw e;
+            const wait = [3, 5, 8, 12, 20, 30][Math.min(attempt, 5)];
+            log(label + ' : réseau, retry ' + wait + 's');
+            setStatus('Connexion en cours… (' + wait + 's)');
+            await sleep(wait * 1000);
+        }
+    }
+    return fetch(url, options);
+}
+
+async function createVideoTask(imageDataUri, prompt) {
+    const body = {
+        model: MODEL_VIDEO,
+        prompt: prompt,
+        image: imageDataUri,
+        num_frames: state.durationFrames,
+        frame_rate: FRAME_RATE
+    };
+
+    const res = await apiFetch(API_BASE + '/videos', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + getApiKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    }, 'Création');
+
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+    }
+
+    const data = await res.json();
+    const videoId = data.video_id || data.id || data.task_id;
+    if (!videoId) throw new Error('Pas de video_id retourné');
+    return videoId;
+}
+
+async function pollVideo(videoId, onProgress) {
+    const estimatedMs = estimateGenerationTime(state.durationFrames);
+    const estimatedSec = estimatedMs / 1000;
+
+    let remaining = Math.max(20, Math.floor(estimatedSec * 0.8));
+    while (remaining > 0) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        onProgress('Votre vidéo se prépare… — ' + remaining + 's');
+        await sleep(1000);
+        remaining--;
+    }
+
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        if (attempt > 0) {
+            let r = POLL_INTERVAL_SEC;
+            while (r > 0) {
+                if (state.stopRequested) throw new Error('Arrêt demandé');
+                onProgress('L\'image prend vie… — ' + r + 's');
+                await sleep(1000);
+                r--;
+            }
+        }
+
+        const url = POLL_BASE + '?video_id=' + encodeURIComponent(videoId) + '&model_name=' + encodeURIComponent(MODEL_VIDEO);
+        const res = await apiFetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + getApiKey() }
+        }, 'Polling');
+
+        const d = await res.json();
+        const status = d.status || 'unknown';
+        const progress = d.progress || 0;
+        onProgress('Création en cours… — ' + progress + '%');
+
+        if (status === 'completed' || status === 'succeeded' || status === 'done') {
+            const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url);
+            if (!videoUrl) throw new Error('Terminé mais pas d\'URL');
+            return videoUrl;
+        }
+        if (status === 'failed' || status === 'error' || status === 'cancelled') {
+            throw new Error('Échec (' + status + ')');
+        }
+    }
+    throw new Error('Délai maximal dépassé');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE D'ATTENTE
+// ══════════════════════════════════════════════════════════════════
+function renderQueue() {
+    const queueEl = document.getElementById('queue');
+    if (!state.queue.length) { queueEl.style.display = 'none'; return; }
+    queueEl.style.display = 'block';
+
+    const total = state.queue.length;
+    const done = state.completed + state.failed;
+    const inProgress = state.queue.filter(q => q.status === 'processing').length;
+    const pending = total - done - inProgress;
+
+    const estGen = estimateGenerationTime(state.durationFrames) / 1000;
+    const remainingCreates = pending;
+    const eta = remainingCreates > 0
+        ? (remainingCreates * (createIntervalMs / 1000)) + estGen
+        : (inProgress * estGen / Math.max(inProgress, 1));
+
+    let html = '<div class="queue-summary">' +
+        '<span class="progress-text">Progression : ' + done + '/' + total + '</span>' +
+        '<span class="eta-text">' + (done < total ? '≈ ' + formatEta(eta) + ' restant' : 'Terminé') + '</span>' +
+        '</div>';
+
+    const visible = state.queue.slice(0, MAX_VISIBLE_QUEUE);
+    const hidden = state.queue.length - visible.length;
+
+    html += visible.map(item => {
+        let icon = '○', statusText = 'En file d\'attente', cls = 'pending';
+        if (item.status === 'creating') { icon = '◐'; statusText = 'Préparation…'; cls = 'creating'; }
+        else if (item.status === 'processing') { icon = '◐'; statusText = item.progress || 'En cours…'; cls = 'processing'; }
+        else if (item.status === 'done') { icon = '●'; statusText = 'Terminé'; cls = 'done'; }
+        else if (item.status === 'failed') { icon = '✕'; statusText = 'Échec'; cls = 'failed'; }
+
+        return '<div class="queue-item ' + cls + '">' +
+            '<div class="q-icon">' + icon + '</div>' +
+            '<div class="q-name">Image ' + (item.imageIndex + 1) + '</div>' +
+            '<div class="q-status">' + esc(statusText) + '</div>' +
+        '</div>';
+    }).join('');
+
+    if (hidden > 0) {
+        html += '<div class="queue-more">… et ' + hidden + ' autre' + (hidden > 1 ? 's' : '') + ' image' + (hidden > 1 ? 's' : '') + '</div>';
+    }
+
+    queueEl.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GALERIE
+// ══════════════════════════════════════════════════════════════════
+function addToGallery(videoUrl, label) {
+    const galleryEl = document.getElementById('gallery');
+    const galleryGrid = document.getElementById('gallery-grid');
+    galleryEl.style.display = 'block';
+    const el = document.createElement('div');
+    el.className = 'gallery-item';
+    el.innerHTML = '<video controls preload="metadata" muted playsinline>' +
+        '<source src="' + videoUrl + '" type="video/mp4">' +
+        '</video>' +
+        '<div class="g-caption">' + esc(label) + '</div>';
+    galleryGrid.appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE
+// ══════════════════════════════════════════════════════════════════
+async function createTaskOnly(item) {
+    item.status = 'creating';
+    item.progress = 'Préparation…';
+    renderQueue();
+
+    const prompt = buildPrompt();
+    item.prompt = prompt;
+
+    log('[Image ' + (item.imageIndex + 1) + '] Création…');
+    const videoId = await createVideoTask(item.image.dataUri, prompt);
+    item.videoId = videoId;
+    item.startTime = Date.now();
+    item.status = 'processing';
+    item.progress = 'En cours…';
+    renderQueue();
+
+    log('[Image ' + (item.imageIndex + 1) + '] Tâche créée : ' + String(videoId).slice(0, 30) + '…');
+    return videoId;
+}
+
+async function pollTaskAndDisplay(item) {
+    try {
+        const videoUrl = await pollVideo(item.videoId, (prog) => {
+            item.progress = prog;
+            renderQueue();
+        });
+
+        const elapsed = Date.now() - item.startTime;
+        recordGenerationTime(state.durationFrames, elapsed);
+        log('[Image ' + (item.imageIndex + 1) + '] Terminée en ' + (elapsed / 1000).toFixed(1) + 's');
+
+        item.status = 'done';
+        item.videoUrl = videoUrl;
+        item.progress = 'Terminé';
+        state.completed++;
+        renderQueue();
+        updateGenerateBtn();
+
+        addToGallery(videoUrl, 'Image ' + (item.imageIndex + 1));
+    } catch (e) {
+        if (e.message === 'Arrêt demandé') {
+            item.status = 'failed';
+            item.progress = 'Arrêté';
+        } else {
+            log('[Image ' + (item.imageIndex + 1) + '] ' + e.message);
+            item.status = 'failed';
+            item.progress = 'Échec';
+            state.failed++;
+        }
+        renderQueue();
+        updateGenerateBtn();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// WORKFLOW PRINCIPAL
+// ══════════════════════════════════════════════════════════════════
+async function startGeneration() {
+    if (state.isRunning || !state.images.length) return;
+    if (!getApiKey()) {
+        showToast('Ajoutez d\'abord votre clé API', 'error');
+        document.getElementById('api-key-input').focus();
+        return;
+    }
+
+    state.mainPrompt = document.getElementById('main-prompt').value.trim();
+
+    if (!state.mainPrompt && !state.selectedEffect) {
+        if (!confirm('Ni prompt ni effet sélectionné. Continuer avec un style aléatoire ?')) {
+            return;
+        }
+    }
+
+    state.isRunning = true;
+    state.stopRequested = false;
+    state.completed = 0;
+    state.failed = 0;
+    state.creationAttemptsSinceLastError = 0;
+
+    createIntervalMs = CREATE_INTERVAL_MIN;
+
+    state.queue = state.images.map((img, i) => ({
+        imageIndex: i,
+        image: img,
+        status: 'pending',
+        progress: null,
+        videoId: null,
+        videoUrl: null,
+        prompt: null,
+        startTime: null
+    }));
+
+    document.getElementById('gallery-grid').innerHTML = '';
+    document.getElementById('gallery').style.display = 'none';
+
+    document.getElementById('stop-btn').classList.add('visible');
+    document.getElementById('generate-btn').disabled = true;
+
+    await ensureWakeLockActive();
+
+    renderQueue();
+    updateGenerateBtn();
+
+    log('Démarrage — ' + state.images.length + ' vidéos');
+    log('Prompt principal : ' + (state.mainPrompt ? '"' + state.mainPrompt.slice(0, 60) + '…"' : '(vide)'));
+    log('Effet : ' + (state.selectedEffect || 'aucun'));
+
+    const totalStart = Date.now();
+    const pollingTasks = [];
+
+    try {
+        for (let i = 0; i < state.queue.length; i++) {
+            if (state.stopRequested) break;
+
+            const item = state.queue[i];
+
+            try {
+                await createTaskOnly(item);
+                pollingTasks.push(pollTaskAndDisplay(item));
+            } catch (e) {
+                if (e.message === 'Arrêt demandé') break;
+                log('[Image ' + (i + 1) + '] Échec création : ' + e.message);
+                item.status = 'failed';
+                item.progress = 'Échec';
+                state.failed++;
+                renderQueue();
+                updateGenerateBtn();
+            }
+
+            if (i < state.queue.length - 1 && !state.stopRequested) {
+                const waitSec = Math.ceil(createIntervalMs / 1000);
+                for (let r = waitSec; r > 0; r--) {
+                    if (state.stopRequested) break;
+                    const nextNum = i + 2;
+                    setStatus('Respiration créative… — Image ' + nextNum + '/' + state.queue.length + ' dans ' + r + 's');
+                    await sleep(1000);
+                }
+            }
+        }
+
+        if (pollingTasks.length > 0) {
+            setStatus('Finalisation…');
+            await Promise.allSettled(pollingTasks);
+        }
+    } catch (e) {
+        log('Erreur globale : ' + e.message);
+    }
+
+    const totalElapsed = (Date.now() - totalStart) / 1000;
+    const summary = state.stopRequested
+        ? 'Arrêté — ' + state.completed + '/' + state.queue.length + ' vidéos'
+        : '✦ ' + state.completed + '/' + state.queue.length + ' vidéos créées en ' + formatEta(totalElapsed) + ' ✦';
+
+    log(summary);
+    setStatus(summary);
+    await sleep(4000);
+    setStatus(null);
+
+    state.isRunning = false;
+    state.stopRequested = false;
+    document.getElementById('stop-btn').classList.remove('visible');
+    updateGenerateBtn();
+
+    showToast(state.completed + ' vidéo' + (state.completed > 1 ? 's' : '') + ' créée' + (state.completed > 1 ? 's' : ''), 'success');
+}
+
+function stopGeneration() {
+    if (!state.isRunning) return;
+    state.stopRequested = true;
+    log('Arrêt demandé par l\'utilisateur');
+    setStatus('Arrêt en cours…');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INITIALISATION
+// ══════════════════════════════════════════════════════════════════
+(function init() {
+    const saveBtn = document.getElementById('api-save-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveApiKey);
+    }
+
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) {
+        stopBtn.addEventListener('click', stopGeneration);
+    }
+
+    const apiInput = document.getElementById('api-key-input');
+    if (apiInput) {
+        apiInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveApiKey();
+            }
+        });
+    }
+
+    document.querySelectorAll('[data-toggle]').forEach(header => {
+        header.addEventListener('click', () => {
+            document.getElementById(header.dataset.toggle).classList.toggle('open');
+        });
+    });
+
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    if (uploadZone && fileInput) {
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => {
+            handleFiles(e.target.files);
+            fileInput.value = '';
+        });
+    }
+
+    const mainPrompt = document.getElementById('main-prompt');
+    if (mainPrompt) {
+        mainPrompt.addEventListener('input', e => {
+            state.mainPrompt = e.target.value;
+        });
+    }
+
+    const durationSelect = document.getElementById('duration-select');
+    if (durationSelect) {
+        durationSelect.addEventListener('change', e => {
+            state.durationFrames = parseInt(e.target.value, 10);
+        });
+    }
+    const framingSelect = document.getElementById('framing-select');
+    if (framingSelect) {
+        framingSelect.addEventListener('change', e => { state.framing = e.target.value; });
+    }
+    const intensitySelect = document.getElementById('intensity-select');
+    if (intensitySelect) {
+        intensitySelect.addEventListener('change', e => { state.intensity = e.target.value; });
+    }
+
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', startGeneration);
+    }
+
+    const wakeBtn = document.getElementById('wake-toggle-btn');
+    if (wakeBtn) {
+        wakeBtn.addEventListener('click', toggleWakeLock);
+    }
+
+    try {
+        const saved = localStorage.getItem(WAKE_LOCK_PREF);
+        wakeLockEnabled = saved === '1';
+    } catch (e) {}
+
+    if (wakeLockEnabled) {
+        activateWakeLock().then(() => updateWakeStatus());
+    }
+
+    updateApiPanel();
+    updateTimingDisplay();
+    updateWakeStatus();
+    renderPromptPresets();
+    renderStyles();
+    renderImages();
+    renderQueue();
+
+    log('Prêt.');
+})();
+</script>
+
+</body>
+</html>
