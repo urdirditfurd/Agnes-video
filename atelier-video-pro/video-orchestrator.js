@@ -159,22 +159,55 @@ window.VideoOrchestrator = (() => {
     return id;
   }
 
+  /** Extrait une URL vidéo depuis les formes de réponse Agnes connues. */
+  function extractVideoUrl(d) {
+    if (!d || typeof d !== 'object') return null;
+    const candidates = [
+      d.metadata && d.metadata.url,
+      d.metadata && d.metadata.video_url,
+      d.url,
+      d.video_url,
+      d.videoUrl,
+      d.result_url,
+      d.output && d.output.url,
+      d.output && d.output.video_url,
+      d.data && d.data.url,
+      d.data && d.data.video_url,
+      d.data && d.data.metadata && d.data.metadata.url
+    ];
+    for (let i = 0; i < candidates.length; i++) {
+      const u = candidates[i];
+      if (typeof u === 'string' && /^https?:\/\//i.test(u)) return u;
+    }
+    return null;
+  }
+
+  function normalizeStatus(d) {
+    const raw = d.status || d.state || (d.data && d.data.status) || 'unknown';
+    return String(raw).toLowerCase().trim();
+  }
+
+  function readProgress(d) {
+    const p = d.progress != null ? d.progress
+      : (d.percent != null ? d.percent
+        : (d.data && d.data.progress));
+    const n = Number(p);
+    return isFinite(n) ? n : 0;
+  }
+
   /**
-   * Poll jusqu'à complétion Agnes.
-   * - Ne coupe PAS à 60s (le budget express = image+envoi seulement)
-   * - Continue tant que la progression avance
-   * - Timeout seulement si plafond absolu OU stall prolongé sans progrès
+   * Poll Agnes jusqu'à ~12 min.
+   * Pas de kill sur stagnation à 30% (comportement fréquent côté serveur).
+   * Accepte l'URL dès qu'elle apparaît, même si status pas encore "completed".
    */
   async function poll(videoId, onProgress, stopSignal, durationKey) {
     const video = V();
-    const initialDelay = video.pollInitialDelaySec != null ? video.pollInitialDelaySec : 0.5;
+    const initialDelay = video.pollInitialDelaySec != null ? video.pollInitialDelaySec : 1;
     const intervalSec = pollIntervalFor(durationKey);
-    const maxPollMs = video.maxPollMs || 480000;
-    const stallMs = video.pollStallMs || 180000;
+    const maxPollMs = video.maxPollMs || 720000;
     const model = M().agnes || 'agnes-video-v2.0';
     const started = Date.now();
-    let lastProgress = -1;
-    let lastProgressAt = Date.now();
+    let lastProgress = 0;
 
     if (initialDelay > 0) {
       if (onProgress) onProgress('Envoi OK — Agnes démarre…');
@@ -188,16 +221,12 @@ window.VideoOrchestrator = (() => {
       attempt++;
 
       const elapsed = Date.now() - started;
+      const elapsedSec = Math.round(elapsed / 1000);
       if (elapsed > maxPollMs) {
         throw new Error(
-          'Timeout Agnes après ' + Math.round(elapsed / 1000) +
-          's (dernier progrès ' + Math.max(0, lastProgress) + '%) — réessayez / Reprendre'
-        );
-      }
-      if (lastProgress >= 0 && (Date.now() - lastProgressAt) > stallMs && elapsed > 90000) {
-        throw new Error(
-          'Agnes bloqué à ' + lastProgress + '% depuis ' +
-          Math.round(stallMs / 1000) + 's — réessayez'
+          'Agnes non terminé après ' + elapsedSec +
+          's (dernier ' + lastProgress +
+          '%). Cliquez Reprendre — build ' + ((cfg().BUILD) || '?')
         );
       }
 
@@ -216,7 +245,12 @@ window.VideoOrchestrator = (() => {
         );
       } catch (e) {
         if (e.message === 'Arrêt demandé') throw e;
-        if (onProgress) onProgress('Réseau… ' + Math.round(elapsed / 1000) + 's');
+        if (onProgress) onProgress('Réseau… ' + elapsedSec + 's');
+        continue;
+      }
+
+      if (!res || !res.ok) {
+        if (onProgress) onProgress('Poll HTTP ' + (res && res.status) + ' · ' + elapsedSec + 's');
         continue;
       }
 
@@ -224,26 +258,33 @@ window.VideoOrchestrator = (() => {
       try {
         d = await res.json();
       } catch (e) {
+        if (onProgress) onProgress('Réponse invalide · ' + elapsedSec + 's');
         continue;
       }
 
-      const status = String(d.status || 'unknown').toLowerCase();
-      const progress = Number(d.progress) || 0;
-      const elapsedSec = Math.round(elapsed / 1000);
+      const status = normalizeStatus(d);
+      const progress = readProgress(d);
+      if (progress > lastProgress) lastProgress = progress;
 
-      if (progress > lastProgress) {
-        lastProgress = progress;
-        lastProgressAt = Date.now();
+      // URL déjà là → succès immédiat (certains status restent "processing")
+      const readyUrl = extractVideoUrl(d);
+      if (readyUrl && (progress >= 100 || ['completed', 'succeeded', 'done', 'success', 'finished'].indexOf(status) !== -1)) {
+        if (onProgress) onProgress('Agnes 100% · ' + elapsedSec + 's');
+        return readyUrl;
+      }
+      if (readyUrl && progress >= 95) {
+        if (onProgress) onProgress('Agnes prêt · ' + elapsedSec + 's');
+        return readyUrl;
       }
 
       if (onProgress) {
-        onProgress('Agnes ' + progress + '% · ' + elapsedSec + 's');
+        onProgress('Agnes ' + progress + '% · ' + elapsedSec + 's · ' + status);
       }
 
-      if (['completed', 'succeeded', 'done', 'success'].indexOf(status) !== -1) {
-        const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url) || d.video_url;
-        if (!videoUrl) throw new Error("Terminé mais pas d'URL");
-        return videoUrl;
+      if (['completed', 'succeeded', 'done', 'success', 'finished'].indexOf(status) !== -1) {
+        if (readyUrl) return readyUrl;
+        // parfois l'URL arrive 1–2 polls après le status
+        continue;
       }
       if (['failed', 'error', 'cancelled', 'canceled'].indexOf(status) !== -1) {
         throw new Error('Échec Agnes (' + status + ')');

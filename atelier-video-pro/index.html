@@ -11,6 +11,7 @@
 <header>
   <div class="brand">Atelier Vidéo Pro</div>
   <p class="tagline">Un script → une vidéo narrative longue, automatiquement.</p>
+  <p class="tagline" id="build-label" style="margin-top:0.35rem;font-size:0.72rem;opacity:0.7">build …</p>
   <nav class="nav-modes">
     <a href="../Agnes.html">Mode classique (images → clips)</a>
     <a href="#settings" id="link-settings">Clés API</a>
@@ -99,7 +100,7 @@
 <!-- ═══ ÉCRAN 3 — Progression ═══ -->
 <section id="screen-3" class="screen" aria-label="Génération">
   <h2>3. Génération en cours</h2>
-  <p class="screen-lead">Mode EXPRESS (5s) : image turbo → Agnes immédiat → lecture. Sinon : images puis file vidéo.</p>
+  <p class="screen-lead">Agnes peut rester à 30% plusieurs minutes — <strong>ne fermez pas</strong>. Attente max ~12 min. Si vous voyez encore « budget 60s », forcez un rechargement (Ctrl+F5).</p>
   <div class="global-progress panel">
     <div class="bar"><div id="global-bar" class="fill"></div></div>
     <p id="global-status">En attente…</p>
@@ -128,14 +129,21 @@
   <span id="status-text">…</span>
 </div>
 
-<script src="config.js"></script>
-<script src="character-bible.js"></script>
-<script src="story-parser.js"></script>
-<script src="state-store.js"></script>
-<script src="image-generator.js"></script>
-<script src="video-orchestrator.js"></script>
-<script src="tts.js"></script>
-<script src="assembler.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=20260926c"></script>
+<script src="character-bible.js?v=20260926c"></script>
+<script src="story-parser.js?v=20260926c"></script>
+<script src="state-store.js?v=20260926c"></script>
+<script src="image-generator.js?v=20260926c"></script>
+<script src="video-orchestrator.js?v=20260926c"></script>
+<script src="tts.js?v=20260926c"></script>
+<script src="assembler.js?v=20260926c"></script>
+<script src="app.js?v=20260926c"></script>
+<script>
+  (function () {
+    var el = document.getElementById('build-label');
+    var b = (window.CONFIG && window.CONFIG.BUILD) || '?';
+    if (el) el.textContent = 'build ' + b + ' — si ≠ 20260926c → Ctrl+F5';
+  })();
+</script>
 </body>
 </html>

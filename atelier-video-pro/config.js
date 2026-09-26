@@ -3,6 +3,9 @@
    ══════════════════════════════════════════════════════════════════ */
 
 window.CONFIG = {
+  /** Incrémenter à chaque release — force le navigateur à recharger le JS */
+  BUILD: '20260926c',
+
   API_KEYS: {
     agnes: 'agnes_api_key',
     gemini: 'gemini_api_key',
@@ -42,16 +45,14 @@ window.CONFIG = {
     createIntervalMin: 30000,
     createIntervalMax: 90000,
     createIntervalSafe: 60000,
-    pollInitialDelaySec: 0.5,
-    pollIntervalSec: 2,
-    /** Express : 2s (assez réactif, moins de spam API) */
+    pollInitialDelaySec: 1,
+    pollIntervalSec: 3,
     pollIntervalShortSec: 2,
-    /** Plafond absolu d'attente Agnes (~8 min) — leur serveur est souvent lent */
-    maxPollMs: 480000,
-    /** Si la progression n'avance plus pendant ce délai → timeout */
-    pollStallMs: 180000,
-    maxPollAttempts: 240,
-    /** Objectif UI côté app (image+envoi) — PAS un kill switch Agnes */
+    /** Plafond absolu ~12 min (Agnes reste souvent longtemps à 30%) */
+    maxPollMs: 720000,
+    /** Désactivé : Agnes peut stagner à 30% tout en travaillant */
+    pollStallMs: 0,
+    maxPollAttempts: 360,
     expressBudgetSec: 60
   },
 

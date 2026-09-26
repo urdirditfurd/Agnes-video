@@ -1506,7 +1506,8 @@ async function createTaskOnly(item) {
     item.prompt = prompt;
 
     log('[Image ' + (item.imageIndex + 1) + '] Création…');
-    const videoId = await createVideoTask(item.image.dataUri, prompt);
+    const compressed = await compressForAgnes(item.image.dataUri);
+    const videoId = await createVideoTask(compressed, prompt);
     item.videoId = videoId;
     item.startTime = Date.now();
     item.status = 'processing';
