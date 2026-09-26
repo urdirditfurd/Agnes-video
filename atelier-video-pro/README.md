@@ -6,15 +6,32 @@ Intègre et étend [Atelier Vidéo](../Agnes.html) (Agnes AI) avec découpage de
 
 ## Installation
 
-1. Ouvrez `atelier-video-pro/index.html` dans Chrome / Edge / Firefox (ou servez le dossier en HTTP local).
-2. Pour FFmpeg.wasm et certaines APIs image, un serveur local est recommandé :
+1. Clonez le dépôt, puis allez **dans le dossier du projet** (pas `C:\Windows\system32`).
+2. Ouvrez `atelier-video-pro/index.html` dans Chrome / Edge, **ou** servez en HTTP local.
 
-```bash
-cd atelier-video-pro
+### Windows PowerShell (recommandé)
+
+```powershell
+# Adaptez le chemin vers votre clone
+cd $HOME\Documents\Agnes-video\atelier-video-pro
+
+# Tests sans clé API
+node .\tests\story-parser.test.js
+
+# Lancer le serveur (PowerShell 5 n'accepte pas && — une commande à la fois)
 npx --yes serve -p 4173
 ```
 
-Puis ouvrez `http://localhost:4173`.
+Puis ouvrez `http://localhost:4173`.  
+Collez votre clé Agnes **uniquement dans l’écran 1 de l’app** (jamais dans le code ni dans un chat).
+
+### macOS / Linux / Git Bash
+
+```bash
+cd atelier-video-pro
+node tests/story-parser.test.js
+npx --yes serve -p 4173
+```
 
 ## Clés API
 
