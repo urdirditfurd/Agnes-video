@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Studio Pixar Enfants — Chansons animées 10s</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+        --bg: #fafafa; --panel: #ffffff; --panel-2: #f5f5f5; --border: #e5e5e5;
+        --ink: #1a1a1a; --ink-dim: #777; --ink-faint: #aaa;
+        --success: #2d8a4e; --error: #c0392b; --warn: #d4a017; --info: #4a6cf7;
+        --pixar-blue: #1e90ff; --pixar-gold: #ffb347; --pixar-pink: #ff6b9d;
+        --radius: 12px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background: var(--bg); color: var(--ink); min-height: 100vh;
+        padding: 1.5rem 1rem 6rem; font-size: 15px; line-height: 1.5;
+        max-width: 900px; margin: 0 auto;
+    }
+    header { margin-bottom: 1.5rem; text-align: center; }
+    h1 { font-size: 1.4rem; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+    .subtitle { font-size: 0.8rem; color: var(--ink-dim); font-style: italic; }
+
+    .pixar-badge {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: linear-gradient(135deg, var(--pixar-pink), var(--pixar-gold));
+        color: #fff; padding: 0.35rem 0.9rem; border-radius: 20px;
+        font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
+        margin-bottom: 0.8rem;
+        box-shadow: 0 2px 10px rgba(255,107,157,0.35);
+    }
+
+    .toast {
+        position: fixed; top: 1.5rem; left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: var(--ink); color: #fff;
+        padding: 0.85rem 1.4rem; border-radius: 10px;
+        font-size: 0.85rem; font-weight: 500;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000; opacity: 0;
+        transition: transform 0.35s ease, opacity 0.35s ease;
+        max-width: 90vw; text-align: center;
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--error); }
+    .toast.warn { background: var(--warn); }
+    .toast .toast-icon { font-size: 1rem; }
+
+    .info-banner {
+        background: linear-gradient(135deg, #fff0f5, #eef4ff, #fff8e8);
+        border-left: 3px solid var(--pixar-pink);
+        padding: 0.75rem 0.95rem; border-radius: 8px;
+        font-size: 0.78rem; color: #2a3a5c;
+        margin-bottom: 1rem; line-height: 1.45;
+    }
+    .info-banner strong { color: #1a1a1a; }
+
+    .section {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); margin-bottom: 1rem;
+        overflow: hidden;
+    }
+    .section-header {
+        padding: 0.9rem 1.1rem; cursor: pointer; user-select: none;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .section-header:active { background: var(--panel-2); }
+    .section-title {
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--ink-dim); font-weight: 600;
+    }
+    .section-title .badge {
+        display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.4rem;
+        background: var(--ink); color: #fff; border-radius: 10px;
+        font-size: 0.65rem; letter-spacing: 0;
+    }
+    .section-title .badge.pixar { background: var(--pixar-blue); }
+    .section-title .badge.music { background: var(--pixar-pink); }
+    .section-title .badge.kids { background: var(--pixar-gold); color: #5a3a00; }
+    .section-header .chevron {
+        font-size: 0.7rem; color: var(--ink-faint); transition: transform 0.2s;
+    }
+    .section.open .section-header .chevron { transform: rotate(180deg); }
+    .section-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .section.open .section-body { max-height: 4000px; }
+    .section-content { padding: 0 1.1rem 1.1rem; }
+
+    .api-panel {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 1rem 1.2rem;
+        margin-bottom: 1rem; transition: border-color 0.3s;
+    }
+    .api-panel.ok { border-color: var(--success); }
+
+    .api-key-input {
+        width: 100%; padding: 0.85rem 1rem;
+        border-radius: 8px; border: 1px solid var(--border);
+        background: #fafafa; color: var(--ink);
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 0.85rem; margin-bottom: 0.6rem;
+    }
+    .api-key-input:focus { outline: none; border-color: var(--ink); }
+
+    .api-save-btn {
+        width: 100%; padding: 0.8rem 1.2rem;
+        border-radius: 8px; border: none;
+        background: var(--ink); color: #fff;
+        font-size: 0.9rem; font-weight: 600; font-family: inherit;
+        cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+        margin-bottom: 0.6rem;
+    }
+    .api-save-btn:active { transform: scale(0.98); }
+
+    .api-status-line {
+        font-size: 0.75rem; padding: 0.55rem 0.85rem;
+        border-radius: 6px; margin-bottom: 0.5rem;
+        display: flex; align-items: center; gap: 0.5rem;
+        background: var(--panel-2); color: var(--ink-dim);
+        transition: all 0.3s;
+    }
+    .api-status-line.ok {
+        background: #e3f5e9; color: var(--success); font-weight: 600;
+    }
+    .api-status-line .status-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--ink-faint); flex-shrink: 0;
+        transition: background 0.3s;
+    }
+    .api-status-line.ok .status-dot { background: var(--success); }
+
+    .api-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.4rem; }
+    .api-hint a { color: var(--ink); text-decoration: underline; }
+    .stat-line {
+        font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.5rem;
+        padding: 0.4rem 0.6rem; background: var(--panel-2); border-radius: 6px;
+        display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.3rem;
+    }
+
+    .wake-status {
+        font-size: 0.72rem; padding: 0.5rem 0.7rem;
+        border-radius: 6px; margin-top: 0.4rem;
+        display: flex; justify-content: space-between; align-items: center;
+        background: #eef4ff; color: var(--info);
+        flex-wrap: wrap; gap: 0.4rem;
+    }
+    .wake-status.active { background: #e3f5e9; color: var(--success); }
+    .wake-status.warn { background: #fdf5e3; color: var(--warn); }
+    .wake-status button {
+        background: transparent; border: 1px solid currentColor;
+        color: inherit; padding: 0.25rem 0.6rem; border-radius: 6px;
+        font-size: 0.68rem; cursor: pointer; font-family: inherit;
+    }
+    .wake-status button:active { opacity: 0.6; }
+
+    .upload-zone {
+        border: 2px dashed var(--border); border-radius: var(--radius);
+        padding: 2rem 1rem; text-align: center; cursor: pointer;
+        transition: border-color 0.2s, background 0.2s; margin-bottom: 1rem;
+        background: var(--panel);
+    }
+    .upload-zone:active { border-color: var(--pixar-pink); background: #fff5f9; }
+    .upload-zone.loading { pointer-events: none; opacity: 0.6; }
+    .upload-zone input[type="file"] { display: none; }
+    .upload-icon { font-size: 2.2rem; margin-bottom: 0.6rem; opacity: 0.6; }
+    .upload-text { font-size: 0.95rem; color: var(--ink); margin-bottom: 0.2rem; }
+    .upload-hint { font-size: 0.75rem; color: var(--ink-dim); }
+
+    .images-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 0.5rem; margin-bottom: 1rem;
+    }
+    .image-card {
+        position: relative; border-radius: 8px; overflow: hidden;
+        border: 1px solid var(--border); background: #f0f0f0;
+        aspect-ratio: 9/16;
+    }
+    .image-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .image-card .remove-btn {
+        position: absolute; top: 4px; right: 4px;
+        background: rgba(0,0,0,0.65); color: #fff; border: none;
+        width: 22px; height: 22px; border-radius: 50%; font-size: 11px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        line-height: 1;
+    }
+
+    textarea {
+        width: 100%; padding: 0.75rem 0.9rem; border-radius: 8px;
+        border: 1px solid var(--border); background: #fafafa;
+        color: var(--ink); font-family: inherit; font-size: 0.88rem;
+        min-height: 80px; resize: vertical;
+    }
+    textarea:focus { outline: none; border-color: var(--ink); }
+
+    .prompt-main {
+        width: 100%; padding: 0.85rem 1rem;
+        border-radius: 8px; border: 1px solid var(--border);
+        background: #fafafa; color: var(--ink);
+        font-family: inherit; font-size: 0.9rem;
+        min-height: 110px; resize: vertical; line-height: 1.5;
+    }
+    .prompt-main:focus { outline: none; border-color: var(--pixar-pink); }
+    .prompt-main-hint {
+        font-size: 0.72rem; color: var(--ink-dim);
+        margin-top: 0.5rem; line-height: 1.4;
+    }
+
+    .prompt-presets {
+        display: flex; flex-wrap: wrap; gap: 0.4rem;
+        margin-top: 0.7rem;
+    }
+    .prompt-preset {
+        padding: 0.35rem 0.7rem; border-radius: 16px;
+        border: 1px solid var(--border); background: var(--panel-2);
+        font-size: 0.72rem; cursor: pointer;
+        transition: all 0.15s; user-select: none;
+    }
+    .prompt-preset:active { transform: scale(0.96); }
+    .prompt-preset:hover { border-color: var(--pixar-pink); }
+
+    .pixar-panel {
+        background: linear-gradient(135deg, #fff0f5, #eef4ff, #fff8e8);
+        border: 1px solid var(--pixar-pink);
+        border-radius: var(--radius);
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 1rem;
+        font-size: 0.78rem;
+        color: #2a3a5c;
+        line-height: 1.5;
+    }
+    .pixar-panel strong { color: var(--pixar-pink); }
+    .pixar-panel .pixar-check {
+        display: flex; align-items: center; gap: 0.5rem;
+        margin-top: 0.5rem; font-weight: 600; color: var(--pixar-pink);
+    }
+
+    /* Panneau musique & voix */
+    .music-panel {
+        background: linear-gradient(135deg, #f0f8ff, #fff0f5, #fff8e8);
+        border: 1px solid var(--pixar-blue);
+        border-radius: var(--radius);
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+    }
+    .music-panel-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--pixar-blue);
+        margin-bottom: 0.7rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .music-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.55rem 0;
+        border-bottom: 1px dashed rgba(30,144,255,0.15);
+        font-size: 0.78rem;
+    }
+    .music-row:last-child { border-bottom: none; }
+    .music-row .music-label {
+        color: var(--ink);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .music-row .music-value {
+        color: var(--pixar-blue);
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+    .toggle-switch {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        background: #ddd;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.25s;
+        flex-shrink: 0;
+    }
+    .toggle-switch.on { background: var(--pixar-blue); }
+    .toggle-switch::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.25s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-switch.on::after { transform: translateX(20px); }
+
+    .control-row { margin-bottom: 0.9rem; }
+    .control-row:last-child { margin-bottom: 0; }
+    .control-label {
+        display: block; font-size: 0.72rem; color: var(--ink-dim);
+        margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.06em;
+        font-weight: 600;
+    }
+    select {
+        width: 100%; padding: 0.7rem 0.9rem; border-radius: 8px;
+        border: 1px solid var(--border); background: #fafafa;
+        color: var(--ink); font-family: inherit; font-size: 0.88rem;
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%231a1a1a' d='M0 0l5 6 5-6z'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 0.9rem center;
+        background-size: 10px;
+    }
+    select:focus { outline: none; border-color: var(--pixar-blue); }
+
+    .duration-fixed {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.7rem 0.9rem; border-radius: 8px;
+        background: linear-gradient(135deg, #eef4ff, #fff8e8);
+        border: 1px solid var(--pixar-blue);
+        font-size: 0.85rem; font-weight: 600; color: var(--pixar-blue);
+    }
+
+    .btn-primary {
+        width: 100%; padding: 1.1rem; border-radius: var(--radius);
+        border: none; background: linear-gradient(135deg, var(--pixar-pink), var(--pixar-blue));
+        color: #fff;
+        font-size: 1rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 15px rgba(255,107,157,0.35);
+    }
+    .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+
+    .btn-stop {
+        width: 100%; padding: 0.8rem; border-radius: var(--radius);
+        border: 1px solid var(--border); background: var(--panel);
+        color: var(--error); font-size: 0.85rem; font-weight: 600;
+        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
+        display: none;
+    }
+    .btn-stop.visible { display: block; }
+
+    .queue { margin-top: 1rem; }
+    .queue-summary {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 8px; padding: 0.7rem 0.9rem; margin-bottom: 0.6rem;
+        font-size: 0.78rem; display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .queue-summary .progress-text { color: var(--ink); font-weight: 600; }
+    .queue-summary .eta-text { color: var(--ink-dim); }
+
+    .queue-item {
+        display: flex; align-items: center; gap: 0.8rem;
+        padding: 0.7rem 0.8rem; border-radius: 8px;
+        border: 1px solid var(--border); margin-bottom: 0.4rem;
+        background: var(--panel); transition: border-color 0.3s, opacity 0.3s;
+        font-size: 0.82rem;
+    }
+    .queue-item.pending { opacity: 0.5; }
+    .queue-item.creating { border-color: var(--warn); }
+    .queue-item.processing { border-color: var(--pixar-blue); }
+    .queue-item.done { border-color: var(--success); }
+    .queue-item.failed { border-color: var(--error); }
+    .queue-item .q-icon { font-size: 1rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
+    .queue-item .q-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .queue-item .q-status { font-size: 0.72rem; color: var(--ink-dim); text-align: right; flex-shrink: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .queue-more {
+        text-align: center; padding: 0.5rem; color: var(--ink-dim);
+        font-size: 0.75rem; font-style: italic;
+    }
+
+    .gallery { margin-top: 1.5rem; }
+    .gallery-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.8rem;
+    }
+    .gallery-item {
+        border-radius: var(--radius); overflow: hidden;
+        border: 1px solid var(--border); background: #000;
+        animation: fadeIn 0.4s ease;
+    }
+    .gallery-item video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
+    .gallery-item .g-caption {
+        padding: 0.4rem 0.6rem; background: var(--panel);
+        font-size: 0.7rem; color: var(--ink-dim);
+    }
+    .gallery-item .g-lyrics {
+        padding: 0.3rem 0.6rem 0.5rem;
+        background: linear-gradient(135deg, #fff0f5, #eef4ff);
+        font-size: 0.68rem;
+        color: #5a3a00;
+        font-style: italic;
+        line-height: 1.35;
+    }
+
+    .status-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: var(--ink); color: #fff; padding: 0.7rem 1rem;
+        font-size: 0.78rem; display: flex; align-items: center; gap: 0.6rem;
+        transform: translateY(100%); transition: transform 0.3s;
+        z-index: 100;
+    }
+    .status-bar.visible { transform: translateY(0); }
+    .status-bar .spinner {
+        width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: #fff; border-radius: 50%;
+        animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .hidden { display: none !important; }
+
+    /* Aperçu audio */
+    .audio-preview {
+        margin-top: 0.7rem;
+        padding: 0.7rem 0.9rem;
+        background: #fff;
+        border: 1px solid var(--pixar-blue);
+        border-radius: 8px;
+        font-size: 0.75rem;
+        color: var(--ink-dim);
+        line-height: 1.5;
+    }
+    .audio-preview strong { color: var(--pixar-blue); }
+    .audio-preview .lyric-line {
+        color: var(--pixar-pink);
+        font-weight: 600;
+        font-style: italic;
+        display: block;
+        margin-top: 0.3rem;
+    }
+
+    /* Anti-veille */
+    #noSleepCanvas { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+    #noSleepVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="pixar-badge">🎵 STUDIO PIXAR ENFANTS 🎵</div>
+    <h1>Atelier Chansons Animées</h1>
+    <p class="subtitle">Vos images deviennent des chansons animées Pixar de 10 secondes</p>
+</header>
+
+<div class="info-banner">
+    <strong>Comment ça marche :</strong> Ajoutez vos images, choisissez l'ambiance musicale et la voix,
+    c'est parti. Chaque vidéo est <strong>une chanson animée Pixar 3D</strong> —
+    musique orchestrale joyeuse, voix d'enfant qui chante, paroles positives et rigolotes.
+    Format <strong>portrait 9:16</strong>, durée fixe <strong>10 secondes</strong>.
+</div>
+
+<div class="pixar-panel">
+    <strong>🎬 Style verrouillé : Pixar 3D + Chanson Enfants</strong><br>
+    Toutes les vidéos utilisent le moteur Pixar : animation 3D haute qualité, personnages expressifs,
+    lumière cinématographique. En plus, une <strong>chanson originale</strong> est générée :
+    musique orchestrale joyeuse + voix d'enfant qui chante des paroles adaptées à la scène.
+    <div class="pixar-check">✓ Pixar 3D + Musique + Voix chantée pour chaque image</div>
+</div>
+
+<div class="api-panel" id="api-panel">
+    <input type="password" class="api-key-input" id="api-key-input"
+           placeholder="Collez votre clé API ici (sk-...)" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé</button>
+    <div class="api-status-line" id="api-status-line">
+        <span class="status-dot"></span>
+        <span id="api-status-text">Aucune clé API enregistrée</span>
+    </div>
+    <div class="api-hint">
+        Clé gratuite sur <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a> → Settings → API Keys
+    </div>
+    <div class="stat-line" id="stat-line">
+        <span>📊 Vitesse moyenne : <span id="stat-speed">en attente de données</span></span>
+        <span id="stat-samples">0 génération</span>
+    </div>
+    <div class="wake-status" id="wake-status">
+        <span id="wake-status-text">💤 Veille automatique</span>
+        <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
+    </div>
+</div>
+
+<div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept="image/*" multiple>
+    <div class="upload-icon">＋</div>
+    <div class="upload-text">Ajoutez vos images</div>
+    <div class="upload-hint">Autant que vous voulez — chacune deviendra une chanson Pixar 10s</div>
+</div>
+
+<div class="images-grid" id="images-grid"></div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- PANNEAU MUSIQUE & VOIX                                         -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="music-panel">
+    <div class="music-panel-title">🎵 Musique & Voix chantée</div>
+
+    <div class="music-row">
+        <span class="music-label">🎼 Musique de fond</span>
+        <div class="toggle-switch on" id="toggle-music" data-key="musicEnabled"></div>
+    </div>
+    <div class="music-row">
+        <span class="music-label">🎤 Voix qui chante</span>
+        <div class="toggle-switch on" id="toggle-voice" data-key="voiceEnabled"></div>
+    </div>
+    <div class="music-row">
+        <span class="music-label">📝 Paroles affichées</span>
+        <div class="toggle-switch on" id="toggle-lyrics" data-key="lyricsEnabled"></div>
+    </div>
+
+    <div class="control-row" style="margin-top:0.8rem;">
+        <label class="control-label">Type de voix</label>
+        <select id="voice-type-select">
+            <option value="child-girl" selected>👧 Petite fille joyeuse (5-8 ans)</option>
+            <option value="child-boy">👦 Petit garçon curieux (5-8 ans)</option>
+            <option value="children-choir">🎶 Chorale d'enfants</option>
+            <option value="kid-rap">🎤 Petit rappeur rigolo</option>
+        </select>
+    </div>
+
+    <div class="control-row">
+        <label class="control-label">Ambiance musicale</label>
+        <select id="music-style-select">
+            <option value="orchestral-happy" selected>🎺 Orchestre joyeux (Pixar classique)</option>
+            <option value="ukulele">🪕 Ukulélé & sifflets (aventure)</option>
+            <option value="music-box">🎠 Boîte à musique (rêve)</option>
+            <option value="marching-band">🥁 Fanfare entraînante (action)</option>
+            <option value="lullaby">🌙 Berceuse douce (calme)</option>
+            <option value="pop-kids">🎧 Pop pour enfants (moderne)</option>
+        </select>
+    </div>
+
+    <div class="control-row">
+        <label class="control-label">Thème des paroles</label>
+        <select id="lyrics-theme-select">
+            <option value="amitie" selected>🤝 L'amitié</option>
+            <option value="aventure">🗺️ L'aventure</option>
+            <option value="reve">✨ Les rêves</option>
+            <option value="nature">🌳 La nature</option>
+            <option value="famille">👨‍👩‍👧 La famille</option>
+            <option value="courage">🦁 Le courage</option>
+            <option value="joie">😄 La joie</option>
+            <option value="auto">🎲 Automatique (selon l'image)</option>
+        </select>
+    </div>
+
+    <div class="audio-preview" id="audio-preview">
+        <strong>Aperçu :</strong> <span id="preview-text">Chanson joyeuse avec voix d'enfant</span>
+        <span class="lyric-line" id="preview-lyric">🎵 « On chante ensemble, on rit, on danse… »</span>
+    </div>
+</div>
+
+<div class="section open" id="section-prompt">
+    <div class="section-header" data-toggle="section-prompt">
+        <span class="section-title">✍️ Direction artistique <span class="badge pixar">optionnel</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <textarea class="prompt-main" id="main-prompt"
+                placeholder="Ajoutez une direction artistique pour personnaliser vos chansons Pixar. Par exemple :
+
+« Un petit ours curieux découvre une forêt magique remplie de lucioles. Ambiance chaleureuse et émerveillée, comme dans Rebelle. »
+
+Ou laissez vide : le style Pixar standard sera appliqué automatiquement."></textarea>
+            <div class="prompt-presets" id="prompt-presets"></div>
+            <div class="prompt-main-hint">
+                💡 Le style <strong>Pixar 3D + chanson</strong> est appliqué quoi qu'il arrive. Ce prompt ajoute
+                juste une direction artistique (sujet, décor). Laissez vide pour un rendu Pixar classique.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section" id="section-tech">
+    <div class="section-header" data-toggle="section-tech">
+        <span class="section-title">📷 Réglages techniques</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row">
+                <label class="control-label">Durée de chaque vidéo</label>
+                <div class="duration-fixed">
+                    <span>⏱️</span>
+                    <span>10 secondes (241 images à 24 fps)</span>
+                </div>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Cadrage</label>
+                <select id="framing-select">
+                    <option value="random">Aléatoire</option>
+                    <option value="close">Très serré (gros plan)</option>
+                    <option value="medium" selected>Moyen (buste) — recommandé enfants</option>
+                    <option value="wide">Large (plan large)</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Intensité du mouvement</label>
+                <select id="intensity-select">
+                    <option value="random">Aléatoire</option>
+                    <option value="subtle">Subtile</option>
+                    <option value="moderate" selected>Modérée — recommandé enfants</option>
+                    <option value="strong">Forte</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button type="button" class="btn-primary" id="generate-btn" disabled>
+    🎵 Créer les chansons animées
+</button>
+
+<button type="button" class="btn-stop" id="stop-btn">
+    ⏹ Arrêter la génération
+</button>
+
+<div class="queue" id="queue" style="display:none;"></div>
+
+<div class="gallery" id="gallery" style="display:none;">
+    <div class="section-title" style="margin-bottom:0.8rem;">🎬 Chansons animées générées</div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+</div>
+
+<div class="status-bar" id="status-bar">
+    <div class="spinner"></div>
+    <span id="status-text">Préparation…</span>
+</div>
+
+<div class="toast" id="toast">
+    <span class="toast-icon" id="toast-icon">✓</span>
+    <span id="toast-text">Message</span>
+</div>
+
+<canvas id="noSleepCanvas" width="2" height="2"></canvas>
+<video id="noSleepVideo" playsinline muted loop></video>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURATION — PIXAR + CHANSON ENFANTS 10s
+// ══════════════════════════════════════════════════════════════════
+const API_BASE = 'https://apihub.agnes-ai.com/v1';
+const POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
+const MODEL_VIDEO = 'agnes-video-v2.0';
+const FRAME_RATE = 24;
+const DURATION_FRAMES = 241; // 10 secondes
+
+let createIntervalMs = 62000;
+const CREATE_INTERVAL_MIN = 62000;
+const CREATE_INTERVAL_MAX = 90000;
+const CREATE_INTERVAL_SAFE = 75000;
+
+const POLL_INTERVAL_SEC = 8;
+const MAX_POLL_ATTEMPTS = 120;
+
+const TIMING_CACHE_KEY = 'pixar_kids_timing_v1';
+const API_KEY_STORAGE = 'pixar_kids_api_key';
+const WAKE_LOCK_PREF = 'pixar_kids_wakelock';
+const MUSIC_PREFS_KEY = 'pixar_kids_music_prefs';
+
+const MAX_VISIBLE_QUEUE = 30;
+const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
+const THUMBNAIL_MAX_WIDTH = 200;
+
+// ══════════════════════════════════════════════════════════════════
+// STYLE PIXAR
+// ══════════════════════════════════════════════════════════════════
+const PIXAR_STYLE_PROMPT = 
+    'High-quality 3D computer animation in the exact style of Pixar Studios. ' +
+    'Stylized characters with slightly exaggerated proportions, large expressive eyes with detailed irises and subsurface scattering on skin. ' +
+    'Soft global illumination, warm cinematic lighting, physically-based rendering with realistic shadows and ambient occlusion. ' +
+    'Detailed 3D environments, rich textures, depth of field. ' +
+    'Smooth 24fps animation with natural motion, secondary animation on hair and clothing. ' +
+    'The entire image is reinterpreted as a Pixar 3D animated scene. ' +
+    'Character design must feel like a Pixar protagonist — appealing, expressive, full of life. ' +
+    'Professional color grading with a warm, emotional, family-friendly tone. ' +
+    'No photorealism, no 2D style, no anime, no sketch — pure Pixar 3D rendered animation. ' +
+    'This is for a CHILDREN audience: bright colors, friendly characters, positive and joyful mood.';
+
+const PIXAR_ANIMATION_PROMPT =
+    'Animate this Pixar 3D scene with lifelike character motion: breathing, blinking, subtle head movement, ' +
+    'natural gestures, hair and clothing simulation. Camera performs a gentle cinematic move. ' +
+    'Lighting evolves naturally. The scene feels alive like a Pixar movie clip. ' +
+    'Characters are happy and expressive — this is a joyful children\'s animation.';
+
+// ══════════════════════════════════════════════════════════════════
+// VOIX & MUSIQUE
+// ══════════════════════════════════════════════════════════════════
+const VOICE_PRESETS = {
+    'child-girl': {
+        label: 'Petite fille joyeuse',
+        voice: 'bright, cheerful 7-year-old girl voice, French, clear pronunciation, joyful tone',
+        pitch: 'high',
+        character: 'joyful little girl singer, sweet and lively'
+    },
+    'child-boy': {
+        label: 'Petit garçon curieux',
+        voice: 'bright, curious 7-year-old boy voice, French, clear pronunciation, playful tone',
+        pitch: 'medium-high',
+        character: 'curious little boy singer, playful and enthusiastic'
+    },
+    'children-choir': {
+        label: 'Chorale d\'enfants',
+        voice: 'group of 8 children singing together in French, cheerful choir, harmonious and joyful',
+        pitch: 'mixed',
+        character: 'children\'s choir, warm and united'
+    },
+    'kid-rap': {
+        label: 'Petit rappeur rigolo',
+        voice: 'playful 8-year-old kid rapping in French, rhythmic and fun, clear words',
+        pitch: 'medium',
+        character: 'funny little kid rapper, energetic and cool'
+    }
+};
+
+const MUSIC_STYLES = {
+    'orchestral-happy': {
+        label: 'Orchestre joyeux (Pixar classique)',
+        description: 'orchestral Pixar-style score with strings, brass, woodwinds, playful and uplifting, ' +
+                     'like the opening of a Pixar movie, major key, joyful melody',
+        tempo: 'medium',
+        instruments: 'strings, brass, woodwinds, piano, light percussion'
+    },
+    'ukulele': {
+        label: 'Ukulélé & sifflets (aventure)',
+        description: 'cheerful ukulele and whistling melody, light acoustic guitar, bouncy adventure mood, ' +
+                     'like a Pixar travel montage, warm and inviting',
+        tempo: 'medium-up',
+        instruments: 'ukulele, acoustic guitar, whistling, light shaker'
+    },
+    'music-box': {
+        label: 'Boîte à musique (rêve)',
+        description: 'soft music box melody, twinkling celesta, gentle strings, dreamy and magical, ' +
+                     'like a Pixar bedtime scene, calming and wonder-filled',
+        tempo: 'slow',
+        instruments: 'music box, celesta, soft strings, harp'
+    },
+    'marching-band': {
+        label: 'Fanfare entraînante (action)',
+        description: 'playful marching band, snare drums, trumpets, tuba, energetic and fun, ' +
+                     'like a Pixar adventure parade, upbeat and exciting',
+        tempo: 'up',
+        instruments: 'snare drum, trumpet, tuba, cymbals, whistles'
+    },
+    'lullaby': {
+        label: 'Berceuse douce (calme)',
+        description: 'gentle lullaby, soft piano, warm strings, soothing and tender, ' +
+                     'like a Pixar mother singing to her child, peaceful and loving',
+        tempo: 'slow',
+        instruments: 'piano, soft strings, celesta, gentle guitar'
+    },
+    'pop-kids': {
+        label: 'Pop pour enfants (moderne)',
+        description: 'modern kids pop song, catchy beat, claps, synth bells, happy and radio-friendly, ' +
+                     'like a Disney Channel theme song, energetic and fresh',
+        tempo: 'up',
+        instruments: 'synth, claps, bass, bell melodies, light drums'
+    }
+};
+
+const LYRICS_THEMES = {
+    'amitie': {
+        label: 'L\'amitié',
+        keywords: ['amis', 'ensemble', 'cœur', 'partager', 'jouer', 'rire'],
+        sampleLines: [
+            'On est amis pour la vie, on rit et on joue !',
+            'Ensemble on est plus forts, la main dans la main !',
+            'Mon copain, ma copine, on partage tout !'
+        ]
+    },
+    'aventure': {
+        label: 'L\'aventure',
+        keywords: ['partir', 'découvrir', 'chemin', 'trésor', 'monde', 'explorer'],
+        sampleLines: [
+            'On part à l\'aventure, explorer le monde !',
+            'Suivons le chemin, la carte nous guide !',
+            'Un grand voyage nous attend, tous ensemble !'
+        ]
+    },
+    'reve': {
+        label: 'Les rêves',
+        keywords: ['rêver', 'étoiles', 'voler', 'magie', 'nuit', 'imaginer'],
+        sampleLines: [
+            'Je rêve les yeux ouverts, tout est possible !',
+            'Dans mes rêves je vole, je touche les étoiles !',
+            'La magie est partout, il suffit d\'y croire !'
+        ]
+    },
+    'nature': {
+        label: 'La nature',
+        keywords: ['arbres', 'fleurs', 'animaux', 'soleil', 'forêt', 'rivière'],
+        sampleLines: [
+            'Les arbres dansent, les fleurs sourient !',
+            'Écoute la forêt qui chante pour toi !',
+            'Le soleil brille, la nature est belle !'
+        ]
+    },
+    'famille': {
+        label: 'La famille',
+        keywords: ['maman', 'papa', 'frère', 'sœur', 'maison', 'câlin'],
+        sampleLines: [
+            'Avec ma famille, je me sens bien !',
+            'Maman, papa, on s\'aime très fort !',
+            'À la maison, il y a plein d\'amour !'
+        ]
+    },
+    'courage': {
+        label: 'Le courage',
+        keywords: ['brave', 'peur', 'essayer', 'réussir', 'tomber', 'relever'],
+        sampleLines: [
+            'Je suis brave, j\'essaie encore une fois !',
+            'Même si c\'est dur, je n\'abandonne pas !',
+            'On tombe, on se relève, on réussit !'
+        ]
+    },
+    'joie': {
+        label: 'La joie',
+        keywords: ['heureux', 'rire', 'danser', 'chanter', 'sourire', 'fête'],
+        sampleLines: [
+            'On chante, on danse, on est trop contents !',
+            'Le bonheur c\'est maintenant, sourions !',
+            'Youpi, quelle belle journée aujourd\'hui !'
+        ]
+    },
+    'auto': {
+        label: 'Automatique (selon l\'image)',
+        keywords: [],
+        sampleLines: [
+            'Écoute la chanson de cette image magique !',
+            'Une mélodie rien que pour toi !',
+            'Chantons ensemble cette belle histoire !'
+        ]
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════
+// PROMPT PRESETS
+// ══════════════════════════════════════════════════════════════════
+const PROMPT_PRESETS = [
+    { label: '🧸 Jouet vivant',
+      text: 'Un jouet prend vie dès que personne ne regarde. Ambiance Toy Story : couleurs saturées, mouvement joyeux, expression émerveillée.' },
+    { label: '🐭 Petit héros',
+      text: 'Un petit animal courageux part à l\'aventure dans un monde immense. Ambiance Pixar : émerveillement, humour, tendresse.' },
+    { label: '🚀 Fusée rigolote',
+      text: 'Une petite fusée colorée décolle vers les étoiles. Ambiance Pixar spatiale : couleurs vives, émerveillement, humour.' },
+    { label: '🌳 Forêt magique',
+      text: 'Une forêt enchantée remplie de lucioles et de créatures mignonnes. Ambiance Rebelle/Le Voyage d\'Arlo : nature, magie, émerveillement.' },
+    { label: '🍰 Cuisine animée',
+      text: 'Des cupcakes dansent dans une cuisine magique. Ambiance Ratatouille : couleurs gourmandes, mouvement joyeux, humour.' },
+    { label: '🐠 Fond océan',
+      text: 'Un petit poisson curieux explore un récif coloré. Ambiance Le Monde de Nemo : couleurs vives, aventure aquatique.' },
+    { label: '👶 Bébé héros',
+      text: 'Un bébé super-héros découvre ses pouvoirs. Ambiance Les Indestructibles : humour, tendresse, couleurs vives.' },
+    { label: '🐕 Meilleur ami',
+      text: 'Un chien fidèle vit une aventure avec son jeune maître. Ambiance Là-haut : amitié, tendresse, aventure.' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// MOUVEMENTS
+// ══════════════════════════════════════════════════════════════════
+const RANDOM_ACTIONS = [
+    'the character blinks naturally and smiles warmly at the camera',
+    'the character laughs joyfully, eyes crinkling with happiness',
+    'the character waves hello with enthusiasm, whole body bouncing',
+    'the character jumps slightly with excitement, hair flying up',
+    'the character tilts their head and claps their hands happily',
+    'the character reaches out to touch something magical off-screen',
+    'the character dances a little happy wiggle, arms swinging',
+    'the character hugs a friend or a toy with a big smile',
+    'the character points at something wonderful with wonder',
+    'the character does a tiny happy spin, arms outstretched'
+];
+
+const RANDOM_CAMERA = [
+    'slow dolly-in toward the joyful character, warm and inviting',
+    'gentle orbit around the character revealing the colorful 3D world',
+    'static shot with subtle parallax, character moves naturally',
+    'slow crane up revealing the beautiful Pixar world',
+    'smooth handheld feel, camera dancing with the character',
+    'rack focus from a colorful foreground to the character\'s happy face'
+];
+
+const RANDOM_LIGHTING = [
+    'warm golden hour lighting, soft and inviting',
+    'bright cheerful daylight with soft colorful shadows',
+    'magical ambient glow with sparkles floating in the air',
+    'rainbow-colored rim light, festive and joyful',
+    'cozy interior lighting with warm fairy lights in background'
+];
+
+const INTENSITY_PRESETS = {
+    subtle: 'gentle subtle movement, calm and quiet animation, minimal motion',
+    moderate: 'moderate joyful movement, clear and lively animation, happy energy',
+    strong: 'dynamic energetic movement, big expressive Pixar-style animation, full of joy'
+};
+
+const FRAMING_PRESETS = {
+    close: 'close-up on the character\'s happy expressive face, intimate Pixar framing',
+    medium: 'medium shot, character framed from waist up, classic Pixar composition, ideal for children',
+    wide: 'wide shot showing the character in their beautiful colorful 3D environment'
+};
+
+// ══════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const state = {
+    images: [],
+    isRunning: false,
+    stopRequested: false,
+    queue: [],
+    completed: 0,
+    failed: 0,
+    mainPrompt: '',
+    framing: 'medium',
+    intensity: 'moderate',
+    durationFrames: DURATION_FRAMES,
+    isLoadingImages: false,
+    creationAttemptsSinceLastError: 0,
+    // Musique & voix
+    musicEnabled: true,
+    voiceEnabled: true,
+    lyricsEnabled: true,
+    voiceType: 'child-girl',
+    musicStyle: 'orchestral-happy',
+    lyricsTheme: 'amitie',
+    lyricsPerImage: {}
+};
+
+// ══════════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════════
+let toastTimeout = null;
+function showToast(message, type = 'success', duration = 2500) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const text = document.getElementById('toast-text');
+    if (!toast || !icon || !text) return;
+    toast.classList.remove('visible', 'success', 'error', 'warn');
+    void toast.offsetWidth;
+    const icons = { success: '✓', error: '✕', warn: '⚠' };
+    icon.textContent = icons[type] || '✓';
+    text.textContent = message;
+    toast.classList.add(type);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('visible'), duration);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GÉNÉRATION DES PAROLES
+// ══════════════════════════════════════════════════════════════════
+function generateLyrics(themeKey, imageIndex) {
+    const theme = LYRICS_THEMES[themeKey] || LYRICS_THEMES['amitie'];
+    const lines = theme.sampleLines;
+    // Sélection déterministe selon l'index d'image pour varier
+    const idx = imageIndex % lines.length;
+    const mainLine = lines[idx];
+    return {
+        theme: theme.label,
+        mainLine: mainLine,
+        keywords: theme.keywords
+    };
+}
+
+function updateAudioPreview() {
+    const voice = VOICE_PRESETS[state.voiceType];
+    const music = MUSIC_STYLES[state.musicStyle];
+    const theme = LYRICS_THEMES[state.lyricsTheme];
+    const previewText = document.getElementById('preview-text');
+    const previewLyric = document.getElementById('preview-lyric');
+    if (!previewText || !previewLyric) return;
+
+    const parts = [];
+    if (state.voiceEnabled) parts.push('🎤 ' + voice.label);
+    if (state.musicEnabled) parts.push('🎼 ' + music.label);
+    parts.push('📝 ' + theme.label);
+    previewText.textContent = parts.join(' · ');
+
+    const sample = theme.sampleLines[0];
+    previewLyric.textContent = '🎵 « ' + sample + ' »';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ANTI-VEILLE
+// ══════════════════════════════════════════════════════════════════
+let wakeLockSentinel = null;
+let wakeLockEnabled = false;
+let canvasStream = null;
+let canvasInterval = null;
+
+function isWakeLockSupported() {
+    return 'wakeLock' in navigator && typeof navigator.wakeLock.request === 'function';
+}
+async function requestWakeLockAPI() {
+    if (!isWakeLockSupported()) return false;
+    try {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null;
+            updateWakeStatus();
+        });
+        return true;
+    } catch (e) { return false; }
+}
+async function releaseWakeLockAPI() {
+    if (wakeLockSentinel) {
+        try { await wakeLockSentinel.release(); } catch (e) {}
+        wakeLockSentinel = null;
+    }
+}
+function startCanvasStream() {
+    if (canvasStream) return true;
+    try {
+        const canvas = document.getElementById('noSleepCanvas');
+        const video = document.getElementById('noSleepVideo');
+        if (!canvas || !video) return false;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return false;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (typeof canvas.captureStream !== 'function') return false;
+        canvasStream = canvas.captureStream(1);
+        let toggle = false;
+        canvasInterval = setInterval(() => {
+            toggle = !toggle;
+            ctx.fillStyle = toggle ? '#000000' : '#010101';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }, 1000);
+        video.srcObject = canvasStream;
+        video.muted = true;
+        video.playsInline = true;
+        const p = video.play();
+        if (p && p.catch) p.catch(() => {});
+        return true;
+    } catch (e) { return false; }
+}
+function stopCanvasStream() {
+    if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
+    const video = document.getElementById('noSleepVideo');
+    if (video) { try { video.pause(); video.srcObject = null; } catch (e) {} }
+    if (canvasStream) { try { canvasStream.getTracks().forEach(t => t.stop()); } catch (e) {} canvasStream = null; }
+}
+async function activateWakeLock() {
+    let success = false;
+    if (isWakeLockSupported()) success = await requestWakeLockAPI();
+    if (!success) success = startCanvasStream();
+    if (!success && !canvasStream) success = startCanvasStream();
+    return success;
+}
+async function deactivateWakeLock() {
+    await releaseWakeLockAPI();
+    stopCanvasStream();
+}
+function updateWakeStatus() {
+    const el = document.getElementById('wake-status');
+    const txt = document.getElementById('wake-status-text');
+    const btn = document.getElementById('wake-toggle-btn');
+    if (!el || !txt || !btn) return;
+    el.classList.remove('active', 'warn');
+    const hasAny = isWakeLockSupported() || (document.getElementById('noSleepCanvas')?.captureStream);
+    if (!hasAny) {
+        el.classList.add('warn');
+        txt.textContent = '⚠️ Non supporté par ce navigateur';
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = 'inline-block';
+    const isActive = wakeLockSentinel !== null || canvasStream !== null;
+    if (wakeLockEnabled && isActive) {
+        el.classList.add('active');
+        txt.textContent = '✅ L\'écran reste allumé';
+        btn.textContent = 'Désactiver';
+    } else if (wakeLockEnabled && !isActive) {
+        el.classList.add('warn');
+        txt.textContent = '⏳ En attente (touchez la page)';
+        btn.textContent = 'Désactiver';
+    } else {
+        txt.textContent = '💤 Veille automatique';
+        btn.textContent = 'Garder l\'écran allumé';
+    }
+}
+async function toggleWakeLock() {
+    if (wakeLockEnabled) {
+        wakeLockEnabled = false;
+        await deactivateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '0'); } catch (e) {}
+        showToast('Veille automatique réactivée', 'warn');
+    } else {
+        wakeLockEnabled = true;
+        const ok = await activateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) {}
+        showToast(ok ? 'L\'écran va rester allumé' : 'Activez manuellement dans les réglages', ok ? 'success' : 'warn');
+    }
+    updateWakeStatus();
+}
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLockEnabled) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+});
+async function ensureWakeLockActive() {
+    if (!wakeLockEnabled) return;
+    if (wakeLockSentinel === null && canvasStream === null) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CACHE DES TEMPS
+// ══════════════════════════════════════════════════════════════════
+function loadTimingCache() {
+    try { return JSON.parse(localStorage.getItem(TIMING_CACHE_KEY) || '{}'); }
+    catch (e) { return {}; }
+}
+function saveTimingCache(cache) {
+    try { localStorage.setItem(TIMING_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+}
+function recordGenerationTime(numFrames, durationMs) {
+    const cache = loadTimingCache();
+    const key = String(numFrames);
+    if (!cache[key]) cache[key] = [];
+    cache[key].push(durationMs);
+    if (cache[key].length > 10) cache[key] = cache[key].slice(-10);
+    saveTimingCache(cache);
+    updateTimingDisplay();
+}
+function estimateGenerationTime(numFrames) {
+    const cache = loadTimingCache();
+    const samples = cache[String(numFrames)];
+    if (samples && samples.length > 0) {
+        const sorted = [...samples].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
+    }
+    return 45000;
+}
+function updateTimingDisplay() {
+    const cache = loadTimingCache();
+    const all = Object.values(cache).flat();
+    const speedEl = document.getElementById('stat-speed');
+    const samplesEl = document.getElementById('stat-samples');
+    if (!speedEl || !samplesEl) return;
+    if (all.length === 0) {
+        speedEl.textContent = 'en attente de données';
+        samplesEl.textContent = '0 génération';
+        return;
+    }
+    const avg = all.reduce((a, b) => a + b, 0) / all.length;
+    speedEl.textContent = (avg / 1000).toFixed(1) + ' s en moyenne';
+    samplesEl.textContent = all.length + ' génération' + (all.length > 1 ? 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CLÉ API
+// ══════════════════════════════════════════════════════════════════
+function getApiKey() {
+    try { return (localStorage.getItem(API_KEY_STORAGE) || '').trim(); }
+    catch (e) { return ''; }
+}
+function saveApiKey() {
+    const input = document.getElementById('api-key-input');
+    if (!input) return;
+    const key = input.value.trim();
+    if (!key) {
+        try { localStorage.removeItem(API_KEY_STORAGE); } catch (e) {}
+        updateApiPanel();
+        showToast('Clé supprimée', 'warn');
+        return;
+    }
+    if (!key.startsWith('sk-')) {
+        if (!confirm('La clé ne commence pas par "sk-". La sauvegarder quand même ?')) return;
+    }
+    try {
+        localStorage.setItem(API_KEY_STORAGE, key);
+        updateApiPanel();
+        showToast('Clé API enregistrée ✓', 'success');
+        input.blur();
+    } catch (e) {
+        showToast('Erreur lors de la sauvegarde', 'error');
+    }
+}
+function updateApiPanel() {
+    const panel = document.getElementById('api-panel');
+    const input = document.getElementById('api-key-input');
+    const statusLine = document.getElementById('api-status-line');
+    const statusText = document.getElementById('api-status-text');
+    const key = getApiKey();
+    if (!panel || !input || !statusLine || !statusText) return;
+    if (key) {
+        panel.classList.add('ok');
+        statusLine.classList.add('ok');
+        statusText.textContent = 'Clé API active · ' + key.slice(0, 8) + '…' + key.slice(-4);
+        input.value = key;
+        input.placeholder = '';
+    } else {
+        panel.classList.remove('ok');
+        statusLine.classList.remove('ok');
+        statusText.textContent = 'Aucune clé API enregistrée';
+        input.value = '';
+        input.placeholder = 'Collez votre clé API ici (sk-...)';
+    }
+    updateGenerateBtn();
+}
+function updateGenerateBtn() {
+    const btn = document.getElementById('generate-btn');
+    if (!btn) return;
+    const hasImages = state.images.length > 0;
+    const hasKey = !!getApiKey();
+    btn.disabled = !hasImages || !hasKey || state.isRunning || state.isLoadingImages;
+    if (state.isLoadingImages) {
+        btn.textContent = 'Chargement des images… (' + state.images.length + ')';
+    } else if (state.isRunning) {
+        const total = state.queue.length;
+        const done = state.completed + state.failed;
+        btn.textContent = '🎵 Création des chansons… (' + done + '/' + total + ')';
+    } else if (!hasKey) {
+        btn.textContent = 'Ajoutez votre clé API';
+    } else if (!hasImages) {
+        btn.textContent = 'Ajoutez des images';
+    } else {
+        btn.textContent = '🎵 Créer ' + state.images.length + ' chanson' + (state.images.length > 1 ? 's' : '') + ' animée' + (state.images.length > 1 ? 's' : '') + ' 10s';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ══════════════════════════════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function log(msg) { console.log('[PixarKids] ' + msg); }
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const txt = document.getElementById('status-text');
+    if (!bar || !txt) return;
+    if (text) { bar.classList.add('visible'); txt.textContent = text; }
+    else bar.classList.remove('visible');
+}
+function randomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+function formatEta(seconds) {
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return m + 'm' + (s > 0 ? ' ' + s + 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRAITEMENT DES IMAGES
+// ══════════════════════════════════════════════════════════════════
+function fileToDataUri(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Erreur lecture'));
+        reader.readAsDataURL(file);
+    });
+}
+function generateThumbnail(dataUri) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ratio = img.height / img.width;
+                canvas.width = THUMBNAIL_MAX_WIDTH;
+                canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * ratio);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            } catch (e) { resolve(dataUri); }
+        };
+        img.onerror = () => resolve(dataUri);
+        img.src = dataUri;
+    });
+}
+async function processOneFile(file) {
+    if (!file.type.startsWith('image/')) return null;
+    if (file.size > MAX_IMAGE_SIZE) { log('Image trop lourde ignorée : ' + file.name); return null; }
+    try {
+        const dataUri = await fileToDataUri(file);
+        const thumbnail = await generateThumbnail(dataUri);
+        return { file: file, dataUri: dataUri, thumbnail: thumbnail, id: Date.now() + Math.random() };
+    } catch (e) {
+        log('Erreur traitement ' + file.name + ' : ' + e.message);
+        return null;
+    }
+}
+async function handleFiles(files) {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (!imageFiles.length) return;
+    state.isLoadingImages = true;
+    updateGenerateBtn();
+    setStatus('Chargement de ' + imageFiles.length + ' image' + (imageFiles.length > 1 ? 's' : '') + '…');
+    const uploadZone = document.getElementById('upload-zone');
+    uploadZone.classList.add('loading');
+    const BATCH = 5;
+    let processed = 0;
+    for (let i = 0; i < imageFiles.length; i += BATCH) {
+        const batch = imageFiles.slice(i, i + BATCH);
+        const results = await Promise.allSettled(batch.map(f => processOneFile(f)));
+        for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) { state.images.push(r.value); processed++; }
+        }
+        renderImages();
+        setStatus('Chargement des images… ' + processed + '/' + imageFiles.length);
+    }
+    state.isLoadingImages = false;
+    uploadZone.classList.remove('loading');
+    setStatus(null);
+    updateGenerateBtn();
+}
+function removeImage(id) {
+    state.images = state.images.filter(img => img.id !== id);
+    renderImages();
+}
+function renderImages() {
+    const grid = document.getElementById('images-grid');
+    grid.innerHTML = state.images.map(img => {
+        return '<div class="image-card">' +
+            '<img src="' + (img.thumbnail || img.dataUri) + '" alt="" loading="lazy">' +
+            '<button class="remove-btn" data-remove="' + img.id + '">✕</button>' +
+            '</div>';
+    }).join('');
+    grid.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeImage(parseFloat(btn.dataset.remove));
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDU — PRESETS
+// ══════════════════════════════════════════════════════════════════
+function renderPromptPresets() {
+    const container = document.getElementById('prompt-presets');
+    container.innerHTML = PROMPT_PRESETS.map((p, i) => {
+        return '<div class="prompt-preset" data-preset="' + i + '">' + esc(p.label) + '</div>';
+    }).join('');
+    container.querySelectorAll('.prompt-preset').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.preset, 10);
+            const preset = PROMPT_PRESETS[idx];
+            if (!preset) return;
+            const ta = document.getElementById('main-prompt');
+            ta.value = preset.text;
+            state.mainPrompt = preset.text;
+            ta.focus();
+            showToast('Direction artistique appliquée', 'success', 1200);
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONSTRUCTION DU PROMPT — PIXAR + CHANSON
+// ══════════════════════════════════════════════════════════════════
+function buildPrompt(imageIndex) {
+    const parts = [];
+
+    // 1. Base : transformation Pixar
+    parts.push(
+        'Animate this image as a Pixar 3D animated musical scene for children. ' +
+        'Transform the entire image into the exact visual style of Pixar Studios. ' +
+        'The subject becomes a Pixar-style 3D character — appealing, expressive, child-friendly.'
+    );
+
+    // 2. Style Pixar
+    parts.push(PIXAR_STYLE_PROMPT);
+
+    // 3. Animation
+    parts.push(PIXAR_ANIMATION_PROMPT);
+
+    // 4. Direction artistique optionnelle
+    if (state.mainPrompt && state.mainPrompt.trim().length > 0) {
+        parts.push('Artistic direction for this Pixar scene: ' + state.mainPrompt.trim());
+    }
+
+    // 5. Cadrage
+    if (state.framing !== 'random' && FRAMING_PRESETS[state.framing]) {
+        parts.push(FRAMING_PRESETS[state.framing]);
+    }
+
+    // 6. Intensité
+    if (state.intensity !== 'random' && INTENSITY_PRESETS[state.intensity]) {
+        parts.push(INTENSITY_PRESETS[state.intensity]);
+    } else {
+        parts.push('moderate joyful movement, clear and lively animation');
+    }
+
+    // 7. Action aléatoire
+    parts.push(randomItem(RANDOM_ACTIONS));
+
+    // 8. Caméra
+    parts.push(randomItem(RANDOM_CAMERA));
+
+    // 9. Lumière
+    parts.push(randomItem(RANDOM_LIGHTING));
+
+    // ══════════════════════════════════════════════════════════
+    // 10. MUSIQUE
+    // ══════════════════════════════════════════════════════════
+    if (state.musicEnabled) {
+        const music = MUSIC_STYLES[state.musicStyle];
+        parts.push(
+            'Background music: ' + music.description + '. ' +
+            'Tempo: ' + music.tempo + '. Instruments: ' + music.instruments + '. ' +
+            'The music is joyful, child-friendly, and synchronizes with the character\'s movements. ' +
+            'No scary sounds, no dissonance, no silence — continuous warm melody throughout.'
+        );
+    } else {
+        parts.push('No background music, only soft ambient sounds and character foley');
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // 11. VOIX QUI CHANTE + PAROLES
+    // ══════════════════════════════════════════════════════════
+    if (state.voiceEnabled) {
+        const voice = VOICE_PRESETS[state.voiceType];
+        const theme = LYRICS_THEMES[state.lyricsTheme];
+        const lyrics = generateLyrics(state.lyricsTheme, imageIndex);
+
+        parts.push(
+            'A child\'s singing voice performs the song: ' + voice.voice + '. ' +
+            'The singer is a ' + voice.character + '. ' +
+            'Singing in FRENCH with clear pronunciation, joyful and expressive. ' +
+            'The lyrics are simple, positive, and suitable for young children. ' +
+            'Theme of the song: ' + theme.label + '. ' +
+            'Sample lyric line: "' + lyrics.mainLine + '". ' +
+            'The singing is synchronized with the character\'s mouth movements (lip sync). ' +
+            'Voice is warm, friendly, and never scary.'
+        );
+
+        if (state.lyricsEnabled) {
+            parts.push(
+                'Display the French lyrics as animated subtitles on screen, ' +
+                'in a playful rounded font, colorful, with a bouncing word-by-word animation, ' +
+                'positioned at the bottom of the frame, easy to read for children.'
+            );
+        }
+    } else {
+        parts.push('No singing voice, only instrumental music');
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // 12. CONTRAINTES FINALES
+    // ══════════════════════════════════════════════════════════
+    parts.push(
+        'Portrait orientation 9:16 vertical, 24fps, exactly 10 seconds duration. ' +
+        'No text other than the lyrics, no watermarks. ' +
+        'The result must look and sound like an actual clip from a Pixar children\'s musical. ' +
+        'Target audience: kids aged 3 to 8. Positive, joyful, safe, and magical.'
+    );
+
+    return parts.join('. ');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// API AGNES
+// ══════════════════════════════════════════════════════════════════
+async function apiFetch(url, options = {}, label = 'API') {
+    for (let attempt = 0; attempt < 7; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        try {
+            const res = await fetch(url, options);
+            if (res.status === 429) {
+                state.creationAttemptsSinceLastError = 0;
+                if (createIntervalMs < CREATE_INTERVAL_SAFE) {
+                    createIntervalMs = Math.min(createIntervalMs + 8000, CREATE_INTERVAL_MAX);
+                }
+                const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
+                setStatus('L\'intelligence artificielle se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.status === 503) {
+                const wait = [5, 10, 15, 20, 30, 45][Math.min(attempt, 5)];
+                setStatus('Votre chanson se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.ok && createIntervalMs > CREATE_INTERVAL_MIN) {
+                state.creationAttemptsSinceLastError++;
+                if (state.creationAttemptsSinceLastError >= 3) {
+                    createIntervalMs = Math.max(createIntervalMs - 4000, CREATE_INTERVAL_MIN);
+                    state.creationAttemptsSinceLastError = 0;
+                }
+            }
+            return res;
+        } catch (e) {
+            if (e.message === 'Arrêt demandé') throw e;
+            const wait = [3, 5, 8, 12, 20, 30][Math.min(attempt, 5)];
+            setStatus('Connexion en cours… (' + wait + 's)');
+            await sleep(wait * 1000);
+        }
+    }
+    return fetch(url, options);
+}
+
+async function createVideoTask(imageDataUri, prompt) {
+    const body = {
+        model: MODEL_VIDEO,
+        prompt: prompt,
+        image: imageDataUri,
+        num_frames: state.durationFrames,
+        frame_rate: FRAME_RATE
+    };
+    const res = await apiFetch(API_BASE + '/videos', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + getApiKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    }, 'Création');
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+    }
+    const data = await res.json();
+    const videoId = data.video_id || data.id || data.task_id;
+    if (!videoId) throw new Error('Pas de video_id retourné');
+    return videoId;
+}
+
+async function pollVideo(videoId, onProgress) {
+    const estimatedMs = estimateGenerationTime(state.durationFrames);
+    const estimatedSec = estimatedMs / 1000;
+    let remaining = Math.max(20, Math.floor(estimatedSec * 0.8));
+    while (remaining > 0) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        onProgress('Votre chanson se prépare… — ' + remaining + 's');
+        await sleep(1000);
+        remaining--;
+    }
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        if (attempt > 0) {
+            let r = POLL_INTERVAL_SEC;
+            while (r > 0) {
+                if (state.stopRequested) throw new Error('Arrêt demandé');
+                onProgress('Création de la chanson… — ' + r + 's');
+                await sleep(1000);
+                r--;
+            }
+        }
+        const url = POLL_BASE + '?video_id=' + encodeURIComponent(videoId) + '&model_name=' + encodeURIComponent(MODEL_VIDEO);
+        const res = await apiFetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + getApiKey() }
+        }, 'Polling');
+        const d = await res.json();
+        const status = d.status || 'unknown';
+        const progress = d.progress || 0;
+        onProgress('Création en cours… — ' + progress + '%');
+        if (status === 'completed' || status === 'succeeded' || status === 'done') {
+            const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url);
+            if (!videoUrl) throw new Error('Terminé mais pas d\'URL');
+            return videoUrl;
+        }
+        if (status === 'failed' || status === 'error' || status === 'cancelled') {
+            throw new Error('Échec (' + status + ')');
+        }
+    }
+    throw new Error('Délai maximal dépassé');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE D'ATTENTE
+// ══════════════════════════════════════════════════════════════════
+function renderQueue() {
+    const queueEl = document.getElementById('queue');
+    if (!state.queue.length) { queueEl.style.display = 'none'; return; }
+    queueEl.style.display = 'block';
+    const total = state.queue.length;
+    const done = state.completed + state.failed;
+    const inProgress = state.queue.filter(q => q.status === 'processing').length;
+    const pending = total - done - inProgress;
+    const estGen = estimateGenerationTime(state.durationFrames) / 1000;
+    const remainingCreates = pending;
+    const eta = remainingCreates > 0
+        ? (remainingCreates * (createIntervalMs / 1000)) + estGen
+        : (inProgress * estGen / Math.max(inProgress, 1));
+    let html = '<div class="queue-summary">' +
+        '<span class="progress-text">Progression : ' + done + '/' + total + '</span>' +
+        '<span class="eta-text">' + (done < total ? '≈ ' + formatEta(eta) + ' restant' : 'Terminé') + '</span>' +
+        '</div>';
+    const visible = state.queue.slice(0, MAX_VISIBLE_QUEUE);
+    const hidden = state.queue.length - visible.length;
+    html += visible.map(item => {
+        let icon = '○', statusText = 'En file d\'attente', cls = 'pending';
+        if (item.status === 'creating') { icon = '◐'; statusText = 'Préparation…'; cls = 'creating'; }
+        else if (item.status === 'processing') { icon = '◐'; statusText = item.progress || 'En cours…'; cls = 'processing'; }
+        else if (item.status === 'done') { icon = '●'; statusText = 'Terminé'; cls = 'done'; }
+        else if (item.status === 'failed') { icon = '✕'; statusText = 'Échec'; cls = 'failed'; }
+        return '<div class="queue-item ' + cls + '">' +
+            '<div class="q-icon">' + icon + '</div>' +
+            '<div class="q-name">Image ' + (item.imageIndex + 1) + '</div>' +
+            '<div class="q-status">' + esc(statusText) + '</div>' +
+        '</div>';
+    }).join('');
+    if (hidden > 0) {
+        html += '<div class="queue-more">… et ' + hidden + ' autre' + (hidden > 1 ? 's' : '') + ' image' + (hidden > 1 ? 's' : '') + '</div>';
+    }
+    queueEl.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GALERIE
+// ══════════════════════════════════════════════════════════════════
+function addToGallery(videoUrl, label, lyrics) {
+    const galleryEl = document.getElementById('gallery');
+    const galleryGrid = document.getElementById('gallery-grid');
+    galleryEl.style.display = 'block';
+    const el = document.createElement('div');
+    el.className = 'gallery-item';
+    let lyricsHtml = '';
+    if (lyrics && state.lyricsEnabled) {
+        lyricsHtml = '<div class="g-lyrics">🎵 ' + esc(lyrics.mainLine) + '</div>';
+    }
+    el.innerHTML = '<video controls preload="metadata" playsinline>' +
+        '<source src="' + videoUrl + '" type="video/mp4">' +
+        '</video>' +
+        '<div class="g-caption">' + esc(label) + '</div>' +
+        lyricsHtml;
+    galleryGrid.appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE
+// ══════════════════════════════════════════════════════════════════
+async function createTaskOnly(item) {
+    item.status = 'creating';
+    item.progress = 'Préparation…';
+    renderQueue();
+    const prompt = buildPrompt(item.imageIndex);
+    item.prompt = prompt;
+    item.lyrics = generateLyrics(state.lyricsTheme, item.imageIndex);
+    log('[Image ' + (item.imageIndex + 1) + '] Création chanson…');
+    const videoId = await createVideoTask(item.image.dataUri, prompt);
+    item.videoId = videoId;
+    item.startTime = Date.now();
+    item.status = 'processing';
+    item.progress = 'En cours…';
+    renderQueue();
+    log('[Image ' + (item.imageIndex + 1) + '] Tâche créée : ' + String(videoId).slice(0, 30) + '…');
+    return videoId;
+}
+
+async function pollTaskAndDisplay(item) {
+    try {
+        const videoUrl = await pollVideo(item.videoId, (prog) => {
+            item.progress = prog;
+            renderQueue();
+        });
+        const elapsed = Date.now() - item.startTime;
+        recordGenerationTime(state.durationFrames, elapsed);
+        log('[Image ' + (item.imageIndex + 1) + '] Terminée en ' + (elapsed / 1000).toFixed(1) + 's');
+        item.status = 'done';
+        item.videoUrl = videoUrl;
+        item.progress = 'Terminé';
+        state.completed++;
+        renderQueue();
+        updateGenerateBtn();
+        addToGallery(videoUrl, 'Image ' + (item.imageIndex + 1) + ' — Chanson Pixar 10s', item.lyrics);
+    } catch (e) {
+        if (e.message === 'Arrêt demandé') {
+            item.status = 'failed';
+            item.progress = 'Arrêté';
+        } else {
+            log('[Image ' + (item.imageIndex + 1) + '] ' + e.message);
+            item.status = 'failed';
+            item.progress = 'Échec';
+            state.failed++;
+        }
+        renderQueue();
+        updateGenerateBtn();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// WORKFLOW PRINCIPAL
+// ══════════════════════════════════════════════════════════════════
+async function startGeneration() {
+    if (state.isRunning || !state.images.length) return;
+    if (!getApiKey()) {
+        showToast('Ajoutez d\'abord votre clé API', 'error');
+        document.getElementById('api-key-input').focus();
+        return;
+    }
+    state.mainPrompt = document.getElementById('main-prompt').value.trim();
+    state.isRunning = true;
+    state.stopRequested = false;
+    state.completed = 0;
+    state.failed = 0;
+    state.creationAttemptsSinceLastError = 0;
+    createIntervalMs = CREATE_INTERVAL_MIN;
+    state.queue = state.images.map((img, i) => ({
+        imageIndex: i,
+        image: img,
+        status: 'pending',
+        progress: null,
+        videoId: null,
+        videoUrl: null,
+        prompt: null,
+        lyrics: null,
+        startTime: null
+    }));
+    document.getElementById('gallery-grid').innerHTML = '';
+    document.getElementById('gallery').style.display = 'none';
+    document.getElementById('stop-btn').classList.add('visible');
+    document.getElementById('generate-btn').disabled = true;
+    await ensureWakeLockActive();
+    renderQueue();
+    updateGenerateBtn();
+    log('Démarrage chansons Pixar — ' + state.images.length + ' vidéos de 10s');
+    log('Voix : ' + VOICE_PRESETS[state.voiceType].label + ' | Musique : ' + MUSIC_STYLES[state.musicStyle].label);
+    const totalStart = Date.now();
+    const pollingTasks = [];
+    try {
+        for (let i = 0; i < state.queue.length; i++) {
+            if (state.stopRequested) break;
+            const item = state.queue[i];
+            try {
+                await createTaskOnly(item);
+                pollingTasks.push(pollTaskAndDisplay(item));
+            } catch (e) {
+                if (e.message === 'Arrêt demandé') break;
+                log('[Image ' + (i + 1) + '] Échec création : ' + e.message);
+                item.status = 'failed';
+                item.progress = 'Échec';
+                state.failed++;
+                renderQueue();
+                updateGenerateBtn();
+            }
+            if (i < state.queue.length - 1 && !state.stopRequested) {
+                const waitSec = Math.ceil(createIntervalMs / 1000);
+                for (let r = waitSec; r > 0; r--) {
+                    if (state.stopRequested) break;
+                    const nextNum = i + 2;
+                    setStatus('Respiration créative… — Image ' + nextNum + '/' + state.queue.length + ' dans ' + r + 's');
+                    await sleep(1000);
+                }
+            }
+        }
+        if (pollingTasks.length > 0) {
+            setStatus('Finalisation des chansons…');
+            await Promise.allSettled(pollingTasks);
+        }
+    } catch (e) {
+        log('Erreur globale : ' + e.message);
+    }
+    const totalElapsed = (Date.now() - totalStart) / 1000;
+    const summary = state.stopRequested
+        ? 'Arrêté — ' + state.completed + '/' + state.queue.length + ' chansons'
+        : '✦ ' + state.completed + '/' + state.queue.length + ' chansons Pixar créées en ' + formatEta(totalElapsed) + ' ✦';
+    log(summary);
+    setStatus(summary);
+    await sleep(4000);
+    setStatus(null);
+    state.isRunning = false;
+    state.stopRequested = false;
+    document.getElementById('stop-btn').classList.remove('visible');
+    updateGenerateBtn();
+    showToast(state.completed + ' chanson' + (state.completed > 1 ? 's' : '') + ' créée' + (state.completed > 1 ? 's' : ''), 'success');
+}
+
+function stopGeneration() {
+    if (!state.isRunning) return;
+    state.stopRequested = true;
+    log('Arrêt demandé par l\'utilisateur');
+    setStatus('Arrêt en cours…');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SAUVEGARDE DES PRÉFÉRENCES MUSIQUE
+// ══════════════════════════════════════════════════════════════════
+function saveMusicPrefs() {
+    try {
+        localStorage.setItem(MUSIC_PREFS_KEY, JSON.stringify({
+            musicEnabled: state.musicEnabled,
+            voiceEnabled: state.voiceEnabled,
+            lyricsEnabled: state.lyricsEnabled,
+            voiceType: state.voiceType,
+            musicStyle: state.musicStyle,
+            lyricsTheme: state.lyricsTheme
+        }));
+    } catch (e) {}
+}
+
+function loadMusicPrefs() {
+    try {
+        const saved = localStorage.getItem(MUSIC_PREFS_KEY);
+        if (saved) {
+            const prefs = JSON.parse(saved);
+            if (typeof prefs.musicEnabled === 'boolean') state.musicEnabled = prefs.musicEnabled;
+            if (typeof prefs.voiceEnabled === 'boolean') state.voiceEnabled = prefs.voiceEnabled;
+            if (typeof prefs.lyricsEnabled === 'boolean') state.lyricsEnabled = prefs.lyricsEnabled;
+            if (prefs.voiceType) state.voiceType = prefs.voiceType;
+            if (prefs.musicStyle) state.musicStyle = prefs.musicStyle;
+            if (prefs.lyricsTheme) state.lyricsTheme = prefs.lyricsTheme;
+        }
+    } catch (e) {}
+}
+
+function syncMusicUI() {
+    // Toggles
+    const tMusic = document.getElementById('toggle-music');
+    const tVoice = document.getElementById('toggle-voice');
+    const tLyrics = document.getElementById('toggle-lyrics');
+    if (tMusic) tMusic.classList.toggle('on', state.musicEnabled);
+    if (tVoice) tVoice.classList.toggle('on', state.voiceEnabled);
+    if (tLyrics) tLyrics.classList.toggle('on', state.lyricsEnabled);
+    // Selects
+    const sVoice = document.getElementById('voice-type-select');
+    const sMusic = document.getElementById('music-style-select');
+    const sLyrics = document.getElementById('lyrics-theme-select');
+    if (sVoice) sVoice.value = state.voiceType;
+    if (sMusic) sMusic.value = state.musicStyle;
+    if (sLyrics) sLyrics.value = state.lyricsTheme;
+    updateAudioPreview();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INITIALISATION
+// ══════════════════════════════════════════════════════════════════
+(function init() {
+    loadMusicPrefs();
+
+    const saveBtn = document.getElementById('api-save-btn');
+    if (saveBtn) saveBtn.addEventListener('click', saveApiKey);
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) stopBtn.addEventListener('click', stopGeneration);
+    const apiInput = document.getElementById('api-key-input');
+    if (apiInput) {
+        apiInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveApiKey(); }
+        });
+    }
+    document.querySelectorAll('[data-toggle]').forEach(header => {
+        header.addEventListener('click', () => {
+            document.getElementById(header.dataset.toggle).classList.toggle('open');
+        });
+    });
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    if (uploadZone && fileInput) {
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => {
+            handleFiles(e.target.files);
+            fileInput.value = '';
+        });
+    }
+    const mainPrompt = document.getElementById('main-prompt');
+    if (mainPrompt) {
+        mainPrompt.addEventListener('input', e => { state.mainPrompt = e.target.value; });
+    }
+    const framingSelect = document.getElementById('framing-select');
+    if (framingSelect) framingSelect.addEventListener('change', e => { state.framing = e.target.value; });
+    const intensitySelect = document.getElementById('intensity-select');
+    if (intensitySelect) intensitySelect.addEventListener('change', e => { state.intensity = e.target.value; });
+
+    // ─── Musique : toggles ───
+    const tMusic = document.getElementById('toggle-music');
+    if (tMusic) tMusic.addEventListener('click', () => {
+        state.musicEnabled = !state.musicEnabled;
+        tMusic.classList.toggle('on', state.musicEnabled);
+        saveMusicPrefs();
+        updateAudioPreview();
+    });
+    const tVoice = document.getElementById('toggle-voice');
+    if (tVoice) tVoice.addEventListener('click', () => {
+        state.voiceEnabled = !state.voiceEnabled;
+        tVoice.classList.toggle('on', state.voiceEnabled);
+        saveMusicPrefs();
+        updateAudioPreview();
+    });
+    const tLyrics = document.getElementById('toggle-lyrics');
+    if (tLyrics) tLyrics.addEventListener('click', () => {
+        state.lyricsEnabled = !state.lyricsEnabled;
+        tLyrics.classList.toggle('on', state.lyricsEnabled);
+        saveMusicPrefs();
+        updateAudioPreview();
+    });
+
+    // ─── Musique : selects ───
+    const sVoice = document.getElementById('voice-type-select');
+    if (sVoice) sVoice.addEventListener('change', e => {
+        state.voiceType = e.target.value;
+        saveMusicPrefs();
+        updateAudioPreview();
+    });
+    const sMusic = document.getElementById('music-style-select');
+    if (sMusic) sMusic.addEventListener('change', e => {
+        state.musicStyle = e.target.value;
+        saveMusicPrefs();
+        updateAudioPreview();
+    });
+    const sLyrics = document.getElementById('lyrics-theme-select');
+    if (sLyrics) sLyrics.addEventListener('change', e => {
+        state.lyricsTheme = e.target.value;
+        saveMusicPrefs();
+        updateAudioPreview();
+    });
+
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) generateBtn.addEventListener('click', startGeneration);
+    const wakeBtn = document.getElementById('wake-toggle-btn');
+    if (wakeBtn) wakeBtn.addEventListener('click', toggleWakeLock);
+    try {
+        const saved = localStorage.getItem(WAKE_LOCK_PREF);
+        wakeLockEnabled = saved === '1';
+    } catch (e) {}
+    if (wakeLockEnabled) {
+        activateWakeLock().then(() => updateWakeStatus());
+    }
+    updateApiPanel();
+    updateTimingDisplay();
+    updateWakeStatus();
+    renderPromptPresets();
+    renderImages();
+    renderQueue();
+    syncMusicUI();
+    log('Studio Pixar Enfants prêt — chansons animées 10s.');
+})();
+</script>
+
+</body>
+</html>
