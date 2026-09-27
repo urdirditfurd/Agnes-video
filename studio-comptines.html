@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Studio Comptines — Contes animés pour enfants</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+        --bg: #fff8f0;
+        --panel: #ffffff;
+        --panel-2: #fff3e6;
+        --border: #ffe0c2;
+        --ink: #4a2c1a;
+        --ink-dim: #a67c52;
+        --ink-faint: #d4b896;
+        --accent: #ff8a3d;
+        --accent-soft: #ffe4cc;
+        --pink: #ffb3c6;
+        --mint: #b8e6d5;
+        --sky: #b8dcff;
+        --sun: #ffd966;
+        --success: #4caf7a;
+        --error: #e57373;
+        --warn: #e8a838;
+        --info: #7aa7d9;
+        --radius: 16px;
+    }
+    body {
+        font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background: linear-gradient(180deg, #fff8f0 0%, #ffe9d6 100%);
+        background-attachment: fixed;
+        color: var(--ink); min-height: 100vh;
+        padding: 1.5rem 1rem 6rem; font-size: 15px; line-height: 1.5;
+        max-width: 900px; margin: 0 auto;
+    }
+
+    header { margin-bottom: 1.2rem; text-align: center; }
+    h1 {
+        font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;
+        margin-bottom: 0.3rem;
+        background: linear-gradient(135deg, #ff8a3d, #ffb3c6, #b8dcff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .subtitle { font-size: 0.85rem; color: var(--ink-dim); font-style: italic; }
+    .deco {
+        font-size: 1.4rem; margin-bottom: 0.4rem;
+        letter-spacing: 0.3rem;
+    }
+
+    .toast {
+        position: fixed; top: 1.5rem; left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: var(--ink); color: #fff;
+        padding: 0.85rem 1.4rem; border-radius: 12px;
+        font-size: 0.85rem; font-weight: 600;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+        z-index: 1000; opacity: 0;
+        transition: transform 0.35s ease, opacity 0.35s ease;
+        max-width: 90vw; text-align: center;
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--error); }
+    .toast.warn { background: var(--warn); }
+    .toast .toast-icon { font-size: 1rem; }
+
+    .info-banner {
+        background: #fff5e6; border-left: 4px solid var(--accent);
+        padding: 0.85rem 1.1rem; border-radius: 12px;
+        font-size: 0.82rem; color: #6b4423;
+        margin-bottom: 1rem; line-height: 1.5;
+    }
+    .info-banner strong { color: var(--ink); }
+    .info-banner .emoji { font-size: 1.1rem; margin-right: 0.3rem; }
+
+    .section {
+        background: var(--panel); border: 2px solid var(--border);
+        border-radius: var(--radius); margin-bottom: 1rem;
+        overflow: hidden; box-shadow: 0 2px 8px rgba(255,138,61,0.06);
+    }
+    .section-header {
+        padding: 1rem 1.1rem; cursor: pointer; user-select: none;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .section-header:active { background: var(--panel-2); }
+    .section-title {
+        font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--ink); font-weight: 700;
+    }
+    .section-title .badge {
+        display: inline-block; margin-left: 0.4rem; padding: 0.15rem 0.55rem;
+        background: var(--accent); color: #fff; border-radius: 12px;
+        font-size: 0.62rem; letter-spacing: 0;
+        font-weight: 700;
+    }
+    .section-title .badge.soft { background: var(--info); }
+    .section-title .badge.pink { background: var(--pink); color: var(--ink); }
+    .section-title .badge.mint { background: var(--mint); color: var(--ink); }
+    .section-header .chevron {
+        font-size: 0.7rem; color: var(--ink-faint); transition: transform 0.2s;
+    }
+    .section.open .section-header .chevron { transform: rotate(180deg); }
+    .section-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .section.open .section-body { max-height: 5000px; }
+    .section-content { padding: 0 1.1rem 1.2rem; }
+
+    .api-panel {
+        background: var(--panel); border: 2px solid var(--border);
+        border-radius: var(--radius); padding: 1rem 1.2rem;
+        margin-bottom: 1rem; transition: border-color 0.3s;
+        box-shadow: 0 2px 8px rgba(255,138,61,0.06);
+    }
+    .api-panel.ok { border-color: var(--success); }
+
+    .api-key-input {
+        width: 100%; padding: 0.85rem 1rem;
+        border-radius: 12px; border: 2px solid var(--border);
+        background: #fffaf4; color: var(--ink);
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 0.85rem; margin-bottom: 0.6rem;
+    }
+    .api-key-input:focus { outline: none; border-color: var(--accent); }
+
+    .api-save-btn {
+        width: 100%; padding: 0.85rem 1.2rem;
+        border-radius: 12px; border: none;
+        background: linear-gradient(135deg, #ff8a3d, #ffb347);
+        color: #fff;
+        font-size: 0.95rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; transition: transform 0.1s, box-shadow 0.2s;
+        margin-bottom: 0.6rem;
+        box-shadow: 0 4px 12px rgba(255,138,61,0.3);
+    }
+    .api-save-btn:active { transform: scale(0.98); }
+
+    .api-status-line {
+        font-size: 0.75rem; padding: 0.6rem 0.9rem;
+        border-radius: 10px; margin-bottom: 0.5rem;
+        display: flex; align-items: center; gap: 0.5rem;
+        background: var(--panel-2); color: var(--ink-dim);
+        transition: all 0.3s;
+    }
+    .api-status-line.ok {
+        background: #e3f5e9; color: var(--success); font-weight: 700;
+    }
+    .api-status-line .status-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--ink-faint); flex-shrink: 0;
+        transition: background 0.3s;
+    }
+    .api-status-line.ok .status-dot { background: var(--success); }
+
+    .api-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.4rem; }
+    .api-hint a { color: var(--accent); text-decoration: underline; font-weight: 600; }
+
+    .stat-line {
+        font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.5rem;
+        padding: 0.45rem 0.7rem; background: var(--panel-2); border-radius: 8px;
+        display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.3rem;
+    }
+
+    .wake-status {
+        font-size: 0.72rem; padding: 0.55rem 0.75rem;
+        border-radius: 8px; margin-top: 0.4rem;
+        display: flex; justify-content: space-between; align-items: center;
+        background: #eef4ff; color: var(--info);
+        flex-wrap: wrap; gap: 0.4rem;
+    }
+    .wake-status.active { background: #e3f5e9; color: var(--success); }
+    .wake-status.warn { background: #fdf5e3; color: var(--warn); }
+    .wake-status button {
+        background: transparent; border: 1.5px solid currentColor;
+        color: inherit; padding: 0.3rem 0.7rem; border-radius: 8px;
+        font-size: 0.68rem; cursor: pointer; font-family: inherit;
+        font-weight: 700;
+    }
+    .wake-status button:active { opacity: 0.6; }
+
+    .upload-zone {
+        border: 3px dashed var(--border); border-radius: var(--radius);
+        padding: 2.2rem 1rem; text-align: center; cursor: pointer;
+        transition: border-color 0.2s, background 0.2s, transform 0.1s;
+        margin-bottom: 1rem;
+        background: var(--panel);
+    }
+    .upload-zone:active { border-color: var(--accent); background: #fff5e6; transform: scale(0.99); }
+    .upload-zone.loading { pointer-events: none; opacity: 0.6; }
+    .upload-zone input[type="file"] { display: none; }
+    .upload-icon { font-size: 2.5rem; margin-bottom: 0.6rem; }
+    .upload-text { font-size: 1rem; color: var(--ink); margin-bottom: 0.25rem; font-weight: 700; }
+    .upload-hint { font-size: 0.78rem; color: var(--ink-dim); }
+
+    .images-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 0.5rem; margin-bottom: 1rem;
+    }
+    .image-card {
+        position: relative; border-radius: 12px; overflow: hidden;
+        border: 2px solid var(--border); background: #f0f0f0;
+        aspect-ratio: 9/16;
+    }
+    .image-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .image-card .remove-btn {
+        position: absolute; top: 5px; right: 5px;
+        background: rgba(0,0,0,0.65); color: #fff; border: none;
+        width: 24px; height: 24px; border-radius: 50%; font-size: 12px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        line-height: 1;
+    }
+
+    textarea { font-family: inherit; }
+
+    .prompt-main {
+        width: 100%; padding: 0.95rem 1.05rem;
+        border-radius: 12px; border: 2px solid var(--border);
+        background: #fffaf4; color: var(--ink);
+        font-family: inherit; font-size: 0.92rem;
+        min-height: 120px; resize: vertical; line-height: 1.55;
+    }
+    .prompt-main:focus { outline: none; border-color: var(--accent); }
+    .prompt-main-hint {
+        font-size: 0.74rem; color: var(--ink-dim);
+        margin-top: 0.55rem; line-height: 1.45;
+    }
+
+    .prompt-presets {
+        display: flex; flex-wrap: wrap; gap: 0.45rem;
+        margin-top: 0.7rem;
+    }
+    .prompt-preset {
+        padding: 0.4rem 0.8rem; border-radius: 20px;
+        border: 2px solid var(--border); background: #fffaf4;
+        font-size: 0.75rem; cursor: pointer;
+        transition: all 0.15s; user-select: none; font-weight: 600;
+    }
+    .prompt-preset:active { transform: scale(0.96); }
+    .prompt-preset:hover { border-color: var(--accent); background: #fff5e6; }
+
+    .styles-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.55rem;
+    }
+    .style-card {
+        padding: 0.8rem 0.9rem; border-radius: 12px;
+        border: 2px solid var(--border); background: #fffaf4;
+        cursor: pointer; transition: all 0.15s;
+        display: flex; align-items: center; gap: 0.55rem;
+    }
+    .style-card:active { transform: scale(0.98); }
+    .style-card.selected {
+        background: linear-gradient(135deg, #ff8a3d, #ffb347);
+        color: #fff; border-color: var(--accent);
+        box-shadow: 0 4px 14px rgba(255,138,61,0.35);
+    }
+    .style-card .style-emoji { font-size: 1.4rem; flex-shrink: 0; }
+    .style-card .style-name { font-size: 0.82rem; font-weight: 700; line-height: 1.2; }
+    .style-card .style-desc { font-size: 0.66rem; opacity: 0.75; margin-top: 0.15rem; line-height: 1.25; }
+
+    .style-category-header {
+        grid-column: 1 / -1;
+        font-size: 0.72rem; font-weight: 800;
+        color: var(--ink); text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 0.7rem 0 0.35rem;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 0.35rem;
+    }
+    .style-category-header:first-child { padding-top: 0; border-bottom: none; }
+    .style-category-desc {
+        grid-column: 1 / -1;
+        font-size: 0.7rem; color: var(--ink-dim);
+        font-style: italic; margin-bottom: 0.45rem; line-height: 1.4;
+    }
+
+    .no-style-card {
+        grid-column: 1 / -1;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        border: 2px dashed var(--border);
+        background: transparent;
+        text-align: center; cursor: pointer;
+        transition: all 0.15s;
+        font-size: 0.84rem; color: var(--ink-dim);
+        font-weight: 600;
+    }
+    .no-style-card:active { transform: scale(0.99); }
+    .no-style-card.selected {
+        border-color: var(--accent); border-style: solid;
+        background: var(--accent-soft); color: var(--ink); font-weight: 700;
+    }
+
+    .control-row { margin-bottom: 0.95rem; }
+    .control-row:last-child { margin-bottom: 0; }
+    .control-label {
+        display: block; font-size: 0.74rem; color: var(--ink);
+        margin-bottom: 0.45rem; text-transform: uppercase; letter-spacing: 0.05em;
+        font-weight: 700;
+    }
+    select {
+        width: 100%; padding: 0.75rem 0.95rem; border-radius: 12px;
+        border: 2px solid var(--border); background: #fffaf4;
+        color: var(--ink); font-family: inherit; font-size: 0.9rem;
+        font-weight: 600;
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23ff8a3d' d='M0 0l5 6 5-6z'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 10px;
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+
+    .btn-primary {
+        width: 100%; padding: 1.15rem; border-radius: var(--radius);
+        border: none;
+        background: linear-gradient(135deg, #ff8a3d 0%, #ffb347 50%, #ffb3c6 100%);
+        color: #fff;
+        font-size: 1.05rem; font-weight: 800; font-family: inherit;
+        cursor: pointer; transition: transform 0.1s, box-shadow 0.2s;
+        margin-bottom: 1rem;
+        box-shadow: 0 6px 20px rgba(255,138,61,0.35);
+        letter-spacing: 0.02em;
+    }
+    .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+    .btn-stop {
+        width: 100%; padding: 0.85rem; border-radius: var(--radius);
+        border: 2px solid var(--error); background: var(--panel);
+        color: var(--error); font-size: 0.9rem; font-weight: 700;
+        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
+        display: none;
+    }
+    .btn-stop.visible { display: block; }
+
+    .queue { margin-top: 1rem; }
+    .queue-summary {
+        background: var(--panel); border: 2px solid var(--border);
+        border-radius: 12px; padding: 0.8rem 1rem; margin-bottom: 0.65rem;
+        font-size: 0.8rem; display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .queue-summary .progress-text { color: var(--ink); font-weight: 700; }
+    .queue-summary .eta-text { color: var(--ink-dim); }
+
+    .queue-item {
+        display: flex; align-items: center; gap: 0.8rem;
+        padding: 0.75rem 0.9rem; border-radius: 12px;
+        border: 2px solid var(--border); margin-bottom: 0.45rem;
+        background: var(--panel); transition: border-color 0.3s, opacity 0.3s;
+        font-size: 0.84rem;
+    }
+    .queue-item.pending { opacity: 0.5; }
+    .queue-item.creating { border-color: var(--warn); background: #fffaf0; }
+    .queue-item.processing { border-color: var(--accent); background: #fff5e6; }
+    .queue-item.done { border-color: var(--success); background: #eef9f2; }
+    .queue-item.failed { border-color: var(--error); background: #fdeeee; }
+    .queue-item .q-icon { font-size: 1.1rem; width: 1.6rem; text-align: center; flex-shrink: 0; }
+    .queue-item .q-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    .queue-item .q-status { font-size: 0.72rem; color: var(--ink-dim); text-align: right; flex-shrink: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .queue-more {
+        text-align: center; padding: 0.5rem; color: var(--ink-dim);
+        font-size: 0.76rem; font-style: italic;
+    }
+
+    .gallery { margin-top: 1.5rem; }
+    .gallery-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.85rem;
+    }
+    .gallery-item {
+        border-radius: var(--radius); overflow: hidden;
+        border: 2px solid var(--border); background: #000;
+        animation: fadeIn 0.4s ease;
+        box-shadow: 0 4px 12px rgba(255,138,61,0.15);
+    }
+    .gallery-item video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
+    .gallery-item .g-caption {
+        padding: 0.5rem 0.7rem; background: var(--panel);
+        font-size: 0.74rem; color: var(--ink-dim); font-weight: 600;
+    }
+
+    .status-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: linear-gradient(135deg, #ff8a3d, #ffb347);
+        color: #fff; padding: 0.85rem 1.2rem;
+        font-size: 0.82rem; display: flex; align-items: center; gap: 0.7rem;
+        transform: translateY(100%); transition: transform 0.3s;
+        z-index: 100; font-weight: 600;
+        box-shadow: 0 -4px 20px rgba(255,138,61,0.3);
+    }
+    .status-bar.visible { transform: translateY(0); }
+    .status-bar .spinner {
+        width: 14px; height: 14px; border: 2.5px solid rgba(255,255,255,0.35);
+        border-top-color: #fff; border-radius: 50%;
+        animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+    .bounce { animation: bounce 1.6s ease-in-out infinite; }
+
+    .hidden { display: none !important; }
+    #noSleepCanvas { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+    #noSleepVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="deco bounce">🎵 🧸 ✨</div>
+    <h1>Studio Comptines</h1>
+    <p class="subtitle">Vos photos deviennent des contes animés, doux et magiques</p>
+</header>
+
+<div class="info-banner">
+    <span class="emoji">🌈</span>
+    <strong>Comment ça marche :</strong> Ajoutez vos photos (enfants, peluches, dessins, familles, animaux…),
+    choisissez une ambiance musicale douce, et l'IA transforme chaque image en petit film animé
+    au style <strong>Pixar / Ghibli</strong> — couleurs tendres, mouvement rythmé comme une comptine.
+    Format <strong>portrait 9:16</strong>, parfait pour les stories.
+</div>
+
+<div class="api-panel" id="api-panel">
+    <input type="password" class="api-key-input" id="api-key-input"
+           placeholder="Collez votre clé API ici (sk-...)" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn" id="api-save-btn">💾 Enregistrer la clé</button>
+    <div class="api-status-line" id="api-status-line">
+        <span class="status-dot"></span>
+        <span id="api-status-text">Aucune clé API enregistrée</span>
+    </div>
+    <div class="api-hint">
+        Clé gratuite sur <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a> → Settings → API Keys
+    </div>
+    <div class="stat-line" id="stat-line">
+        <span>📊 Vitesse moyenne : <span id="stat-speed">en attente de données</span></span>
+        <span id="stat-samples">0 génération</span>
+    </div>
+    <div class="wake-status" id="wake-status">
+        <span id="wake-status-text">💤 Veille automatique</span>
+        <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
+    </div>
+</div>
+
+<div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept="image/*" multiple>
+    <div class="upload-icon">🖼️</div>
+    <div class="upload-text">Ajoutez vos photos</div>
+    <div class="upload-hint">Photos d'enfants, peluches, dessins, animaux, familles… chacune deviendra un petit film</div>
+</div>
+
+<div class="images-grid" id="images-grid"></div>
+
+<div class="section open" id="section-prompt">
+    <div class="section-header" data-toggle="section-prompt">
+        <span class="section-title">✍️ Votre histoire <span class="badge pink">recommandé</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <textarea class="prompt-main" id="main-prompt"
+                placeholder="Décrivez l'histoire douce que vous voulez raconter avec vos photos. Par exemple :
+
+« Transforme chaque photo en dessin animé style Pixar pour enfants. Ambiance de comptine au coucher du soleil, couleurs pastel, personnages tout ronds et adorables. Les peluches bougent doucement comme si elles dansaient une berceuse. Ajoute des lucioles, des fleurs qui s'ouvrent, une lumière dorée tendre. Garde bien chaque visage d'enfant reconnaissable et souriant. »"></textarea>
+            <div class="prompt-presets" id="prompt-presets"></div>
+            <div class="prompt-main-hint">
+                💡 Ce texte s'applique à <strong>toutes vos photos</strong>. Si vous le laissez vide,
+                l'ambiance choisie ci-dessous fera tout le travail. Le style Pixar 3D est appliqué par défaut
+                pour garder une ambiance conte pour enfants.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section" id="section-style">
+    <div class="section-header" data-toggle="section-style">
+        <span class="section-title">🎨 Ambiance musicale <span class="badge">choisir une</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="styles-grid" id="styles-grid"></div>
+        </div>
+    </div>
+</div>
+
+<div class="section" id="section-tech">
+    <div class="section-header" data-toggle="section-tech">
+        <span class="section-title">📷 Réglages du conte</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row">
+                <label class="control-label">Durée de chaque petit film</label>
+                <select id="duration-select">
+                    <option value="121">5 secondes</option>
+                    <option value="153" selected>6,4 secondes (recommandé)</option>
+                    <option value="241">10 secondes</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Cadrage</label>
+                <select id="framing-select">
+                    <option value="random">Aléatoire</option>
+                    <option value="close">Gros plan tendre (visage)</option>
+                    <option value="medium">Plan moyen (buste)</option>
+                    <option value="wide">Plan large (scène entière)</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Intensité du mouvement</label>
+                <select id="intensity-select">
+                    <option value="subtle" selected>Douce — comme une berceuse</option>
+                    <option value="random">Aléatoire</option>
+                    <option value="moderate">Modérée — comme une chanson joyeuse</option>
+                    <option value="strong">Vive — comme une comptine dansante</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button type="button" class="btn-primary" id="generate-btn" disabled>
+    ✨ Créer les contes animés
+</button>
+
+<button type="button" class="btn-stop" id="stop-btn">
+    ⏹ Arrêter la génération
+</button>
+
+<div class="queue" id="queue" style="display:none;"></div>
+
+<div class="gallery" id="gallery" style="display:none;">
+    <div class="section-title" style="margin-bottom:0.8rem;">🎬 Vos contes animés</div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+</div>
+
+<div class="status-bar" id="status-bar">
+    <div class="spinner"></div>
+    <span id="status-text">Préparation…</span>
+</div>
+
+<div class="toast" id="toast">
+    <span class="toast-icon" id="toast-icon">✓</span>
+    <span id="toast-text">Message</span>
+</div>
+
+<canvas id="noSleepCanvas" width="2" height="2"></canvas>
+<video id="noSleepVideo" playsinline muted loop></video>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ══════════════════════════════════════════════════════════════════
+const API_BASE = 'https://apihub.agnes-ai.com/v1';
+const POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
+const MODEL_VIDEO = 'agnes-video-v2.0';
+const FRAME_RATE = 24;
+
+let createIntervalMs = 62000;
+const CREATE_INTERVAL_MIN = 62000;
+const CREATE_INTERVAL_MAX = 90000;
+const CREATE_INTERVAL_SAFE = 75000;
+const POLL_INTERVAL_SEC = 8;
+const MAX_POLL_ATTEMPTS = 100;
+
+const TIMING_CACHE_KEY = 'studio_comptines_timing_v1';
+const API_KEY_STORAGE = 'studio_comptines_api_key';
+const WAKE_LOCK_PREF = 'studio_comptines_wakelock';
+
+const MAX_VISIBLE_QUEUE = 30;
+const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
+const THUMBNAIL_MAX_WIDTH = 200;
+
+// ══════════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════════
+let toastTimeout = null;
+function showToast(message, type = 'success', duration = 2500) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const text = document.getElementById('toast-text');
+    if (!toast || !icon || !text) return;
+    toast.classList.remove('visible', 'success', 'error', 'warn');
+    void toast.offsetWidth;
+    const icons = { success: '✓', error: '✕', warn: '⚠' };
+    icon.textContent = icons[type] || '✓';
+    text.textContent = message;
+    toast.classList.add(type);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('visible'), duration);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ANTI-VEILLE
+// ══════════════════════════════════════════════════════════════════
+let wakeLockSentinel = null;
+let wakeLockEnabled = false;
+let canvasStream = null;
+let canvasInterval = null;
+
+function isWakeLockSupported() {
+    return 'wakeLock' in navigator && typeof navigator.wakeLock.request === 'function';
+}
+
+async function requestWakeLockAPI() {
+    if (!isWakeLockSupported()) return false;
+    try {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null;
+            updateWakeStatus();
+        });
+        return true;
+    } catch (e) { return false; }
+}
+
+async function releaseWakeLockAPI() {
+    if (wakeLockSentinel) {
+        try { await wakeLockSentinel.release(); } catch (e) {}
+        wakeLockSentinel = null;
+    }
+}
+
+function startCanvasStream() {
+    if (canvasStream) return true;
+    try {
+        const canvas = document.getElementById('noSleepCanvas');
+        const video = document.getElementById('noSleepVideo');
+        if (!canvas || !video) return false;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return false;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (typeof canvas.captureStream !== 'function') return false;
+        canvasStream = canvas.captureStream(1);
+        let toggle = false;
+        canvasInterval = setInterval(() => {
+            toggle = !toggle;
+            ctx.fillStyle = toggle ? '#000000' : '#010101';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }, 1000);
+        video.srcObject = canvasStream;
+        video.muted = true;
+        video.playsInline = true;
+        const playPromise = video.play();
+        if (playPromise && playPromise.catch) playPromise.catch(() => {});
+        return true;
+    } catch (e) { return false; }
+}
+
+function stopCanvasStream() {
+    if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
+    const video = document.getElementById('noSleepVideo');
+    if (video) { try { video.pause(); video.srcObject = null; } catch (e) {} }
+    if (canvasStream) {
+        try { canvasStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+        canvasStream = null;
+    }
+}
+
+async function activateWakeLock() {
+    let success = false;
+    if (isWakeLockSupported()) success = await requestWakeLockAPI();
+    if (!success) success = startCanvasStream();
+    if (!success && !canvasStream) success = startCanvasStream();
+    return success;
+}
+
+async function deactivateWakeLock() {
+    await releaseWakeLockAPI();
+    stopCanvasStream();
+}
+
+function updateWakeStatus() {
+    const el = document.getElementById('wake-status');
+    const txt = document.getElementById('wake-status-text');
+    const btn = document.getElementById('wake-toggle-btn');
+    if (!el || !txt || !btn) return;
+    el.classList.remove('active', 'warn');
+    const hasAnyMechanism = isWakeLockSupported() ||
+        (document.getElementById('noSleepCanvas')?.captureStream);
+    if (!hasAnyMechanism) {
+        el.classList.add('warn');
+        txt.textContent = '⚠️ Non supporté par ce navigateur';
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = 'inline-block';
+    const isActive = wakeLockSentinel !== null || canvasStream !== null;
+    if (wakeLockEnabled && isActive) {
+        el.classList.add('active');
+        txt.textContent = '✅ L\'écran reste allumé';
+        btn.textContent = 'Désactiver';
+    } else if (wakeLockEnabled && !isActive) {
+        el.classList.add('warn');
+        txt.textContent = '⏳ En attente (touchez la page)';
+        btn.textContent = 'Désactiver';
+    } else {
+        txt.textContent = '💤 Veille automatique';
+        btn.textContent = 'Garder l\'écran allumé';
+    }
+}
+
+async function toggleWakeLock() {
+    if (wakeLockEnabled) {
+        wakeLockEnabled = false;
+        await deactivateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '0'); } catch (e) {}
+        showToast('Veille automatique réactivée', 'warn');
+    } else {
+        wakeLockEnabled = true;
+        const ok = await activateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) {}
+        showToast(ok ? 'L\'écran va rester allumé ✓' : 'Activez manuellement dans les réglages', ok ? 'success' : 'warn');
+    }
+    updateWakeStatus();
+}
+
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLockEnabled) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+});
+
+async function ensureWakeLockActive() {
+    if (!wakeLockEnabled) return;
+    if (wakeLockSentinel === null && canvasStream === null) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CACHE DES TEMPS
+// ══════════════════════════════════════════════════════════════════
+function loadTimingCache() {
+    try { return JSON.parse(localStorage.getItem(TIMING_CACHE_KEY) || '{}'); }
+    catch (e) { return {}; }
+}
+function saveTimingCache(cache) {
+    try { localStorage.setItem(TIMING_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+}
+function recordGenerationTime(numFrames, durationMs) {
+    const cache = loadTimingCache();
+    const key = String(numFrames);
+    if (!cache[key]) cache[key] = [];
+    cache[key].push(durationMs);
+    if (cache[key].length > 10) cache[key] = cache[key].slice(-10);
+    saveTimingCache(cache);
+    updateTimingDisplay();
+}
+function estimateGenerationTime(numFrames) {
+    const cache = loadTimingCache();
+    const samples = cache[String(numFrames)];
+    if (samples && samples.length > 0) {
+        const sorted = [...samples].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
+    }
+    return 30000 + numFrames * 500;
+}
+function updateTimingDisplay() {
+    const cache = loadTimingCache();
+    const all = Object.values(cache).flat();
+    const speedEl = document.getElementById('stat-speed');
+    const samplesEl = document.getElementById('stat-samples');
+    if (!speedEl || !samplesEl) return;
+    if (all.length === 0) {
+        speedEl.textContent = 'en attente de données';
+        samplesEl.textContent = '0 génération';
+        return;
+    }
+    const avg = all.reduce((a, b) => a + b, 0) / all.length;
+    speedEl.textContent = (avg / 1000).toFixed(1) + ' s en moyenne';
+    samplesEl.textContent = all.length + ' génération' + (all.length > 1 ? 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PRESETS D'HISTOIRE
+// ══════════════════════════════════════════════════════════════════
+const PROMPT_PRESETS = [
+    { label: '🌙 Berceuse du soir',
+      text: 'Transforme cette photo en dessin animé 3D style Pixar pour enfants. Ambiance de berceuse au coucher du soleil : lumière dorée tendre, couleurs pastel, ciel étoilé naissant. Les personnages bougent tout doucement comme s\'ils s\'endormaient. Ajoute des lucioles flottantes et une douce brise. Garde chaque visage d\'enfant parfaitement reconnaissable, souriant et paisible.' },
+    { label: '🧸 Peluches magiques',
+      text: 'Transforme cette image en scène animée 3D style Pixar, ambiance comptine joyeuse. Les peluches et jouets prennent vie doucement : ils dansent une ronde lente, clignent des yeux, se balancent. Couleurs pastel, lumière chaude et rassurante, petites étoiles scintillantes, fleurs qui s\'ouvrent. Garde le décor identique à la photo originale.' },
+    { label: '🌈 Jardin féérique',
+      text: 'Transforme cette photo en dessin animé Pixar pour enfants. Ambiance de comptine dans un jardin magique : fleurs qui s\'ouvrent au ralenti, papillons colorés, lucioles dorées, arc-en-ciel discret. Les enfants présents sautillent doucement de joie. Couleurs tendres, lumière douce de fin d\'après-midi. Garde les visages exactement comme sur la photo.' },
+    { label: '🐣 Petit animal câlin',
+      text: 'Transforme cette image en court métrage 3D style Pixar tendre et enfantin. Ambiance musicale de comptine douce : l\'animal bouge lentement, cligne des yeux, remue la queue ou les oreilles. Couleurs pastel, lumière chaude, petites étoiles ou cœurs qui flottent. Garde l\'animal identique à la photo originale, juste animé avec douceur.' },
+    { label: '🎠 Manège enchanté',
+      text: 'Transforme cette photo en scène animée 3D style Pixar. Ambiance de comptine tournante : lumières chaudes qui tournent, reflets scintillants, ambiance foraine douce. Les personnages tournent légèrement sur eux-mêmes avec le sourire. Couleurs vives mais tendres, mouvement rythmé comme une mélodie enfantine. Garde chaque visage reconnaissable.' },
+    { label: '🚂 Petit train des rêves',
+      text: 'Transforme cette image en dessin animé Pixar. Ambiance de comptine voyageuse : paysage qui défile doucement, nuages qui bougent, fumée de petit train qui monte. Les enfants regardent par la fenêtre avec des yeux brillants. Couleurs pastel, lumière douce, mouvement lent et rythmé comme une berceuse. Garde les visages identiques.' },
+    { label: '⭐ Câlin sous les étoiles',
+      text: 'Transforme cette photo en scène 3D style Pixar tendre. Ambiance de comptine au clair de lune : ciel bleu nuit étoilé, lune ronde et douce, lucioles dorées, couverture et coussins moelleux. Les personnages se blottissent doucement, ferment les yeux, respirent calmement. Couleurs pastel bleutées, lumière chaude de lanterne. Garde chaque visage d\'enfant parfaitement fidèle.' },
+    { label: '🍭 Monde sucré',
+      text: 'Transforme cette image en animation 3D style Pixar très colorée et enfantine. Ambiance de comptine joyeuse : sucreries, bonbons, glaces, guimauves qui flottent doucement, couleurs vives pastel, paillettes qui tombent comme de la neige. Les personnages sourient, rigolent doucement. Lumière chaude et tendre. Garde les visages identiques à la photo.' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// AMBIANCES MUSICALES
+// ══════════════════════════════════════════════════════════════════
+const AMBIANCE_EFFECTS = [
+    { id: 'berceuse', name: 'Berceuse du soir', emoji: '🌙', desc: 'Tout doux, lumière chaude, fin de journée',
+      prompt: 'soft lullaby atmosphere, warm golden sunset light, gentle pastel colors, dreamy slow movements, twinkling stars appearing, children safe and peaceful, Pixar-style 3D rendering, soft rounded shapes, warm ambient glow, minimal movement like slow breathing' },
+    { id: 'comptine-joyeuse', name: 'Comptine joyeuse', emoji: '🎵', desc: 'Rythmé, souriant, plein de vie',
+      prompt: 'cheerful nursery rhyme atmosphere, bright pastel colors, gentle bouncing movements, smiling characters, flowers blooming, butterflies flying, warm sunny light, Pixar-style 3D animation, expressive rounded characters, joyful and safe mood' },
+    { id: 'reve-magique', name: 'Rêve magique', emoji: '✨', desc: 'Féerique, étoiles, poussière dorée',
+      prompt: 'magical dream atmosphere, floating golden sparkles, soft glowing orbs, pastel rainbow tones, slow dreamy camera, fairy-tale mood, Pixar-style 3D rendering, ethereal soft light, gentle magical motion, enchanted forest vibes' },
+    { id: 'jardin-secret', name: 'Jardin secret', emoji: '🌸', desc: 'Fleurs, papillons, nature tendre',
+      prompt: 'secret enchanted garden atmosphere, blooming flowers, colorful butterflies, soft morning light through leaves, gentle breeze moving petals, Pixar 3D style, lush greens and pastel pinks, warm and safe mood, slow poetic camera movement' },
+    { id: 'peluches-vivantes', name: 'Peluches vivantes', emoji: '🧸', desc: 'Jouets qui s\'animent, ambiance cocon',
+      prompt: 'living toys nursery atmosphere, plush teddy bears gently coming to life, warm blanket textures, soft lamplight, playful yet calm motions, Pixar 3D toy-story-like rendering, cozy children bedroom, pastel colors, gentle breathing-like animation' },
+    { id: 'petit-train', name: 'Petit train', emoji: '🚂', desc: 'Voyage doux, paysage qui défile',
+      prompt: 'gentle train journey atmosphere, scrolling pastoral landscape, moving clouds, soft smoke, warm sunlight through windows, Pixar 3D style, nostalgic and cozy mood, slow rhythmic motion like a lullaby, children looking out with wonder' },
+    { id: 'manege-enchante', name: 'Manège enchanté', emoji: '🎠', desc: 'Lumières tournantes, ambiance fête foraine douce',
+      prompt: 'enchanted carousel atmosphere, warm twinkling lights, gentle rotating motion, pastel carnival colors, soft reflections, Pixar 3D style, magical fairytale mood, delicate rhythmic movement like a waltz, dreamy and safe' },
+    { id: 'ciel-etoile', name: 'Ciel étoilé', emoji: '⭐', desc: 'Nuit douce, étoiles filantes, calme',
+      prompt: 'starry night atmosphere, deep blue sky with twinkling stars, soft moonlight, drifting clouds, glowing fireflies, Pixar 3D style, serene bedtime mood, minimal gentle motion, warm lantern light on faces, peaceful breathing' },
+    { id: 'monde-sucre', name: 'Monde sucré', emoji: '🍭', desc: 'Bonbons, couleurs vives, paillettes',
+      prompt: 'candy wonderland atmosphere, floating sweets, pastel rainbow colors, sparkling glitter falling, joyful bouncing motion, Pixar 3D style, vibrant and playful mood, warm bright lighting, characters smiling and laughing softly' },
+    { id: 'campagne-paisible', name: 'Campagne paisible', emoji: '🌾', desc: 'Champs, coccinelles, air doux',
+      prompt: 'peaceful countryside atmosphere, gentle golden wheat fields swaying, ladybugs flying, soft warm afternoon light, Pixar 3D style, nostalgic and safe mood, slow gentle motion, warm pastel colors, children playing softly in the distance' },
+    { id: 'foret-enchantee', name: 'Forêt enchantée', emoji: '🌲', desc: 'Arbres magiques, brume douce, lucioles',
+      prompt: 'enchanted forest atmosphere, tall magical trees, gentle mist, glowing fireflies, soft green light filtering through leaves, Pixar 3D style, mysterious yet safe mood, slow dreamy camera, muted greens and golds' },
+    { id: 'mer-caline', name: 'Mer caline', emoji: '🌊', desc: 'Vagues douces, coquillages, horizon',
+      prompt: 'gentle seaside atmosphere, calm turquoise waves, soft white foam, pastel sky at golden hour, seagulls gliding, Pixar 3D style, peaceful and refreshing mood, slow rhythmic motion like breathing, warm sand tones' }
+];
+
+const STYLIZE_EFFECTS = [
+    { id: 'pixar-full', name: 'Pixar 3D complet', emoji: '✨', desc: 'Transformation totale style Pixar',
+      prompt: 'full Pixar-style 3D animated rendering, subsurface scattering on skin, expressive rounded character design, cinematic warm lighting, high-quality Disney/Pixar aesthetic, smooth shading, storybook-like charm, children-friendly visual style' },
+    { id: 'ghibli-doux', name: 'Ghibli tout doux', emoji: '🌿', desc: 'Anime poétique à la Ghibli',
+      prompt: 'Studio Ghibli soft anime style, hand-painted watercolor backgrounds, gentle cel-shaded characters, Hayao Miyazaki aesthetic, warm nostalgic colors, quiet poetic atmosphere, children-friendly' },
+    { id: 'aquarelle-enfant', name: 'Aquarelle enfantine', emoji: '🎨', desc: 'Peinture douce, bords qui coulent',
+      prompt: 'children\'s watercolor illustration style, soft bleeding edges, translucent pastel washes, paper texture, storybook illustration aesthetic, warm gentle tones, dreamy and innocent mood' },
+    { id: 'crayon-couleur', name: 'Crayon de couleur', emoji: '✏️', desc: 'Dessin d\'enfant, tendre et naïf',
+      prompt: 'colored pencil children\'s drawing style, soft grainy strokes, visible paper texture, naive charming illustration, warm pastel palette, storybook warmth, tender and innocent' },
+    { id: 'peluche-3d', name: 'Peluche 3D', emoji: '🧸', desc: 'Tout devient doux et pelucheux',
+      prompt: 'soft plush 3D rendering style, fuzzy fabric textures, embroidered details, rounded shapes, warm cozy lighting, everything looks like a cute stuffed toy, children-friendly Pixar-like aesthetic' },
+    { id: 'conte-anime', name: 'Conte animé classique', emoji: '📖', desc: 'Illustration de livre pour enfants',
+      prompt: 'classic children\'s storybook animated illustration, warm hand-drawn aesthetic, golden age of illustration style, soft colors, whimsical details, cozy bedtime story atmosphere' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// MOUVEMENTS DOUX POUR ENFANTS
+// ══════════════════════════════════════════════════════════════════
+const RANDOM_ACTIONS = [
+    'the child slowly smiles, eyes sparkling with joy, cheeks lifting gently',
+    'the plush toy blinks softly and tilts its head with a gentle sway',
+    'the child breathes slowly, chest rising and falling like in peaceful sleep',
+    'a butterfly lands gently nearby and slowly flaps its wings',
+    'the character raises a hand slowly to wave hello with a warm smile',
+    'petals float gently around the scene, twirling in slow motion',
+    'the child hugs a plush toy closer, eyes closing softly',
+    'fireflies dance slowly around the scene in gentle spirals',
+    'the character giggles softly, shoulders bouncing lightly',
+    'the child looks up at the sky with wide curious eyes, mouth slightly open',
+    'a small bird lands nearby and chirps gently, then flies away slowly',
+    'the plush toy rocks back and forth gently as if being cradled'
+];
+
+const RANDOM_CAMERA = [
+    'slow gentle dolly-in, camera gliding forward imperceptibly',
+    'static locked-off frame with soft motion inside the frame',
+    'very slow dolly-out revealing more of the cozy environment',
+    'subtle parallax movement creating dreamy depth',
+    'gentle camera drift like a floating feather',
+    'slow arc movement around the subject like a loving glance',
+    'subtle handheld breathing motion, warm and organic',
+    'slow tilt up from small details to the smiling face'
+];
+
+const RANDOM_LIGHTING = [
+    'warm golden hour sunlight, soft and dreamy',
+    'gentle window light filtering through white curtains',
+    'cozy lantern glow, warm amber tones',
+    'soft morning light with pastel pink and blue tones',
+    'twinkling starry night light with soft moon glow',
+    'warm candle light flickering softly',
+    'soft rainbow light filtering through a prism',
+    'gentle fairy light glow, warm and magical'
+];
+
+const INTENSITY_PRESETS = {
+    subtle: 'extremely subtle movement, gentle like a lullaby, barely perceptible breathing motion, calm and peaceful',
+    moderate: 'moderate gentle movement, cheerful like a children\'s song, clear but soft motion',
+    strong: 'playful energetic movement, joyful like a dancing nursery rhyme, bouncy and lively but still safe'
+};
+
+const FRAMING_PRESETS = {
+    close: 'intimate close-up framing, tender view of the subject, warm and personal',
+    medium: 'medium shot, subject framed from waist up, cozy composition',
+    wide: 'wide shot showing the full environment, storybook illustration framing'
+};
+
+// ══════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const state = {
+    images: [],
+    isRunning: false,
+    stopRequested: false,
+    queue: [],
+    completed: 0,
+    failed: 0,
+    selectedEffect: 'berceuse',
+    mainPrompt: '',
+    framing: 'random',
+    intensity: 'subtle',
+    durationFrames: 153,
+    isLoadingImages: false,
+    creationAttemptsSinceLastError: 0
+};
+
+// ══════════════════════════════════════════════════════════════════
+// CLÉ API
+// ══════════════════════════════════════════════════════════════════
+function getApiKey() {
+    try { return (localStorage.getItem(API_KEY_STORAGE) || '').trim(); }
+    catch (e) { return ''; }
+}
+
+function saveApiKey() {
+    const input = document.getElementById('api-key-input');
+    if (!input) return;
+    const key = input.value.trim();
+    if (!key) {
+        try { localStorage.removeItem(API_KEY_STORAGE); } catch (e) {}
+        updateApiPanel();
+        showToast('Clé supprimée', 'warn');
+        return;
+    }
+    if (!key.startsWith('sk-')) {
+        if (!confirm('La clé ne commence pas par "sk-". La sauvegarder quand même ?')) return;
+    }
+    try {
+        localStorage.setItem(API_KEY_STORAGE, key);
+        updateApiPanel();
+        showToast('Clé API enregistrée ✓', 'success');
+        input.blur();
+    } catch (e) {
+        showToast('Erreur lors de la sauvegarde', 'error');
+    }
+}
+
+function updateApiPanel() {
+    const panel = document.getElementById('api-panel');
+    const input = document.getElementById('api-key-input');
+    const statusLine = document.getElementById('api-status-line');
+    const statusText = document.getElementById('api-status-text');
+    const key = getApiKey();
+    if (!panel || !input || !statusLine || !statusText) return;
+    if (key) {
+        panel.classList.add('ok');
+        statusLine.classList.add('ok');
+        statusText.textContent = '🔑 Clé active · ' + key.slice(0, 8) + '…' + key.slice(-4);
+        input.value = key;
+        input.placeholder = '';
+    } else {
+        panel.classList.remove('ok');
+        statusLine.classList.remove('ok');
+        statusText.textContent = 'Aucune clé API enregistrée';
+        input.value = '';
+        input.placeholder = 'Collez votre clé API ici (sk-...)';
+    }
+    updateGenerateBtn();
+}
+
+function updateGenerateBtn() {
+    const btn = document.getElementById('generate-btn');
+    if (!btn) return;
+    const hasImages = state.images.length > 0;
+    const hasKey = !!getApiKey();
+    btn.disabled = !hasImages || !hasKey || state.isRunning || state.isLoadingImages;
+    if (state.isLoadingImages) {
+        btn.textContent = 'Chargement des images… (' + state.images.length + ')';
+    } else if (state.isRunning) {
+        const total = state.queue.length;
+        const done = state.completed + state.failed;
+        btn.textContent = '✨ Création en cours… (' + done + '/' + total + ')';
+    } else if (!hasKey) {
+        btn.textContent = '🔑 Ajoutez votre clé API';
+    } else if (!hasImages) {
+        btn.textContent = '🖼️ Ajoutez des photos';
+    } else {
+        btn.textContent = '✨ Créer ' + state.images.length + ' conte' + (state.images.length > 1 ? 's' : '') + ' animé' + (state.images.length > 1 ? 's' : '');
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ══════════════════════════════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function log(msg) { console.log('[Studio Comptines] ' + msg); }
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const txt = document.getElementById('status-text');
+    if (!bar || !txt) return;
+    if (text) { bar.classList.add('visible'); txt.textContent = text; }
+    else bar.classList.remove('visible');
+}
+function randomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+function formatEta(seconds) {
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return m + 'm' + (s > 0 ? ' ' + s + 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRAITEMENT IMAGES
+// ══════════════════════════════════════════════════════════════════
+function fileToDataUri(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Erreur lecture'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function generateThumbnail(dataUri) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ratio = img.height / img.width;
+                canvas.width = THUMBNAIL_MAX_WIDTH;
+                canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * ratio);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            } catch (e) { resolve(dataUri); }
+        };
+        img.onerror = () => resolve(dataUri);
+        img.src = dataUri;
+    });
+}
+
+async function processOneFile(file) {
+    if (!file.type.startsWith('image/')) return null;
+    if (file.size > MAX_IMAGE_SIZE) return null;
+    try {
+        const dataUri = await fileToDataUri(file);
+        const thumbnail = await generateThumbnail(dataUri);
+        return { file, dataUri, thumbnail, id: Date.now() + Math.random() };
+    } catch (e) { return null; }
+}
+
+async function handleFiles(files) {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (!imageFiles.length) return;
+    state.isLoadingImages = true;
+    updateGenerateBtn();
+    setStatus('Chargement de ' + imageFiles.length + ' image' + (imageFiles.length > 1 ? 's' : '') + '…');
+    const uploadZone = document.getElementById('upload-zone');
+    uploadZone.classList.add('loading');
+    const BATCH = 5;
+    let processed = 0;
+    for (let i = 0; i < imageFiles.length; i += BATCH) {
+        const batch = imageFiles.slice(i, i + BATCH);
+        const results = await Promise.allSettled(batch.map(f => processOneFile(f)));
+        for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) {
+                state.images.push(r.value);
+                processed++;
+            }
+        }
+        renderImages();
+        setStatus('Chargement des images… ' + processed + '/' + imageFiles.length);
+    }
+    state.isLoadingImages = false;
+    uploadZone.classList.remove('loading');
+    setStatus(null);
+    updateGenerateBtn();
+}
+
+function removeImage(id) {
+    state.images = state.images.filter(img => img.id !== id);
+    renderImages();
+    updateGenerateBtn();
+}
+
+function renderImages() {
+    const grid = document.getElementById('images-grid');
+    grid.innerHTML = state.images.map(img => {
+        return '<div class="image-card">' +
+            '<img src="' + (img.thumbnail || img.dataUri) + '" alt="" loading="lazy">' +
+            '<button class="remove-btn" data-remove="' + img.id + '">✕</button>' +
+            '</div>';
+    }).join('');
+    grid.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeImage(parseFloat(btn.dataset.remove));
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDU PRESETS & STYLES
+// ══════════════════════════════════════════════════════════════════
+function renderPromptPresets() {
+    const container = document.getElementById('prompt-presets');
+    container.innerHTML = PROMPT_PRESETS.map((p, i) => {
+        return '<div class="prompt-preset" data-preset="' + i + '">' + esc(p.label) + '</div>';
+    }).join('');
+    container.querySelectorAll('.prompt-preset').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.preset, 10);
+            const preset = PROMPT_PRESETS[idx];
+            if (!preset) return;
+            const ta = document.getElementById('main-prompt');
+            ta.value = preset.text;
+            state.mainPrompt = preset.text;
+            ta.focus();
+            showToast('Histoire appliquée ✨', 'success', 1400);
+        });
+    });
+}
+
+function renderStyles() {
+    const container = document.getElementById('styles-grid');
+    let html = '';
+    html += '<div class="no-style-card ' + (state.selectedEffect === null ? 'selected' : '') + '" data-effect="none">' +
+        (state.selectedEffect === null
+            ? '✓ Aucune ambiance — votre histoire seule'
+            : '🚫 Aucune ambiance musicale (juste mon histoire)') +
+        '</div>';
+    html += '<div class="style-category-header">🎵 Ambiances musicales douces</div>';
+    html += '<div class="style-category-desc">Ces ambiances donnent le tempo et la couleur de votre conte.</div>';
+    html += AMBIANCE_EFFECTS.map(s => {
+        return '<div class="style-card ' + (state.selectedEffect === s.id ? 'selected' : '') + '" data-effect="' + s.id + '">' +
+            '<div class="style-emoji">' + s.emoji + '</div>' +
+            '<div>' +
+                '<div class="style-name">' + esc(s.name) + '</div>' +
+                '<div class="style-desc">' + esc(s.desc) + '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+    html += '<div class="style-category-header">🎨 Styles graphiques enfants</div>';
+    html += '<div class="style-category-desc">Ceux-ci transforment l\'apparence de votre image. Le Pixar 3D est chaudement recommandé.</div>';
+    html += STYLIZE_EFFECTS.map(s => {
+        return '<div class="style-card ' + (state.selectedEffect === s.id ? 'selected' : '') + '" data-effect="' + s.id + '">' +
+            '<div class="style-emoji">' + s.emoji + '</div>' +
+            '<div>' +
+                '<div class="style-name">' + esc(s.name) + '</div>' +
+                '<div class="style-desc">' + esc(s.desc) + '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+    container.innerHTML = html;
+    container.querySelectorAll('[data-effect]').forEach(el => {
+        el.addEventListener('click', () => {
+            const val = el.dataset.effect;
+            state.selectedEffect = (val === 'none') ? null : val;
+            renderStyles();
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONSTRUCTION DU PROMPT
+// ══════════════════════════════════════════════════════════════════
+function buildPrompt() {
+    const allEffects = AMBIANCE_EFFECTS.concat(STYLIZE_EFFECTS);
+    const effect = state.selectedEffect ? allEffects.find(s => s.id === state.selectedEffect) : null;
+    const isAmbiance = effect && AMBIANCE_EFFECTS.some(s => s.id === state.selectedEffect);
+    const isStylize = effect && STYLIZE_EFFECTS.some(s => s.id === state.selectedEffect);
+    const hasUserPrompt = state.mainPrompt && state.mainPrompt.trim().length > 0;
+
+    const parts = [];
+    parts.push(
+        'Animate this exact image as the starting frame, creating a gentle animated children\'s storybook scene. ' +
+        'The subject must remain IDENTICAL to the input image: same face, same expression, same clothing, same pose, same identity. ' +
+        'This is a tender CONTINUATION of the source image, not a re-imagination. ' +
+        'Preserve the exact composition and framing of the original image. ' +
+        'Only subtle motion, breathing, warm light, and magical atmosphere are animated. ' +
+        'Mood must be safe, warm, and appropriate for young children.'
+    );
+
+    // Pixar 3D par défaut si aucun style graphique n'est choisi
+    if (!isStylize) {
+        parts.push('Apply a soft Pixar-style 3D animated rendering: rounded shapes, warm cinematic lighting, expressive characters, children-friendly storybook aesthetic.');
+    }
+
+    if (effect) {
+        parts.push(effect.prompt);
+        if (isStylize) {
+            parts.push('Maintain the same subject, pose, and composition as the source image, but reinterpret everything in this new children-friendly style.');
+        }
+    }
+
+    if (hasUserPrompt) {
+        parts.push('Story direction (highest priority, must not change the subject identity or composition): ' + state.mainPrompt.trim());
+    }
+
+    if (state.framing !== 'random' && FRAMING_PRESETS[state.framing]) {
+        parts.push(FRAMING_PRESETS[state.framing]);
+    }
+
+    if (state.intensity !== 'random' && INTENSITY_PRESETS[state.intensity]) {
+        parts.push(INTENSITY_PRESETS[state.intensity]);
+    } else {
+        parts.push('gentle moderate movement, calm and warm like a lullaby');
+    }
+
+    parts.push(randomItem(RANDOM_ACTIONS));
+    parts.push(randomItem(RANDOM_CAMERA));
+    parts.push(randomItem(RANDOM_LIGHTING));
+    parts.push('Sound design: soft music-box melody, gentle lullaby instruments like celesta and harp, minimal soft foley, no scary sounds, no dialogue');
+    parts.push('Portrait orientation 9:16 vertical, 24fps, no text, no subtitles, no watermarks, consistent character design with the source image, family-friendly, safe for children');
+
+    return parts.join('. ');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// API AGNES
+// ══════════════════════════════════════════════════════════════════
+async function apiFetch(url, options = {}, label = 'API') {
+    for (let attempt = 0; attempt < 7; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        try {
+            const res = await fetch(url, options);
+            if (res.status === 429) {
+                state.creationAttemptsSinceLastError = 0;
+                if (createIntervalMs < CREATE_INTERVAL_SAFE) {
+                    createIntervalMs = Math.min(createIntervalMs + 8000, CREATE_INTERVAL_MAX);
+                }
+                const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
+                setStatus('L\'intelligence artificielle se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.status === 503) {
+                const wait = [5, 10, 15, 20, 30, 45][Math.min(attempt, 5)];
+                setStatus('Votre conte se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.ok && createIntervalMs > CREATE_INTERVAL_MIN) {
+                state.creationAttemptsSinceLastError++;
+                if (state.creationAttemptsSinceLastError >= 3) {
+                    createIntervalMs = Math.max(createIntervalMs - 4000, CREATE_INTERVAL_MIN);
+                    state.creationAttemptsSinceLastError = 0;
+                }
+            }
+            return res;
+        } catch (e) {
+            if (e.message === 'Arrêt demandé') throw e;
+            const wait = [3, 5, 8, 12, 20, 30][Math.min(attempt, 5)];
+            setStatus('Connexion en cours… (' + wait + 's)');
+            await sleep(wait * 1000);
+        }
+    }
+    return fetch(url, options);
+}
+
+async function createVideoTask(imageDataUri, prompt) {
+    const body = {
+        model: MODEL_VIDEO,
+        prompt: prompt,
+        image: imageDataUri,
+        num_frames: state.durationFrames,
+        frame_rate: FRAME_RATE
+    };
+    const res = await apiFetch(API_BASE + '/videos', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + getApiKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    }, 'Création');
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+    }
+    const data = await res.json();
+    const videoId = data.video_id || data.id || data.task_id;
+    if (!videoId) throw new Error('Pas de video_id retourné');
+    return videoId;
+}
+
+async function pollVideo(videoId, onProgress) {
+    const estimatedMs = estimateGenerationTime(state.durationFrames);
+    const estimatedSec = estimatedMs / 1000;
+    let remaining = Math.max(20, Math.floor(estimatedSec * 0.8));
+    while (remaining > 0) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        onProgress('Votre conte se prépare… — ' + remaining + 's');
+        await sleep(1000);
+        remaining--;
+    }
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        if (attempt > 0) {
+            let r = POLL_INTERVAL_SEC;
+            while (r > 0) {
+                if (state.stopRequested) throw new Error('Arrêt demandé');
+                onProgress('L\'image prend vie… — ' + r + 's');
+                await sleep(1000);
+                r--;
+            }
+        }
+        const url = POLL_BASE + '?video_id=' + encodeURIComponent(videoId) + '&model_name=' + encodeURIComponent(MODEL_VIDEO);
+        const res = await apiFetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + getApiKey() }
+        }, 'Polling');
+        const d = await res.json();
+        const status = d.status || 'unknown';
+        const progress = d.progress || 0;
+        onProgress('Création en cours… — ' + progress + '%');
+        if (status === 'completed' || status === 'succeeded' || status === 'done') {
+            const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url);
+            if (!videoUrl) throw new Error('Terminé mais pas d\'URL');
+            return videoUrl;
+        }
+        if (status === 'failed' || status === 'error' || status === 'cancelled') {
+            throw new Error('Échec (' + status + ')');
+        }
+    }
+    throw new Error('Délai maximal dépassé');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE D'ATTENTE
+// ══════════════════════════════════════════════════════════════════
+function renderQueue() {
+    const queueEl = document.getElementById('queue');
+    if (!state.queue.length) { queueEl.style.display = 'none'; return; }
+    queueEl.style.display = 'block';
+    const total = state.queue.length;
+    const done = state.completed + state.failed;
+    const inProgress = state.queue.filter(q => q.status === 'processing').length;
+    const pending = total - done - inProgress;
+    const estGen = estimateGenerationTime(state.durationFrames) / 1000;
+    const remainingCreates = pending;
+    const eta = remainingCreates > 0
+        ? (remainingCreates * (createIntervalMs / 1000)) + estGen
+        : (inProgress * estGen / Math.max(inProgress, 1));
+    let html = '<div class="queue-summary">' +
+        '<span class="progress-text">🎬 Progression : ' + done + '/' + total + '</span>' +
+        '<span class="eta-text">' + (done < total ? '≈ ' + formatEta(eta) + ' restant' : '✨ Terminé') + '</span>' +
+        '</div>';
+    const visible = state.queue.slice(0, MAX_VISIBLE_QUEUE);
+    const hidden = state.queue.length - visible.length;
+    html += visible.map(item => {
+        let icon = '○', statusText = 'En attente', cls = 'pending';
+        if (item.status === 'creating') { icon = '◐'; statusText = 'Préparation…'; cls = 'creating'; }
+        else if (item.status === 'processing') { icon = '◐'; statusText = item.progress || 'En cours…'; cls = 'processing'; }
+        else if (item.status === 'done') { icon = '●'; statusText = 'Terminé ✨'; cls = 'done'; }
+        else if (item.status === 'failed') { icon = '✕'; statusText = 'Échec'; cls = 'failed'; }
+        return '<div class="queue-item ' + cls + '">' +
+            '<div class="q-icon">' + icon + '</div>' +
+            '<div class="q-name">Photo ' + (item.imageIndex + 1) + '</div>' +
+            '<div class="q-status">' + esc(statusText) + '</div>' +
+        '</div>';
+    }).join('');
+    if (hidden > 0) {
+        html += '<div class="queue-more">… et ' + hidden + ' autre' + (hidden > 1 ? 's' : '') + '</div>';
+    }
+    queueEl.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GALERIE
+// ══════════════════════════════════════════════════════════════════
+function addToGallery(videoUrl, label) {
+    const galleryEl = document.getElementById('gallery');
+    const galleryGrid = document.getElementById('gallery-grid');
+    galleryEl.style.display = 'block';
+    const el = document.createElement('div');
+    el.className = 'gallery-item';
+    el.innerHTML = '<video controls preload="metadata" muted playsinline loop>' +
+        '<source src="' + videoUrl + '" type="video/mp4">' +
+        '</video>' +
+        '<div class="g-caption">🎬 ' + esc(label) + '</div>';
+    galleryGrid.appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE
+// ══════════════════════════════════════════════════════════════════
+async function createTaskOnly(item) {
+    item.status = 'creating';
+    item.progress = 'Préparation…';
+    renderQueue();
+    const prompt = buildPrompt();
+    item.prompt = prompt;
+    log('[Photo ' + (item.imageIndex + 1) + '] Création…');
+    const videoId = await createVideoTask(item.image.dataUri, prompt);
+    item.videoId = videoId;
+    item.startTime = Date.now();
+    item.status = 'processing';
+    item.progress = 'En cours…';
+    renderQueue();
+    log('[Photo ' + (item.imageIndex + 1) + '] Tâche : ' + String(videoId).slice(0, 30) + '…');
+    return videoId;
+}
+
+async function pollTaskAndDisplay(item) {
+    try {
+        const videoUrl = await pollVideo(item.videoId, (prog) => {
+            item.progress = prog;
+            renderQueue();
+        });
+        const elapsed = Date.now() - item.startTime;
+        recordGenerationTime(state.durationFrames, elapsed);
+        log('[Photo ' + (item.imageIndex + 1) + '] Terminée en ' + (elapsed / 1000).toFixed(1) + 's');
+        item.status = 'done';
+        item.videoUrl = videoUrl;
+        item.progress = 'Terminé';
+        state.completed++;
+        renderQueue();
+        updateGenerateBtn();
+        addToGallery(videoUrl, 'Photo ' + (item.imageIndex + 1));
+    } catch (e) {
+        if (e.message === 'Arrêt demandé') {
+            item.status = 'failed';
+            item.progress = 'Arrêté';
+        } else {
+            log('[Photo ' + (item.imageIndex + 1) + '] ' + e.message);
+            item.status = 'failed';
+            item.progress = 'Échec';
+            state.failed++;
+        }
+        renderQueue();
+        updateGenerateBtn();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// WORKFLOW PRINCIPAL
+// ══════════════════════════════════════════════════════════════════
+async function startGeneration() {
+    if (state.isRunning || !state.images.length) return;
+    if (!getApiKey()) {
+        showToast('Ajoutez d\'abord votre clé API', 'error');
+        document.getElementById('api-key-input').focus();
+        return;
+    }
+    state.mainPrompt = document.getElementById('main-prompt').value.trim();
+    if (!state.mainPrompt && !state.selectedEffect) {
+        if (!confirm('Ni histoire ni ambiance choisie. Continuer quand même ?')) return;
+    }
+    state.isRunning = true;
+    state.stopRequested = false;
+    state.completed = 0;
+    state.failed = 0;
+    state.creationAttemptsSinceLastError = 0;
+    createIntervalMs = CREATE_INTERVAL_MIN;
+    state.queue = state.images.map((img, i) => ({
+        imageIndex: i,
+        image: img,
+        status: 'pending',
+        progress: null,
+        videoId: null,
+        videoUrl: null,
+        prompt: null,
+        startTime: null
+    }));
+    document.getElementById('gallery-grid').innerHTML = '';
+    document.getElementById('gallery').style.display = 'none';
+    document.getElementById('stop-btn').classList.add('visible');
+    document.getElementById('generate-btn').disabled = true;
+    await ensureWakeLockActive();
+    renderQueue();
+    updateGenerateBtn();
+    log('Démarrage — ' + state.images.length + ' contes');
+    log('Ambiance : ' + (state.selectedEffect || 'aucune'));
+    const totalStart = Date.now();
+    const pollingTasks = [];
+    try {
+        for (let i = 0; i < state.queue.length; i++) {
+            if (state.stopRequested) break;
+            const item = state.queue[i];
+            try {
+                await createTaskOnly(item);
+                pollingTasks.push(pollTaskAndDisplay(item));
+            } catch (e) {
+                if (e.message === 'Arrêt demandé') break;
+                log('[Photo ' + (i + 1) + '] Échec : ' + e.message);
+                item.status = 'failed';
+                item.progress = 'Échec';
+                state.failed++;
+                renderQueue();
+                updateGenerateBtn();
+            }
+            if (i < state.queue.length - 1 && !state.stopRequested) {
+                const waitSec = Math.ceil(createIntervalMs / 1000);
+                for (let r = waitSec; r > 0; r--) {
+                    if (state.stopRequested) break;
+                    setStatus('Respiration créative… — Photo ' + (i + 2) + '/' + state.queue.length + ' dans ' + r + 's');
+                    await sleep(1000);
+                }
+            }
+        }
+        if (pollingTasks.length > 0) {
+            setStatus('Finalisation…');
+            await Promise.allSettled(pollingTasks);
+        }
+    } catch (e) {
+        log('Erreur globale : ' + e.message);
+    }
+    const totalElapsed = (Date.now() - totalStart) / 1000;
+    const summary = state.stopRequested
+        ? 'Arrêté — ' + state.completed + '/' + state.queue.length + ' contes'
+        : '✨ ' + state.completed + '/' + state.queue.length + ' contes créés en ' + formatEta(totalElapsed) + ' ✨';
+    log(summary);
+    setStatus(summary);
+    await sleep(4000);
+    setStatus(null);
+    state.isRunning = false;
+    state.stopRequested = false;
+    document.getElementById('stop-btn').classList.remove('visible');
+    updateGenerateBtn();
+    showToast(state.completed + ' conte' + (state.completed > 1 ? 's' : '') + ' animé' + (state.completed > 1 ? 's' : '') + ' créé' + (state.completed > 1 ? 's' : ''), 'success', 3500);
+}
+
+function stopGeneration() {
+    if (!state.isRunning) return;
+    state.stopRequested = true;
+    log('Arrêt demandé');
+    setStatus('Arrêt en cours…');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INITIALISATION
+// ══════════════════════════════════════════════════════════════════
+(function init() {
+    document.getElementById('api-save-btn')?.addEventListener('click', saveApiKey);
+    document.getElementById('stop-btn')?.addEventListener('click', stopGeneration);
+
+    const apiInput = document.getElementById('api-key-input');
+    if (apiInput) {
+        apiInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveApiKey(); }
+        });
+    }
+
+    document.querySelectorAll('[data-toggle]').forEach(header => {
+        header.addEventListener('click', () => {
+            document.getElementById(header.dataset.toggle).classList.toggle('open');
+        });
+    });
+
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    if (uploadZone && fileInput) {
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => {
+            handleFiles(e.target.files);
+            fileInput.value = '';
+        });
+    }
+
+    const mainPrompt = document.getElementById('main-prompt');
+    if (mainPrompt) {
+        mainPrompt.addEventListener('input', e => { state.mainPrompt = e.target.value; });
+    }
+
+    document.getElementById('duration-select')?.addEventListener('change', e => {
+        state.durationFrames = parseInt(e.target.value, 10);
+    });
+    document.getElementById('framing-select')?.addEventListener('change', e => {
+        state.framing = e.target.value;
+    });
+    document.getElementById('intensity-select')?.addEventListener('change', e => {
+        state.intensity = e.target.value;
+    });
+
+    document.getElementById('generate-btn')?.addEventListener('click', startGeneration);
+    document.getElementById('wake-toggle-btn')?.addEventListener('click', toggleWakeLock);
+
+    try {
+        const saved = localStorage.getItem(WAKE_LOCK_PREF);
+        wakeLockEnabled = saved === '1';
+    } catch (e) {}
+
+    if (wakeLockEnabled) {
+        activateWakeLock().then(() => updateWakeStatus());
+    }
+
+    updateApiPanel();
+    updateTimingDisplay();
+    updateWakeStatus();
+    renderPromptPresets();
+    renderStyles();
+    renderImages();
+    renderQueue();
+    log('Prêt ✨');
+})();
+</script>
+
+</body>
+</html>
