@@ -425,12 +425,151 @@
   margin-top: 0.75rem;
 }
 
+.swatches.dense {
+  margin-top: 0;
+  gap: 0.28rem;
+}
+
 .swatch {
   width: 1.6rem;
   height: 1.6rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 2px;
   padding: 0;
+}
+
+.swatch.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.studio-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: rgba(200, 245, 66, 0.1);
+  border: 1px solid rgba(200, 245, 66, 0.25);
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+  margin-bottom: 0.35rem;
+}
+
+.studio-banner strong {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.studio-zoom {
+  padding: 0.5rem 0;
+  background:
+    radial-gradient(ellipse at center, rgba(200, 245, 66, 0.06), transparent 70%),
+    rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+}
+
+.studio-zoom .board-canvas {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(200, 245, 66, 0.35);
+}
+
+.text-tool-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  background: rgba(12, 15, 10, 0.4);
+  margin-bottom: 0.35rem;
+}
+
+.text-tool-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--paper-dim);
+}
+
+.text-tool-bar input[type='text'],
+.text-tool-bar input:not([type='range']):not([type='color']) {
+  background: rgba(244, 241, 222, 0.06);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  border-radius: 2px;
+  padding: 0.45rem 0.55rem;
+}
+
+.nuancier {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  background: rgba(12, 15, 10, 0.35);
+}
+
+.nuancier-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
+}
+
+.nuancier-targets {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.nuancier-targets button {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--paper-dim);
+  border-radius: 2px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.nuancier-targets button.active {
+  background: var(--accent);
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.nuancier-custom input {
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+
+.nuancier-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.nuancier-label {
+  width: 4.2rem;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--paper-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.board-canvas.tool-text {
+  cursor: text;
+}
+
+.modal-swatch.large {
+  height: min(52vh, 360px);
+  image-rendering: pixelated;
 }
 
 .file-label input {

@@ -18,7 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT || 8787)
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
 const GRID = 1000
-const MIN_SIZE = 10
+const MIN_SIZE = 1
 const PRICE_PER_PIXEL_CENTS = 100 // 1 €
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || ''
@@ -72,7 +72,7 @@ function validateSelection(body) {
     return { error: 'Coordonnées invalides' }
   }
   if (width < MIN_SIZE || height < MIN_SIZE) {
-    return { error: `Taille minimale : ${MIN_SIZE}×${MIN_SIZE} pixels` }
+    return { error: `Taille minimale : ${MIN_SIZE}×${MIN_SIZE} pixel` }
   }
   if (x < 0 || y < 0 || x + width > GRID || y + height > GRID) {
     return { error: 'La sélection sort de la fresque (1000×1000)' }

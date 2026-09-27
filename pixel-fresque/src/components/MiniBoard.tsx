@@ -8,22 +8,32 @@ type Props = {
   attachments: BlockAttachment[]
   onCanvasChange: (dataUrl: string) => void
   onAttachmentsChange: (attachments: BlockAttachment[]) => void
+  onBgColorChange: (color: string) => void
 }
 
-const SWATCHES = [
-  '#c8f542',
-  '#ff6b4a',
-  '#4ecdc4',
-  '#f4f1de',
-  '#1a1a1a',
-  '#3d5a80',
-  '#e9c46a',
-  '#9b5de5',
-  '#ffffff',
-  '#ef476f',
+/** Nuancier étendu — teintes + neutres */
+const NUANCIER: { label: string; colors: string[] }[] = [
+  {
+    label: 'Vifs',
+    colors: ['#c8f542', '#ff6b4a', '#ef476f', '#f72585', '#ffd166', '#06d6a0', '#4ecdc4', '#118ab2'],
+  },
+  {
+    label: 'Profonds',
+    colors: ['#073b4c', '#1b4332', '#3d5a80', '#5c4d7a', '#9b5de5', '#7b2cbf', '#bc4749', '#6a994e'],
+  },
+  {
+    label: 'Pastels',
+    colors: ['#f4f1de', '#ffe5ec', '#e8f5e9', '#e3f2fd', '#fff3e0', '#f3e5f5', '#e0f7fa', '#fce4ec'],
+  },
+  {
+    label: 'Neutres',
+    colors: ['#ffffff', '#e8e8e8', '#bdbdbd', '#757575', '#424242', '#1a1a1a', '#0c0f0a', '#000000'],
+  },
 ]
 
 const MAX_FILE = 2_000_000
+/** Taille d’affichage cible du studio (px) — même 1×1 apparaît en grand */
+const STUDIO_DISPLAY = 380
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '')
@@ -82,6 +92,7 @@ export function MiniBoard({
   attachments,
   onCanvasChange,
   onAttachmentsChange,
+  onBgColorChange,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
@@ -91,14 +102,18 @@ export function MiniBoard({
   const [color, setColor] = useState('#1a1a1a')
   const [brush, setBrush] = useState(4)
   const [stampId, setStampId] = useState<string | null>(null)
+  const [textValue, setTextValue] = useState('Pixora')
+  const [fontSize, setFontSize] = useState(18)
+  const [nuancierTarget, setNuancierTarget] = useState<'draw' | 'bg'>('draw')
   const exportTimer = useRef<number | null>(null)
 
-  const w = selection?.width ?? 40
-  const h = selection?.height ?? 40
-  // Upscale small blocks for comfortable drawing
-  const scale = Math.max(4, Math.min(12, Math.floor(320 / Math.max(w, h))))
-  const cw = w * scale
-  const ch = h * scale
+  const w = selection?.width ?? 1
+  const h = selection?.height ?? 1
+  // Toujours travailler en grand : 1 pixel → studio ~380×380
+  const scale = Math.max(8, Math.min(128, Math.floor(STUDIO_DISPLAY / Math.max(w, h))))
+  const cw = Math.max(1, w * scale)
+  const ch = Math.max(1, h * scale)
+  const displayCss = Math.min(STUDIO_DISPLAY, 420)
 
   const commit = useCallback(() => {
     const canvas = canvasRef.current
@@ -120,20 +135,21 @@ export function MiniBoard({
     (ctx: CanvasRenderingContext2D) => {
       ctx.fillStyle = bgColor
       ctx.fillRect(0, 0, cw, ch)
-      // subtle pixel grid
-      ctx.strokeStyle = 'rgba(0,0,0,0.08)'
-      ctx.lineWidth = 1
-      for (let x = 0; x <= cw; x += scale) {
-        ctx.beginPath()
-        ctx.moveTo(x + 0.5, 0)
-        ctx.lineTo(x + 0.5, ch)
-        ctx.stroke()
-      }
-      for (let y = 0; y <= ch; y += scale) {
-        ctx.beginPath()
-        ctx.moveTo(0, y + 0.5)
-        ctx.lineTo(cw, y + 0.5)
-        ctx.stroke()
+      if (scale >= 4) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+        ctx.lineWidth = 1
+        for (let x = 0; x <= cw; x += scale) {
+          ctx.beginPath()
+          ctx.moveTo(x + 0.5, 0)
+          ctx.lineTo(x + 0.5, ch)
+          ctx.stroke()
+        }
+        for (let y = 0; y <= ch; y += scale) {
+          ctx.beginPath()
+          ctx.moveTo(0, y + 0.5)
+          ctx.lineTo(cw, y + 0.5)
+          ctx.stroke()
+        }
       }
     },
     [bgColor, cw, ch, scale],
@@ -173,12 +189,10 @@ export function MiniBoard({
 
   useEffect(() => {
     void redrawFrom(canvasData)
-    // Reset board when selection size changes; keep content if same dimensions encoded
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cw, ch, selection?.x, selection?.y])
 
   useEffect(() => {
-    // If user changes bg and board is empty-ish, refresh bg — only when no canvasData yet
     if (!canvasData) void redrawFrom(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgColor])
@@ -198,7 +212,7 @@ export function MiniBoard({
     ctx.imageSmoothingEnabled = false
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    ctx.lineWidth = brush * (scale / 2)
+    ctx.lineWidth = Math.max(1, brush * (scale / 4))
     if (tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out'
       ctx.strokeStyle = 'rgba(0,0,0,1)'
@@ -229,6 +243,18 @@ export function MiniBoard({
     img.src = att.dataUrl
   }
 
+  function placeText(px: number, py: number) {
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx || !textValue.trim()) return
+    snapshot()
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.fillStyle = color
+    ctx.textBaseline = 'top'
+    ctx.font = `600 ${Math.max(8, fontSize * (scale / 8))}px Outfit, sans-serif`
+    ctx.fillText(textValue, px, py)
+    commit()
+  }
+
   function onPointerDown(e: React.PointerEvent) {
     const canvas = canvasRef.current!
     canvas.setPointerCapture(e.pointerId)
@@ -236,6 +262,10 @@ export function MiniBoard({
 
     if (tool === 'stamp') {
       placeStamp(p.x, p.y)
+      return
+    }
+    if (tool === 'text') {
+      placeText(p.x, p.y)
       return
     }
     if (tool === 'fill') {
@@ -277,6 +307,15 @@ export function MiniBoard({
     void redrawFrom(null)
   }
 
+  function pickNuancier(c: string) {
+    if (nuancierTarget === 'bg') {
+      onBgColorChange(c)
+    } else {
+      setColor(c)
+      if (tool !== 'text' && tool !== 'fill' && tool !== 'pen') setTool('pen')
+    }
+  }
+
   async function addFiles(files: FileList | null) {
     if (!files?.length) return
     const next = [...attachments]
@@ -297,7 +336,6 @@ export function MiniBoard({
       }
       next.push(att)
       if (isImage) {
-        // Auto-place image centered on board
         const ctx = canvasRef.current?.getContext('2d')
         if (ctx) {
           snapshot()
@@ -326,12 +364,23 @@ export function MiniBoard({
 
   return (
     <div className="mini-board">
+      {selection && (
+        <div className="studio-banner">
+          <span>
+            Zone {w}×{h} px
+            {w * h === 1 ? ' · 1 pixel agrandi' : ''}
+          </span>
+          <strong>×{scale} zoom studio</strong>
+        </div>
+      )}
+
       <div className="board-toolbar">
         {(
           [
             ['pen', 'Crayon'],
             ['eraser', 'Gomme'],
             ['fill', 'Remplir'],
+            ['text', 'Texte'],
             ['stamp', 'Tampon'],
           ] as const
         ).map(([id, label]) => (
@@ -352,49 +401,107 @@ export function MiniBoard({
         </button>
       </div>
 
-      <div className="board-opts">
-        <label>
-          Couleur
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-        </label>
-        <div className="swatches">
-          {SWATCHES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className="swatch"
-              style={{ background: c }}
-              aria-label={c}
-              onClick={() => {
-                setColor(c)
-                setTool('pen')
-              }}
+      {tool === 'text' && (
+        <div className="text-tool-bar">
+          <label>
+            Texte
+            <input
+              value={textValue}
+              onChange={(e) => setTextValue(e.target.value)}
+              placeholder="Écrire…"
+              maxLength={80}
             />
-          ))}
+          </label>
+          <label className="brush-label">
+            Taille {fontSize}
+            <input
+              type="range"
+              min={8}
+              max={64}
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+            />
+          </label>
+          <p className="muted tiny">Clique sur le tableau pour poser le texte.</p>
         </div>
+      )}
+
+      <div className="nuancier">
+        <div className="nuancier-head">
+          <strong>Nuancier</strong>
+          <div className="nuancier-targets">
+            <button
+              type="button"
+              className={nuancierTarget === 'draw' ? 'active' : ''}
+              onClick={() => setNuancierTarget('draw')}
+            >
+              Dessin
+            </button>
+            <button
+              type="button"
+              className={nuancierTarget === 'bg' ? 'active' : ''}
+              onClick={() => setNuancierTarget('bg')}
+            >
+              Fond
+            </button>
+          </div>
+          <label className="nuancier-custom" title="Couleur perso">
+            <input
+              type="color"
+              value={nuancierTarget === 'bg' ? bgColor : color}
+              onChange={(e) => pickNuancier(e.target.value)}
+            />
+          </label>
+        </div>
+        {NUANCIER.map((row) => (
+          <div key={row.label} className="nuancier-row">
+            <span className="nuancier-label">{row.label}</span>
+            <div className="swatches dense">
+              {row.colors.map((c) => (
+                <button
+                  key={`${row.label}-${c}`}
+                  type="button"
+                  className={`swatch ${
+                    (nuancierTarget === 'bg' ? bgColor : color).toLowerCase() === c.toLowerCase()
+                      ? 'selected'
+                      : ''
+                  }`}
+                  style={{ background: c }}
+                  aria-label={c}
+                  onClick={() => pickNuancier(c)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {(tool === 'pen' || tool === 'eraser') && (
         <label className="brush-label">
           Épaisseur {brush}
           <input
             type="range"
             min={1}
-            max={16}
+            max={24}
             value={brush}
             onChange={(e) => setBrush(Number(e.target.value))}
           />
         </label>
-      </div>
+      )}
 
-      <div className="board-stage">
+      <div className="board-stage studio-zoom">
         {!selection && (
-          <p className="board-empty">Sélectionne d’abord une zone sur la fresque pour activer le tableau.</p>
+          <p className="board-empty">
+            Sélectionne une zone (même 1 pixel) — elle s’affiche ici en grand.
+          </p>
         )}
         <canvas
           ref={canvasRef}
           className={`board-canvas tool-${tool}`}
           style={{
-            width: '100%',
-            maxWidth: 360,
-            aspectRatio: `${w} / ${h}`,
+            width: displayCss,
+            height: (displayCss * h) / w,
+            maxWidth: '100%',
             opacity: selection ? 1 : 0.35,
             pointerEvents: selection ? 'auto' : 'none',
           }}
@@ -404,7 +511,7 @@ export function MiniBoard({
           onPointerCancel={onPointerUp}
         />
         <p className="board-hint">
-          Mini tableau {w}×{h} px · dessine, remplis, dépose des images
+          Studio {w}×{h} · agrandi pour personnaliser · rendu réel sur la fresque
         </p>
       </div>
 
@@ -425,7 +532,7 @@ export function MiniBoard({
           </label>
         </div>
         {attachments.length === 0 ? (
-          <p className="muted tiny">Images (placées sur le tableau) ou fichiers (PDF, etc.).</p>
+          <p className="muted tiny">Images (sur le tableau) ou fichiers (PDF, etc.).</p>
         ) : (
           <ul className="attachment-list">
             {attachments.map((a) => (

@@ -114,19 +114,6 @@ export function FresqueCanvas({
       ctx.strokeStyle = 'rgba(0,0,0,0.35)'
       ctx.lineWidth = 1 / scale
       ctx.strokeRect(block.x, block.y, block.width, block.height)
-
-      if (block.width * scale > 48 && block.height * scale > 18) {
-        ctx.fillStyle = 'rgba(12, 15, 10, 0.72)'
-        ctx.fillRect(block.x, block.y + block.height - 16, block.width, 16)
-        ctx.fillStyle = '#f4f1de'
-        ctx.font = `${Math.max(9, 11 / Math.sqrt(scale))}px Outfit, sans-serif`
-        ctx.fillText(
-          block.title.slice(0, Math.floor(block.width / 6)),
-          block.x + 4,
-          block.y + block.height - 5,
-          block.width - 8,
-        )
-      }
     }
 
     if (selection) {
@@ -148,10 +135,11 @@ export function FresqueCanvas({
     const world = worldFromEvent(e)
 
     if (selecting && e.button === 0) {
-      selectStart.current = {
-        x: clamp(world.x, 0, GRID_SIZE - 1),
-        y: clamp(world.y, 0, GRID_SIZE - 1),
-      }
+      const x = clamp(world.x, 0, GRID_SIZE - 1)
+      const y = clamp(world.y, 0, GRID_SIZE - 1)
+      selectStart.current = { x, y }
+      // Clic = 1 pixel tout de suite (agrandi dans le studio)
+      onSelect({ x, y, width: 1, height: 1 })
       return
     }
 
@@ -186,8 +174,8 @@ export function FresqueCanvas({
       const y1 = clamp(world.y, 0, GRID_SIZE)
       let x = Math.min(x0, x1)
       let y = Math.min(y0, y1)
-      let width = Math.max(MIN_BLOCK, Math.abs(x1 - x0))
-      let height = Math.max(MIN_BLOCK, Math.abs(y1 - y0))
+      let width = Math.max(MIN_BLOCK, Math.abs(x1 - x0) || 1)
+      let height = Math.max(MIN_BLOCK, Math.abs(y1 - y0) || 1)
       if (x + width > GRID_SIZE) width = GRID_SIZE - x
       if (y + height > GRID_SIZE) height = GRID_SIZE - y
       onSelect({ x, y, width, height })
@@ -247,8 +235,8 @@ export function FresqueCanvas({
       />
       <p className="canvas-hint">
         {selecting
-          ? 'Glisse pour dessiner ton bloc (min. 10×10). Molette = zoom.'
-          : 'Clique un bloc pour l’ouvrir · glisse pour naviguer · molette pour zoomer.'}
+          ? 'Clic = 1 pixel · glisse pour une zone · molette = zoom. Le studio agrandit ta sélection.'
+          : 'Clique un bloc · glisse pour naviguer · molette pour zoomer.'}
       </p>
     </div>
   )

@@ -14,10 +14,9 @@ type Props = {
 }
 
 const TOOLS: { id: BuilderTool; label: string; hint: string }[] = [
-  { id: 'board', label: 'Tableau', hint: 'Dessiner & pièces jointes' },
-  { id: 'select', label: 'Zone', hint: 'Taille & position du bloc' },
-  { id: 'text', label: 'Infos', hint: 'Titre & message' },
-  { id: 'link', label: 'Lien', hint: 'URL cliquable' },
+  { id: 'board', label: 'Tableau', hint: 'Dessiner, texte & pièces jointes' },
+  { id: 'select', label: 'Zone', hint: 'Taille & position' },
+  { id: 'link', label: 'Lien', hint: 'URL optionnelle' },
 ]
 
 export function BlockBuilder({
@@ -45,8 +44,7 @@ export function BlockBuilder({
         <p className="eyebrow">Builder · Blocks</p>
         <h2>Mini tableau virtuel</h2>
         <p className="builder-sub">
-          Dessine pixel par pixel, colle des images, joins des fichiers — ton bloc devient une vraie
-          toile sur la fresque.
+          Dessine, écris, colle des images. Même 1 pixel s’affiche en grand dans le studio.
         </p>
       </header>
 
@@ -69,14 +67,6 @@ export function BlockBuilder({
       <div className="builder-panel">
         {tool === 'board' && (
           <div className="panel-block board-wrap">
-            <label className="bg-label">
-              Fond du tableau
-              <input
-                type="color"
-                value={draft.color}
-                onChange={(e) => onChange({ ...draftRef.current, color: e.target.value })}
-              />
-            </label>
             <MiniBoard
               selection={selection}
               bgColor={draft.color}
@@ -86,6 +76,7 @@ export function BlockBuilder({
               onAttachmentsChange={(attachments) =>
                 onChange({ ...draftRef.current, attachments })
               }
+              onBgColorChange={(color) => onChange({ ...draftRef.current, color })}
             />
           </div>
         )}
@@ -105,56 +96,20 @@ export function BlockBuilder({
                   <strong>
                     {selection.width}×{selection.height}
                   </strong>
+                  {selection.width * selection.height === 1 ? ' · 1 pixel' : ''}
                 </p>
-                <p className="muted">Minimum 10×10. Sélectionne sur la fresque.</p>
+                <p className="muted">Clic = 1 px · glisser = zone. Min. 1×1.</p>
               </>
             ) : (
-              <p className="muted">Active « Acheter » puis dessine ta zone sur la grille.</p>
+              <p className="muted">Active « Acheter » puis clique ou glisse sur la grille.</p>
             )}
-          </div>
-        )}
-
-        {tool === 'text' && (
-          <div className="panel-block stack">
-            <label>
-              Nom affiché
-              <input
-                value={draft.ownerName}
-                onChange={(e) =>
-                  onChange({ ...draftRef.current, ownerName: e.target.value })
-                }
-                placeholder="Ton nom ou marque"
-                maxLength={60}
-              />
-            </label>
-            <label>
-              Titre du bloc
-              <input
-                value={draft.title}
-                onChange={(e) => onChange({ ...draftRef.current, title: e.target.value })}
-                placeholder="Ex. Studio Nord"
-                maxLength={80}
-              />
-            </label>
-            <label>
-              Message
-              <textarea
-                value={draft.message}
-                onChange={(e) =>
-                  onChange({ ...draftRef.current, message: e.target.value })
-                }
-                placeholder="Une ligne pour ton histoire"
-                maxLength={200}
-                rows={3}
-              />
-            </label>
           </div>
         )}
 
         {tool === 'link' && (
           <div className="panel-block stack">
             <label>
-              URL
+              URL (optionnel)
               <input
                 value={draft.linkUrl}
                 onChange={(e) =>
@@ -164,7 +119,7 @@ export function BlockBuilder({
               />
             </label>
             <label>
-              Email (reçu)
+              Email reçu (optionnel)
               <input
                 type="email"
                 value={draft.ownerEmail}

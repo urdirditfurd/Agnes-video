@@ -73,7 +73,9 @@ export default function App() {
     try {
       const result = await checkout(selection, {
         ...draft,
-        title: draft.title || draft.ownerName || 'Mon bloc',
+        title: '',
+        ownerName: '',
+        message: '',
       })
       if (result.mode === 'stripe' && result.checkoutUrl) {
         window.location.href = result.checkoutUrl
@@ -192,10 +194,10 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label={activeBlock.title}
+            aria-label="Bloc pixel"
           >
             <div
-              className="modal-swatch"
+              className="modal-swatch large"
               style={{
                 background: activeBlock.imageData ? undefined : activeBlock.color,
                 backgroundImage: activeBlock.imageData
@@ -203,11 +205,9 @@ export default function App() {
                   : undefined,
               }}
             />
-            <h3>{activeBlock.title}</h3>
-            <p>{activeBlock.message || '—'}</p>
             <p className="muted">
-              Par {activeBlock.ownerName} · ({activeBlock.x},{activeBlock.y}) ·{' '}
-              {activeBlock.width}×{activeBlock.height} · {activeBlock.priceEuros} €
+              ({activeBlock.x},{activeBlock.y}) · {activeBlock.width}×{activeBlock.height} ·{' '}
+              {activeBlock.priceEuros} €
             </p>
             {activeBlock.attachments?.length > 0 && (
               <ul className="modal-attachments">
