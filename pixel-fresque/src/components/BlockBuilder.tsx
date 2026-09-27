@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { BlockDraft, BuilderTool, Selection } from '../types'
 import { PRICE_PER_PIXEL } from '../types'
+import { MiniBoard } from './MiniBoard'
 
 type Props = {
   selection: Selection | null
@@ -13,14 +14,11 @@ type Props = {
 }
 
 const TOOLS: { id: BuilderTool; label: string; hint: string }[] = [
+  { id: 'board', label: 'Tableau', hint: 'Dessiner & pièces jointes' },
   { id: 'select', label: 'Zone', hint: 'Taille & position du bloc' },
-  { id: 'paint', label: 'Peinture', hint: 'Couleur de fond du bloc' },
-  { id: 'image', label: 'Image', hint: 'Logo ou visuel' },
-  { id: 'text', label: 'Texte', hint: 'Titre & message' },
+  { id: 'text', label: 'Infos', hint: 'Titre & message' },
   { id: 'link', label: 'Lien', hint: 'URL cliquable' },
 ]
-
-const SWATCHES = ['#c8f542', '#ff6b4a', '#4ecdc4', '#f4f1de', '#1a1a1a', '#3d5a80', '#e9c46a', '#9b5de5']
 
 export function BlockBuilder({
   selection,
@@ -31,7 +29,9 @@ export function BlockBuilder({
   stripeEnabled,
   error,
 }: Props) {
-  const [tool, setTool] = useState<BuilderTool>('paint')
+  const [tool, setTool] = useState<BuilderTool>('board')
+  const draftRef = useRef(draft)
+  draftRef.current = draft
 
   const quote = useMemo(() => {
     if (!selection) return null
@@ -39,27 +39,14 @@ export function BlockBuilder({
     return { pixels, price: pixels * PRICE_PER_PIXEL }
   }, [selection])
 
-  function onFile(file: File | null) {
-    if (!file) return
-    if (file.size > 1_500_000) {
-      alert('Image trop lourde (max ~1,5 Mo). Compresse-la puis réessaie.')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      onChange({ ...draft, imageData: String(reader.result) })
-    }
-    reader.readAsDataURL(file)
-  }
-
   return (
     <aside className="builder" aria-label="Builder de blocs">
       <header className="builder-head">
         <p className="eyebrow">Builder · Blocks</p>
-        <h2>Compose ton pixel-bloc</h2>
+        <h2>Mini tableau virtuel</h2>
         <p className="builder-sub">
-          Assemble ta case comme des briques : zone, couleur, image, texte, lien — puis paie 1&nbsp;€
-          par pixel.
+          Dessine pixel par pixel, colle des images, joins des fichiers — ton bloc devient une vraie
+          toile sur la fresque.
         </p>
       </header>
 
@@ -80,66 +67,49 @@ export function BlockBuilder({
       </div>
 
       <div className="builder-panel">
+        {tool === 'board' && (
+          <div className="panel-block board-wrap">
+            <label className="bg-label">
+              Fond du tableau
+              <input
+                type="color"
+                value={draft.color}
+                onChange={(e) => onChange({ ...draftRef.current, color: e.target.value })}
+              />
+            </label>
+            <MiniBoard
+              selection={selection}
+              bgColor={draft.color}
+              canvasData={draft.imageData}
+              attachments={draft.attachments}
+              onCanvasChange={(imageData) => onChange({ ...draftRef.current, imageData })}
+              onAttachmentsChange={(attachments) =>
+                onChange({ ...draftRef.current, attachments })
+              }
+            />
+          </div>
+        )}
+
         {tool === 'select' && (
           <div className="panel-block">
             {selection ? (
               <>
                 <p>
-                  Position <strong>({selection.x}, {selection.y})</strong>
+                  Position{' '}
+                  <strong>
+                    ({selection.x}, {selection.y})
+                  </strong>
                 </p>
                 <p>
-                  Taille <strong>{selection.width}×{selection.height}</strong>
+                  Taille{' '}
+                  <strong>
+                    {selection.width}×{selection.height}
+                  </strong>
                 </p>
                 <p className="muted">Minimum 10×10. Sélectionne sur la fresque.</p>
               </>
             ) : (
               <p className="muted">Active « Acheter » puis dessine ta zone sur la grille.</p>
-            )}
-          </div>
-        )}
-
-        {tool === 'paint' && (
-          <div className="panel-block">
-            <label>
-              Couleur
-              <input
-                type="color"
-                value={draft.color}
-                onChange={(e) => onChange({ ...draft, color: e.target.value })}
-              />
-            </label>
-            <div className="swatches">
-              {SWATCHES.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className="swatch"
-                  style={{ background: c }}
-                  aria-label={c}
-                  onClick={() => onChange({ ...draft, color: c })}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {tool === 'image' && (
-          <div className="panel-block">
-            <label className="file-label">
-              Importer un logo / visuel
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => onFile(e.target.files?.[0] || null)}
-              />
-            </label>
-            {draft.imageData && (
-              <div className="image-preview">
-                <img src={draft.imageData} alt="Aperçu bloc" />
-                <button type="button" onClick={() => onChange({ ...draft, imageData: null })}>
-                  Retirer
-                </button>
-              </div>
             )}
           </div>
         )}
@@ -150,7 +120,9 @@ export function BlockBuilder({
               Nom affiché
               <input
                 value={draft.ownerName}
-                onChange={(e) => onChange({ ...draft, ownerName: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...draftRef.current, ownerName: e.target.value })
+                }
                 placeholder="Ton nom ou marque"
                 maxLength={60}
               />
@@ -159,7 +131,7 @@ export function BlockBuilder({
               Titre du bloc
               <input
                 value={draft.title}
-                onChange={(e) => onChange({ ...draft, title: e.target.value })}
+                onChange={(e) => onChange({ ...draftRef.current, title: e.target.value })}
                 placeholder="Ex. Studio Nord"
                 maxLength={80}
               />
@@ -168,7 +140,9 @@ export function BlockBuilder({
               Message
               <textarea
                 value={draft.message}
-                onChange={(e) => onChange({ ...draft, message: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...draftRef.current, message: e.target.value })
+                }
                 placeholder="Une ligne pour ton histoire"
                 maxLength={200}
                 rows={3}
@@ -183,7 +157,9 @@ export function BlockBuilder({
               URL
               <input
                 value={draft.linkUrl}
-                onChange={(e) => onChange({ ...draft, linkUrl: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...draftRef.current, linkUrl: e.target.value })
+                }
                 placeholder="https://ton-site.com"
               />
             </label>
@@ -192,24 +168,14 @@ export function BlockBuilder({
               <input
                 type="email"
                 value={draft.ownerEmail}
-                onChange={(e) => onChange({ ...draft, ownerEmail: e.target.value })}
+                onChange={(e) =>
+                  onChange({ ...draftRef.current, ownerEmail: e.target.value })
+                }
                 placeholder="toi@email.com"
               />
             </label>
           </div>
         )}
-      </div>
-
-      <div className="builder-preview" aria-hidden={!selection}>
-        <div
-          className="mini-block"
-          style={{
-            background: draft.imageData ? undefined : draft.color,
-            backgroundImage: draft.imageData ? `url(${draft.imageData})` : undefined,
-          }}
-        >
-          <span>{draft.title || 'Aperçu'}</span>
-        </div>
       </div>
 
       <footer className="builder-foot">
@@ -222,12 +188,21 @@ export function BlockBuilder({
           <p className="muted">Sélectionne une zone pour voir le prix.</p>
         )}
 
+        {draft.attachments.length > 0 && (
+          <p className="fee-note">
+            {draft.attachments.length} pièce{draft.attachments.length > 1 ? 's' : ''} jointe
+            {draft.attachments.length > 1 ? 's' : ''}
+          </p>
+        )}
+
         {stripeEnabled && (
           <label className="stripe-toggle">
             <input
               type="checkbox"
               checked={draft.useStripe}
-              onChange={(e) => onChange({ ...draft, useStripe: e.target.checked })}
+              onChange={(e) =>
+                onChange({ ...draftRef.current, useStripe: e.target.checked })
+              }
             />
             Paiement Stripe (0 commission Pixora)
           </label>

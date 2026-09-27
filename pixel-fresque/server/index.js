@@ -28,7 +28,18 @@ seedDemoBlocks()
 
 const app = express()
 app.use(cors({ origin: true }))
-app.use(express.json({ limit: '4mb' }))
+app.use(express.json({ limit: '12mb' }))
+
+function parseAttachments(raw) {
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
 
 function publicBlock(row) {
   if (!row) return null
@@ -44,6 +55,7 @@ function publicBlock(row) {
     linkUrl: row.link_url,
     color: row.color,
     imageData: row.image_data,
+    attachments: parseAttachments(row.attachments),
     priceEuros: row.price_cents / 100,
     paymentMode: row.payment_mode,
     createdAt: row.created_at,
@@ -127,6 +139,7 @@ app.post('/api/checkout', async (req, res) => {
   const linkUrl = String(req.body.linkUrl || '').trim()
   const color = String(req.body.color || '#c8f542')
   const imageData = req.body.imageData || null
+  const attachments = Array.isArray(req.body.attachments) ? req.body.attachments : []
   const preferStripe = Boolean(req.body.useStripe)
 
   const draft = {
@@ -141,6 +154,7 @@ app.post('/api/checkout', async (req, res) => {
     linkUrl,
     color,
     imageData,
+    attachments,
     priceCents: result.priceCents,
   }
 
@@ -207,6 +221,7 @@ app.post('/api/checkout', async (req, res) => {
     link_url: linkUrl,
     color,
     image_data: imageData,
+    attachments: JSON.stringify(attachments),
     price_cents: result.priceCents,
     payment_mode: 'demo',
     stripe_session_id: null,
@@ -261,6 +276,7 @@ app.post('/api/checkout/confirm', async (req, res) => {
       link_url: meta.linkUrl || draft.linkUrl || '',
       color: meta.color || draft.color || '#c8f542',
       image_data: draft.imageData || null,
+      attachments: JSON.stringify(draft.attachments || []),
       price_cents: session.amount_total || width * height * PRICE_PER_PIXEL_CENTS,
       payment_mode: 'stripe',
       stripe_session_id: sessionId,
@@ -284,6 +300,10 @@ app.patch('/api/blocks/:id', (req, res) => {
     link_url: req.body.linkUrl,
     color: req.body.color,
     image_data: req.body.imageData,
+    attachments:
+      req.body.attachments !== undefined
+        ? JSON.stringify(req.body.attachments)
+        : undefined,
     owner_name: req.body.ownerName,
   })
   res.json(publicBlock(updated))

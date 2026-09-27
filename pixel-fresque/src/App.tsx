@@ -11,8 +11,9 @@ const emptyDraft: BlockDraft = {
   title: '',
   message: '',
   linkUrl: '',
-  color: '#c8f542',
+  color: '#f4f1de',
   imageData: null,
+  attachments: [],
   useStripe: false,
 }
 
@@ -208,6 +209,17 @@ export default function App() {
               Par {activeBlock.ownerName} · ({activeBlock.x},{activeBlock.y}) ·{' '}
               {activeBlock.width}×{activeBlock.height} · {activeBlock.priceEuros} €
             </p>
+            {activeBlock.attachments?.length > 0 && (
+              <ul className="modal-attachments">
+                {activeBlock.attachments.map((a) => (
+                  <li key={a.id}>
+                    <a href={a.dataUrl} download={a.name}>
+                      {a.kind === 'image' ? '🖼' : '📄'} {a.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
             {activeBlock.linkUrl && (
               <a href={activeBlock.linkUrl} target="_blank" rel="noreferrer">
                 Ouvrir le lien

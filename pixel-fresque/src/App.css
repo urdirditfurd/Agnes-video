@@ -236,7 +236,7 @@
 
 .workspace {
   display: grid;
-  grid-template-columns: 1fr min(360px, 100%);
+  grid-template-columns: 1fr min(400px, 100%);
   min-height: calc(100dvh - 64px);
 }
 
@@ -477,6 +477,252 @@
   background: rgba(12, 15, 10, 0.75);
   padding: 0.2rem 0.45rem;
   font-size: 0.8rem;
+}
+
+/* ——— Mini board (virtual canvas) ——— */
+.board-wrap {
+  padding: 0.65rem !important;
+}
+
+.bg-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+
+.bg-label input[type='color'] {
+  width: 2.6rem;
+  height: 1.8rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.mini-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.board-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.board-toolbar button {
+  background: rgba(244, 241, 222, 0.06);
+  border: 1px solid var(--line);
+  color: var(--paper-dim);
+  border-radius: 2px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.board-toolbar button.active {
+  background: var(--accent);
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.board-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.board-opts label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--paper-dim);
+}
+
+.brush-label {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+.brush-label input[type='range'] {
+  width: 100%;
+}
+
+.board-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.board-canvas {
+  display: block;
+  border: 1px solid var(--line);
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+.board-canvas.tool-eraser {
+  cursor: cell;
+}
+
+.board-canvas.tool-fill {
+  cursor: cell;
+}
+
+.board-canvas.tool-stamp {
+  cursor: copy;
+}
+
+.board-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 1rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.board-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--paper-dim);
+}
+
+.attachments {
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
+}
+
+.attachments-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.file-chip {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.file-chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.attachment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.attachment-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.att-thumb {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: #111;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.att-thumb.picked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.att-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.att-file {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: rgba(244, 241, 222, 0.06);
+}
+
+.att-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--paper-dim);
+}
+
+.att-remove {
+  background: transparent;
+  border: 0;
+  color: var(--paper-dim);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+}
+
+.tiny {
+  font-size: 0.78rem;
+  margin: 0;
+}
+
+.modal-attachments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.modal-attachments a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.modal-swatch {
+  image-rendering: pixelated;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .builder-foot {

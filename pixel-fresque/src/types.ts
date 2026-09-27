@@ -2,6 +2,20 @@ export const GRID_SIZE = 1000
 export const MIN_BLOCK = 10
 export const PRICE_PER_PIXEL = 1
 
+export type BlockAttachment = {
+  id: string
+  name: string
+  mime: string
+  size: number
+  dataUrl: string
+  kind: 'image' | 'file'
+  /** Position on board if placed as sticker (ratio 0–1) */
+  x?: number
+  y?: number
+  w?: number
+  h?: number
+}
+
 export type PixelBlock = {
   id: string
   x: number
@@ -14,6 +28,7 @@ export type PixelBlock = {
   linkUrl: string
   color: string
   imageData: string | null
+  attachments: BlockAttachment[]
   priceEuros: number
   paymentMode: string
   createdAt: string
@@ -44,7 +59,10 @@ export type BlockDraft = {
   linkUrl: string
   color: string
   imageData: string | null
+  attachments: BlockAttachment[]
   useStripe: boolean
 }
 
-export type BuilderTool = 'select' | 'paint' | 'image' | 'link' | 'text'
+export type BuilderTool = 'board' | 'select' | 'text' | 'link'
+
+export type BoardDrawTool = 'pen' | 'eraser' | 'fill' | 'stamp' | 'pan'

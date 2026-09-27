@@ -25,6 +25,7 @@ db.exec(`
     link_url TEXT NOT NULL DEFAULT '',
     color TEXT NOT NULL DEFAULT '#1a1a1a',
     image_data TEXT,
+    attachments TEXT NOT NULL DEFAULT '[]',
     price_cents INTEGER NOT NULL,
     payment_mode TEXT NOT NULL DEFAULT 'demo',
     stripe_session_id TEXT,
@@ -33,6 +34,13 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_blocks_pos ON blocks(x, y);
 `)
+
+// Migration douce si DB déjà créée sans attachments
+try {
+  db.prepare('SELECT attachments FROM blocks LIMIT 1').get()
+} catch {
+  db.exec(`ALTER TABLE blocks ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'`)
+}
 
 export function listBlocks() {
   return db.prepare('SELECT * FROM blocks ORDER BY created_at DESC').all()
@@ -55,10 +63,10 @@ export function insertBlock(block) {
   db.prepare(
     `INSERT INTO blocks (
       id, x, y, width, height, owner_name, owner_email, title, message,
-      link_url, color, image_data, price_cents, payment_mode, stripe_session_id
+      link_url, color, image_data, attachments, price_cents, payment_mode, stripe_session_id
     ) VALUES (
       @id, @x, @y, @width, @height, @owner_name, @owner_email, @title, @message,
-      @link_url, @color, @image_data, @price_cents, @payment_mode, @stripe_session_id
+      @link_url, @color, @image_data, @attachments, @price_cents, @payment_mode, @stripe_session_id
     )`
   ).run(block)
   return getBlock(block.id)
@@ -71,6 +79,7 @@ export function updateBlock(id, fields) {
     'link_url',
     'color',
     'image_data',
+    'attachments',
     'owner_name',
   ]
   const sets = []
@@ -126,6 +135,7 @@ export function seedDemoBlocks() {
       link_url: 'https://example.com',
       color: '#c8f542',
       image_data: null,
+      attachments: '[]',
       price_cents: 160000,
       payment_mode: 'demo',
       stripe_session_id: null,
@@ -143,6 +153,7 @@ export function seedDemoBlocks() {
       link_url: '',
       color: '#ff6b4a',
       image_data: null,
+      attachments: '[]',
       price_cents: 180000,
       payment_mode: 'demo',
       stripe_session_id: null,
@@ -160,6 +171,7 @@ export function seedDemoBlocks() {
       link_url: '',
       color: '#4ecdc4',
       image_data: null,
+      attachments: '[]',
       price_cents: 250000,
       payment_mode: 'demo',
       stripe_session_id: null,
@@ -169,10 +181,10 @@ export function seedDemoBlocks() {
   const insert = db.prepare(
     `INSERT INTO blocks (
       id, x, y, width, height, owner_name, owner_email, title, message,
-      link_url, color, image_data, price_cents, payment_mode, stripe_session_id
+      link_url, color, image_data, attachments, price_cents, payment_mode, stripe_session_id
     ) VALUES (
       @id, @x, @y, @width, @height, @owner_name, @owner_email, @title, @message,
-      @link_url, @color, @image_data, @price_cents, @payment_mode, @stripe_session_id
+      @link_url, @color, @image_data, @attachments, @price_cents, @payment_mode, @stripe_session_id
     )`
   )
 
