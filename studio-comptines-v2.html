@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kids Shorts Studio Pro — Générateur de Shorts Enfants</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+        --bg: #fff9f0;
+        --panel: #ffffff;
+        --panel-2: #fff4e6;
+        --border: #ffe0b8;
+        --ink: #3a2a1a;
+        --ink-dim: #a07a52;
+        --ink-faint: #d4b898;
+        --pink: #ff6b9d;
+        --yellow: #ffd93d;
+        --blue: #4ecdc4;
+        --green: #7ed957;
+        --orange: #ff9f43;
+        --purple: #b983ff;
+        --success: #4caf50;
+        --error: #ff5252;
+        --warn: #ffa726;
+        --radius: 16px;
+    }
+    body {
+        font-family: 'Comic Sans MS', 'Chalkboard SE', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(135deg, #fff9f0 0%, #ffe8f0 50%, #e8f4ff 100%);
+        color: var(--ink); min-height: 100vh;
+        padding: 1.5rem 1rem 6rem; font-size: 15px; line-height: 1.5;
+        max-width: 900px; margin: 0 auto;
+    }
+    header { margin-bottom: 1.5rem; text-align: center; }
+    h1 {
+        font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.3rem;
+        background: linear-gradient(90deg, var(--pink), var(--orange), var(--yellow), var(--green), var(--blue), var(--purple));
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .subtitle { font-size: 0.85rem; color: var(--ink-dim); font-style: italic; }
+
+    .toast {
+        position: fixed; top: 1.5rem; left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: var(--ink); color: #fff;
+        padding: 0.85rem 1.4rem; border-radius: 12px;
+        font-size: 0.85rem; font-weight: 600;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000; opacity: 0;
+        transition: transform 0.35s ease, opacity 0.35s ease;
+        max-width: 90vw; text-align: center;
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--error); }
+    .toast.warn { background: var(--warn); }
+    .toast .toast-icon { font-size: 1rem; }
+
+    .info-banner {
+        background: linear-gradient(135deg, #fff4e6, #ffe8f0);
+        border-left: 4px solid var(--pink);
+        padding: 0.85rem 1rem; border-radius: 12px;
+        font-size: 0.82rem; color: var(--ink);
+        margin-bottom: 1rem; line-height: 1.5;
+    }
+    .info-banner strong { color: var(--pink); }
+
+    .coppa-badge {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: var(--green); color: #fff;
+        padding: 0.3rem 0.8rem; border-radius: 20px;
+        font-size: 0.72rem; font-weight: 700;
+        margin-bottom: 0.6rem;
+    }
+
+    .section {
+        background: var(--panel); border: 2px solid var(--border);
+        border-radius: var(--radius); margin-bottom: 1rem;
+        overflow: hidden; box-shadow: 0 2px 8px rgba(255,107,157,0.06);
+    }
+    .section-header {
+        padding: 1rem 1.2rem; cursor: pointer; user-select: none;
+        display: flex; justify-content: space-between; align-items: center;
+        background: linear-gradient(135deg, #fff, #fff9f0);
+    }
+    .section-header:active { background: var(--panel-2); }
+    .section-title {
+        font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--pink); font-weight: 700;
+    }
+    .section-title .badge {
+        display: inline-block; margin-left: 0.4rem; padding: 0.15rem 0.5rem;
+        background: var(--yellow); color: var(--ink); border-radius: 12px;
+        font-size: 0.65rem; letter-spacing: 0;
+    }
+    .section-title .badge.soft { background: var(--blue); color: #fff; }
+    .section-header .chevron {
+        font-size: 0.75rem; color: var(--ink-faint); transition: transform 0.2s;
+    }
+    .section.open .section-header .chevron { transform: rotate(180deg); }
+    .section-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .section.open .section-body { max-height: 8000px; }
+    .section-content { padding: 0 1.2rem 1.2rem; }
+
+    .api-panel {
+        background: var(--panel); border: 2px solid var(--border);
+        border-radius: var(--radius); padding: 1rem 1.2rem;
+        margin-bottom: 1rem; transition: border-color 0.3s;
+    }
+    .api-panel.ok { border-color: var(--green); }
+
+    .api-key-input {
+        width: 100%; padding: 0.85rem 1rem;
+        border-radius: 10px; border: 2px solid var(--border);
+        background: #fffaf2; color: var(--ink);
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 0.85rem; margin-bottom: 0.6rem;
+    }
+    .api-key-input:focus { outline: none; border-color: var(--pink); }
+
+    .api-save-btn {
+        width: 100%; padding: 0.85rem 1.2rem;
+        border-radius: 10px; border: none;
+        background: linear-gradient(135deg, var(--pink), var(--orange));
+        color: #fff;
+        font-size: 0.9rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+        margin-bottom: 0.6rem;
+    }
+    .api-save-btn:active { transform: scale(0.98); }
+
+    .api-status-line {
+        font-size: 0.78rem; padding: 0.6rem 0.9rem;
+        border-radius: 8px; margin-bottom: 0.5rem;
+        display: flex; align-items: center; gap: 0.5rem;
+        background: var(--panel-2); color: var(--ink-dim);
+        transition: all 0.3s;
+    }
+    .api-status-line.ok {
+        background: #e8f8e8; color: var(--success); font-weight: 700;
+    }
+    .api-status-line .status-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--ink-faint); flex-shrink: 0;
+        transition: background 0.3s;
+    }
+    .api-status-line.ok .status-dot { background: var(--success); }
+
+    .api-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.4rem; }
+    .api-hint a { color: var(--pink); text-decoration: underline; }
+    .stat-line {
+        font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.5rem;
+        padding: 0.45rem 0.7rem; background: var(--panel-2); border-radius: 8px;
+        display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.3rem;
+    }
+
+    .wake-status {
+        font-size: 0.75rem; padding: 0.55rem 0.8rem;
+        border-radius: 8px; margin-top: 0.4rem;
+        display: flex; justify-content: space-between; align-items: center;
+        background: #e8f4ff; color: var(--blue);
+        flex-wrap: wrap; gap: 0.4rem;
+    }
+    .wake-status.active { background: #e8f8e8; color: var(--success); }
+    .wake-status.warn { background: #fff4e6; color: var(--warn); }
+    .wake-status button {
+        background: transparent; border: 1.5px solid currentColor;
+        color: inherit; padding: 0.3rem 0.7rem; border-radius: 8px;
+        font-size: 0.7rem; cursor: pointer; font-family: inherit; font-weight: 600;
+    }
+    .wake-status button:active { opacity: 0.6; }
+
+    .upload-zone {
+        border: 3px dashed var(--pink); border-radius: var(--radius);
+        padding: 2rem 1rem; text-align: center; cursor: pointer;
+        transition: all 0.2s; margin-bottom: 1rem;
+        background: linear-gradient(135deg, #fff9f0, #ffe8f0);
+    }
+    .upload-zone:active { border-color: var(--purple); background: var(--panel-2); }
+    .upload-zone.loading { pointer-events: none; opacity: 0.6; }
+    .upload-zone input[type="file"] { display: none; }
+    .upload-icon { font-size: 2.6rem; margin-bottom: 0.6rem; }
+    .upload-text { font-size: 1rem; color: var(--ink); margin-bottom: 0.2rem; font-weight: 700; }
+    .upload-hint { font-size: 0.78rem; color: var(--ink-dim); }
+
+    .audio-zone {
+        border: 3px dashed var(--blue); border-radius: var(--radius);
+        padding: 1.4rem 1rem; text-align: center; cursor: pointer;
+        transition: all 0.2s; margin-bottom: 1rem;
+        background: linear-gradient(135deg, #e8f4ff, #f0e8ff);
+    }
+    .audio-zone:active { border-color: var(--purple); }
+    .audio-zone.has-file { border-style: solid; border-color: var(--green); background: #e8f8e8; }
+    .audio-zone input[type="file"] { display: none; }
+    .audio-zone .audio-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+    .audio-zone .audio-text { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+    .audio-zone .audio-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.2rem; }
+    .audio-zone .audio-filename {
+        font-size: 0.75rem; color: var(--success); font-weight: 700;
+        margin-top: 0.4rem; word-break: break-all;
+    }
+    .audio-zone audio {
+        width: 100%; margin-top: 0.6rem; border-radius: 8px;
+    }
+    .audio-remove-btn {
+        margin-top: 0.5rem; background: transparent;
+        border: 1.5px solid var(--error); color: var(--error);
+        padding: 0.3rem 0.8rem; border-radius: 8px;
+        font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+    .bpm-display {
+        margin-top: 0.6rem; padding: 0.6rem 0.9rem;
+        border-radius: 10px; background: #fff;
+        border: 2px solid var(--border);
+        font-size: 0.8rem; font-weight: 600;
+        display: none;
+    }
+    .bpm-display.visible { display: block; }
+    .bpm-display.ok { border-color: var(--green); background: #e8f8e8; color: var(--success); }
+    .bpm-display.warn { border-color: var(--warn); background: #fff8e8; color: var(--warn); }
+    .bpm-display .bpm-value { font-size: 1.1rem; font-weight: 700; }
+
+    .sfx-toggle {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.7rem 0.9rem; background: #fff;
+        border: 2px solid var(--border); border-radius: 10px;
+        margin-top: 0.6rem; cursor: pointer;
+    }
+    .sfx-toggle input { width: 20px; height: 20px; accent-color: var(--pink); cursor: pointer; }
+    .sfx-toggle label { font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+
+    .images-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 0.5rem; margin-bottom: 1rem;
+    }
+    .image-card {
+        position: relative; border-radius: 10px; overflow: hidden;
+        border: 2px solid var(--border); background: #f0f0f0;
+        aspect-ratio: 9/16;
+    }
+    .image-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .image-card .remove-btn {
+        position: absolute; top: 4px; right: 4px;
+        background: rgba(255,82,82,0.9); color: #fff; border: none;
+        width: 24px; height: 24px; border-radius: 50%; font-size: 12px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        line-height: 1; font-weight: 700;
+    }
+
+    .prompt-main {
+        width: 100%; padding: 0.9rem 1rem;
+        border-radius: 10px; border: 2px solid var(--border);
+        background: #fffaf2; color: var(--ink);
+        font-family: inherit; font-size: 0.9rem;
+        min-height: 110px; resize: vertical; line-height: 1.5;
+    }
+    .prompt-main:focus { outline: none; border-color: var(--pink); }
+    .prompt-main-hint {
+        font-size: 0.75rem; color: var(--ink-dim);
+        margin-top: 0.5rem; line-height: 1.45;
+    }
+
+    .prompt-presets {
+        display: flex; flex-wrap: wrap; gap: 0.5rem;
+        margin-top: 0.7rem;
+    }
+    .prompt-preset {
+        padding: 0.45rem 0.85rem; border-radius: 20px;
+        border: 2px solid var(--border); background: #fff;
+        font-size: 0.78rem; cursor: pointer; font-weight: 600;
+        transition: all 0.15s; user-select: none;
+    }
+    .prompt-preset:active { transform: scale(0.95); }
+    .prompt-preset:hover { border-color: var(--pink); background: var(--panel-2); }
+
+    .styles-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+        gap: 0.55rem;
+    }
+    .style-card {
+        padding: 0.8rem 0.9rem; border-radius: 12px;
+        border: 2px solid var(--border); background: #fff;
+        cursor: pointer; transition: all 0.15s;
+        display: flex; align-items: center; gap: 0.55rem;
+    }
+    .style-card:active { transform: scale(0.97); }
+    .style-card.selected {
+        background: linear-gradient(135deg, var(--pink), var(--orange));
+        color: #fff; border-color: var(--pink);
+        box-shadow: 0 4px 12px rgba(255,107,157,0.3);
+    }
+    .style-card .style-emoji { font-size: 1.4rem; flex-shrink: 0; }
+    .style-card .style-name { font-size: 0.82rem; font-weight: 700; line-height: 1.2; }
+    .style-card .style-desc { font-size: 0.68rem; opacity: 0.75; margin-top: 0.1rem; line-height: 1.2; }
+
+    .style-category-header {
+        grid-column: 1 / -1;
+        font-size: 0.75rem; font-weight: 700;
+        color: var(--pink); text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 0.7rem 0 0.35rem;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 0.35rem;
+    }
+    .style-category-header:first-child { padding-top: 0; border-bottom: none; }
+    .style-category-desc {
+        grid-column: 1 / -1;
+        font-size: 0.72rem; color: var(--ink-dim);
+        font-style: italic; margin-bottom: 0.45rem; line-height: 1.35;
+    }
+
+    .no-style-card {
+        grid-column: 1 / -1;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        border: 3px dashed var(--border);
+        background: transparent;
+        text-align: center; cursor: pointer;
+        transition: all 0.15s;
+        font-size: 0.85rem; color: var(--ink-dim); font-weight: 600;
+    }
+    .no-style-card:active { transform: scale(0.99); }
+    .no-style-card.selected {
+        border-color: var(--pink); border-style: solid;
+        background: var(--panel-2); color: var(--ink);
+    }
+
+    .control-row { margin-bottom: 1rem; }
+    .control-row:last-child { margin-bottom: 0; }
+    .control-label {
+        display: block; font-size: 0.75rem; color: var(--ink-dim);
+        margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em;
+        font-weight: 700;
+    }
+    select {
+        width: 100%; padding: 0.75rem 0.9rem; border-radius: 10px;
+        border: 2px solid var(--border); background: #fffaf2;
+        color: var(--ink); font-family: inherit; font-size: 0.9rem; font-weight: 600;
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23ff6b9d' d='M0 0l5 6 5-6z'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 0.9rem center;
+        background-size: 10px;
+    }
+    select:focus { outline: none; border-color: var(--pink); }
+
+    .btn-primary {
+        width: 100%; padding: 1.15rem; border-radius: var(--radius);
+        border: none;
+        background: linear-gradient(135deg, var(--pink), var(--orange), var(--yellow));
+        background-size: 200% 200%;
+        color: #fff;
+        font-size: 1.05rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; transition: all 0.2s, transform 0.1s;
+        margin-bottom: 1rem;
+        box-shadow: 0 6px 20px rgba(255,107,157,0.35);
+        text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+    .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+    .btn-primary:disabled {
+        opacity: 0.4; cursor: not-allowed;
+        background: #ccc; box-shadow: none;
+    }
+
+    .btn-secondary {
+        width: 100%; padding: 0.9rem; border-radius: var(--radius);
+        border: 2px solid var(--blue); background: #fff;
+        color: var(--blue); font-size: 0.9rem; font-weight: 700;
+        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
+        display: none;
+    }
+    .btn-secondary.visible { display: block; }
+    .btn-secondary:active { background: #e8f4ff; }
+
+    .btn-stop {
+        width: 100%; padding: 0.85rem; border-radius: var(--radius);
+        border: 2px solid var(--error); background: #fff;
+        color: var(--error); font-size: 0.88rem; font-weight: 700;
+        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
+        display: none;
+    }
+    .btn-stop.visible { display: block; }
+
+    .queue { margin-top: 1rem; }
+    .queue-summary {
+        background: var(--panel); border: 2px solid var(--border);
+        border-radius: 10px; padding: 0.75rem 0.9rem; margin-bottom: 0.6rem;
+        font-size: 0.8rem; display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .queue-summary .progress-text { color: var(--ink); font-weight: 700; }
+    .queue-summary .eta-text { color: var(--ink-dim); }
+
+    .queue-item {
+        display: flex; align-items: center; gap: 0.8rem;
+        padding: 0.75rem 0.85rem; border-radius: 10px;
+        border: 2px solid var(--border); margin-bottom: 0.4rem;
+        background: var(--panel); transition: border-color 0.3s, opacity 0.3s;
+        font-size: 0.85rem;
+    }
+    .queue-item.pending { opacity: 0.55; }
+    .queue-item.creating { border-color: var(--yellow); }
+    .queue-item.processing { border-color: var(--blue); }
+    .queue-item.done { border-color: var(--green); background: #f0faf0; }
+    .queue-item.failed { border-color: var(--error); }
+    .queue-item .q-icon { font-size: 1.1rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
+    .queue-item .q-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    .queue-item .q-status { font-size: 0.75rem; color: var(--ink-dim); text-align: right; flex-shrink: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .queue-more {
+        text-align: center; padding: 0.5rem; color: var(--ink-dim);
+        font-size: 0.78rem; font-style: italic;
+    }
+
+    .gallery { margin-top: 1.5rem; }
+    .gallery-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.9rem;
+    }
+    .gallery-item {
+        border-radius: var(--radius); overflow: hidden;
+        border: 3px solid var(--border); background: #000;
+        animation: fadeIn 0.4s ease;
+        box-shadow: 0 4px 12px rgba(255,107,157,0.15);
+    }
+    .gallery-item video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
+    .gallery-item .g-caption {
+        padding: 0.5rem 0.7rem; background: var(--panel);
+        font-size: 0.75rem; color: var(--ink-dim); font-weight: 600;
+    }
+
+    .meta-panel {
+        background: linear-gradient(135deg, #fff9f0, #e8f4ff);
+        border: 2px solid var(--blue); border-radius: var(--radius);
+        padding: 1rem 1.2rem; margin-top: 1.5rem;
+        display: none;
+    }
+    .meta-panel.visible { display: block; }
+    .meta-panel h3 {
+        font-size: 0.95rem; color: var(--blue); margin-bottom: 0.7rem;
+        font-weight: 700;
+    }
+    .meta-field {
+        margin-bottom: 0.7rem;
+    }
+    .meta-field label {
+        display: block; font-size: 0.72rem; color: var(--ink-dim);
+        text-transform: uppercase; letter-spacing: 0.05em;
+        font-weight: 700; margin-bottom: 0.25rem;
+    }
+    .meta-field input, .meta-field textarea {
+        width: 100%; padding: 0.6rem 0.8rem;
+        border-radius: 8px; border: 2px solid var(--border);
+        background: #fff; color: var(--ink);
+        font-family: inherit; font-size: 0.82rem;
+        resize: vertical;
+    }
+    .meta-field textarea { min-height: 90px; }
+    .meta-field input:focus, .meta-field textarea:focus {
+        outline: none; border-color: var(--blue);
+    }
+    .meta-copy-btn {
+        width: 100%; padding: 0.75rem; border-radius: 10px;
+        border: none; background: var(--blue); color: #fff;
+        font-size: 0.85rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; margin-top: 0.4rem;
+    }
+    .meta-copy-btn:active { transform: scale(0.98); }
+
+    .coppa-check {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.75rem 0.9rem; background: #e8f8e8;
+        border: 2px solid var(--green); border-radius: 10px;
+        margin-bottom: 0.7rem;
+    }
+    .coppa-check input { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; }
+    .coppa-check label { font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+
+    .capcut-guide {
+        background: linear-gradient(135deg, #fff4e6, #ffe8f0);
+        border: 2px solid var(--orange); border-radius: var(--radius);
+        padding: 1rem 1.2rem; margin-top: 1.5rem;
+        display: none;
+    }
+    .capcut-guide.visible { display: block; }
+    .capcut-guide h3 {
+        font-size: 0.95rem; color: var(--orange); margin-bottom: 0.7rem;
+        font-weight: 700;
+    }
+    .capcut-guide ol {
+        margin-left: 1.2rem; font-size: 0.82rem; line-height: 1.7;
+        color: var(--ink);
+    }
+    .capcut-guide ol li { margin-bottom: 0.3rem; }
+    .capcut-guide code {
+        background: var(--panel-2); padding: 0.1rem 0.35rem;
+        border-radius: 4px; font-size: 0.78rem;
+        font-family: ui-monospace, monospace;
+    }
+
+    .status-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: linear-gradient(135deg, var(--pink), var(--orange));
+        color: #fff; padding: 0.75rem 1rem;
+        font-size: 0.82rem; display: flex; align-items: center; gap: 0.6rem;
+        transform: translateY(100%); transition: transform 0.3s;
+        z-index: 100; font-weight: 600;
+    }
+    .status-bar.visible { transform: translateY(0); }
+    .status-bar .spinner {
+        width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: #fff; border-radius: 50%;
+        animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .hidden { display: none !important; }
+    #noSleepCanvas { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+    #noSleepVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>🌈 Kids Shorts Studio Pro</h1>
+    <p class="subtitle">Shorts Enfants • Style Pixar 3D • Musique Synchronisée • COPPA</p>
+</header>
+
+<div class="info-banner">
+    <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
+    <strong>Modèle parfait :</strong> Ourson bleu turquoise qui danse dans une prairie ensoleillée, notes de musique dorées flottantes,
+    papillons en bokeh, style 3D Pixar doux. Format <strong>portrait 9:16, 1080x1920</strong>.
+    <br><br>
+    ✅ Style 3D Pixar • ✅ Mouvements hypnotiques répétitifs • ✅ Musique + SFX synchronisés
+    • ✅ Boucle parfaite • ✅ Métadonnées YouTube SEO
+</div>
+
+<div class="api-panel" id="api-panel">
+    <input type="password" class="api-key-input" id="api-key-input"
+           placeholder="Collez votre clé API ici (sk-...)" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé</button>
+    <div class="api-status-line" id="api-status-line">
+        <span class="status-dot"></span>
+        <span id="api-status-text">Aucune clé API enregistrée</span>
+    </div>
+    <div class="api-hint">
+        Clé gratuite sur <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a> → Settings → API Keys
+    </div>
+    <div class="stat-line" id="stat-line">
+        <span>📊 Vitesse moyenne : <span id="stat-speed">en attente de données</span></span>
+        <span id="stat-samples">0 génération</span>
+    </div>
+    <div class="wake-status" id="wake-status">
+        <span id="wake-status-text">💤 Veille automatique</span>
+        <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
+    </div>
+</div>
+
+<div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept="image/*" multiple>
+    <div class="upload-icon">📸</div>
+    <div class="upload-text">Ajoutez vos images</div>
+    <div class="upload-hint">Chacune deviendra un Short Pixar joyeux et sécurisé</div>
+</div>
+
+<div class="images-grid" id="images-grid"></div>
+
+<!-- AUDIO UPLOAD + BPM -->
+<div class="audio-zone" id="audio-zone">
+    <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
+    <div class="audio-icon">🎵</div>
+    <div class="audio-text">Ajoutez une musique libre de droit</div>
+    <div class="audio-hint">MP3, WAV ou OGG — BPM analysé automatiquement</div>
+    <div class="audio-filename" id="audio-filename" style="display:none;"></div>
+    <div class="bpm-display" id="bpm-display">
+        <div>🎼 Tempo détecté : <span class="bpm-value" id="bpm-value">—</span> BPM</div>
+        <div id="bpm-message" style="margin-top:0.3rem; font-size:0.72rem;"></div>
+    </div>
+    <audio id="audio-preview" controls style="display:none;"></audio>
+    <button type="button" class="audio-remove-btn" id="audio-remove-btn" style="display:none;">✕ Retirer la musique</button>
+</div>
+
+<!-- SFX TOGGLE -->
+<div class="sfx-toggle">
+    <input type="checkbox" id="sfx-checkbox" checked>
+    <label for="sfx-checkbox">🔔 Ajouter les SFX (pop, clochette, froufrou) — mixage normalisé</label>
+</div>
+
+<div class="section open" id="section-prompt">
+    <div class="section-header" data-toggle="section-prompt">
+        <span class="section-title">✨ Votre idée <span class="badge soft">recommandé</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <textarea class="prompt-main" id="main-prompt"
+                placeholder="Décrivez la scène joyeuse que vous voulez. Par exemple :
+
+« Un ourson bleu turquoise danse dans une prairie ensoleillée. Il tape dans ses mains et sautille en rythme. Des notes de musique dorées flottent autour de lui. »"></textarea>
+            <div class="prompt-presets" id="prompt-presets"></div>
+            <div class="prompt-main-hint">
+                💡 Le style 3D Pixar, l'ourson bleu turquoise, la prairie ensoleillée et les notes de musique
+                sont <strong>toujours ajoutés automatiquement</strong> pour garantir le Short parfait.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section open" id="section-style">
+    <div class="section-header" data-toggle="section-style">
+        <span class="section-title">🌈 Thème joyeux <span class="badge">optionnel</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="styles-grid" id="styles-grid"></div>
+        </div>
+    </div>
+</div>
+
+<div class="section" id="section-tech">
+    <div class="section-header" data-toggle="section-tech">
+        <span class="section-title">⚙️ Réglages techniques</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row">
+                <label class="control-label">Durée de chaque Short</label>
+                <select id="duration-select">
+                    <option value="121">5 secondes</option>
+                    <option value="153" selected>6,4 secondes (recommandé)</option>
+                    <option value="241">10 secondes</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Personnage principal</label>
+                <select id="characters-select">
+                    <option value="blue-bear" selected>🐻 Ourson bleu turquoise (recommandé)</option>
+                    <option value="yellow-chick">🐤 Poussin jaune au chapeau de paille</option>
+                    <option value="cute-animals">🐰 Animaux mignons variés</option>
+                    <option value="mixed">🌈 Mix animaux + enfants stylisés</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Action principale</label>
+                <select id="activity-select">
+                    <option value="dancing-clapping" selected>👏 Danse + tapes dans les mains</option>
+                    <option value="dancing-jumping">🦘 Danse + sautillements</option>
+                    <option value="singing">🎤 Chant avec notes de musique</option>
+                    <option value="dancing-singing">💃 Danse ET chant</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Type de boucle</label>
+                <select id="loop-select">
+                    <option value="perfect" selected>🔄 Boucle parfaite (fin = début)</option>
+                    <option value="standard">Normal</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button type="button" class="btn-primary" id="generate-btn" disabled>
+    🌟 Créer les Shorts Pixar
+</button>
+
+<button type="button" class="btn-stop" id="stop-btn">
+    ⏹ Arrêter la génération
+</button>
+
+<div class="queue" id="queue" style="display:none;"></div>
+
+<div class="gallery" id="gallery" style="display:none;">
+    <div class="section-title" style="margin-bottom:0.8rem;">🎬 Shorts générés</div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+</div>
+
+<!-- MÉTADONNÉES YOUTUBE -->
+<div class="meta-panel" id="meta-panel">
+    <h3>📋 Métadonnées YouTube optimisées</h3>
+    <div class="coppa-check">
+        <input type="checkbox" id="coppa-checkbox" checked>
+        <label for="coppa-checkbox">✅ Cette vidéo est destinée aux enfants (obligatoire COPPA)</label>
+    </div>
+    <div class="meta-field">
+        <label>Titre optimisé</label>
+        <input type="text" id="meta-title" readonly>
+    </div>
+    <div class="meta-field">
+        <label>Description</label>
+        <textarea id="meta-description" readonly></textarea>
+    </div>
+    <div class="meta-field">
+        <label>Tags SEO</label>
+        <textarea id="meta-tags" readonly style="min-height:60px;"></textarea>
+    </div>
+    <div class="meta-field">
+        <label>Hashtags</label>
+        <input type="text" id="meta-hashtags" readonly>
+    </div>
+    <button type="button" class="meta-copy-btn" id="meta-copy-btn">📋 Copier toutes les métadonnées</button>
+</div>
+
+<!-- GUIDE CAPCUT -->
+<div class="capcut-guide" id="capcut-guide">
+    <h3>🎬 Guide CapCut — Montage final</h3>
+    <ol>
+        <li>Ouvre <strong>CapCut</strong> (gratuit sur mobile/PC).</li>
+        <li>Crée un nouveau projet <code>9:16</code>.</li>
+        <li>Importe ta vidéo générée.</li>
+        <li>Ajoute ta <strong>piste musicale libre de droit</strong> (Bibliothèque audio YouTube).</li>
+        <li>Cale les sauts du personnage sur les <strong>temps forts de la musique</strong> (utilise les marqueurs BPM affichés).</li>
+        <li>Ajoute les <strong>SFX</strong> (pop, clochette) aux moments clés.</li>
+        <li>Vérifie que la vidéo boucle parfaitement (fin = début).</li>
+        <li>Exporte en <code>1080x1920</code>, 30 fps, qualité maximale.</li>
+        <li>Copie les métadonnées ci-dessus dans YouTube Studio.</li>
+        <li>Coche <strong>« Contenu pour enfants »</strong> — obligatoire.</li>
+    </ol>
+</div>
+
+<div class="status-bar" id="status-bar">
+    <div class="spinner"></div>
+    <span id="status-text">Préparation…</span>
+</div>
+
+<div class="toast" id="toast">
+    <span class="toast-icon" id="toast-icon">✓</span>
+    <span id="toast-text">Message</span>
+</div>
+
+<canvas id="noSleepCanvas" width="2" height="2"></canvas>
+<video id="noSleepVideo" playsinline muted loop></video>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ══════════════════════════════════════════════════════════════════
+const API_BASE = 'https://apihub.agnes-ai.com/v1';
+const POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
+const MODEL_VIDEO = 'agnes-video-v2.0';
+const FRAME_RATE = 24;
+
+let createIntervalMs = 62000;
+const CREATE_INTERVAL_MIN = 62000;
+const CREATE_INTERVAL_MAX = 90000;
+const CREATE_INTERVAL_SAFE = 75000;
+
+const POLL_INTERVAL_SEC = 8;
+const MAX_POLL_ATTEMPTS = 100;
+
+const TIMING_CACHE_KEY = 'kids_shorts_pro_timing_v1';
+const API_KEY_STORAGE = 'agnes_api_key';
+const WAKE_LOCK_PREF = 'agnes_wakelock_enabled';
+
+const MAX_VISIBLE_QUEUE = 30;
+const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
+const THUMBNAIL_MAX_WIDTH = 200;
+
+// ══════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const state = {
+    images: [],
+    isRunning: false,
+    stopRequested: false,
+    queue: [],
+    completed: 0,
+    failed: 0,
+    selectedTheme: null,
+    mainPrompt: '',
+    characters: 'blue-bear',
+    activity: 'dancing-clapping',
+    loop: 'perfect',
+    durationFrames: 153,
+    isLoadingImages: false,
+    creationAttemptsSinceLastError: 0,
+    audioFile: null,
+    audioObjectUrl: null,
+    audioBpm: null,
+    sfxEnabled: true
+};
+
+// ══════════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════════
+let toastTimeout = null;
+function showToast(message, type = 'success', duration = 2500) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const text = document.getElementById('toast-text');
+    if (!toast || !icon || !text) return;
+    toast.classList.remove('visible', 'success', 'error', 'warn');
+    void toast.offsetWidth;
+    const icons = { success: '✓', error: '✕', warn: '⚠' };
+    icon.textContent = icons[type] || '✓';
+    text.textContent = message;
+    toast.classList.add(type);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('visible'), duration);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ANTI-VEILLE
+// ══════════════════════════════════════════════════════════════════
+let wakeLockSentinel = null;
+let wakeLockEnabled = false;
+let canvasStream = null;
+let canvasInterval = null;
+
+function isWakeLockSupported() {
+    return 'wakeLock' in navigator && typeof navigator.wakeLock.request === 'function';
+}
+
+async function requestWakeLockAPI() {
+    if (!isWakeLockSupported()) return false;
+    try {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null;
+            updateWakeStatus();
+        });
+        return true;
+    } catch (e) { return false; }
+}
+
+async function releaseWakeLockAPI() {
+    if (wakeLockSentinel) {
+        try { await wakeLockSentinel.release(); } catch (e) {}
+        wakeLockSentinel = null;
+    }
+}
+
+function startCanvasStream() {
+    if (canvasStream) return true;
+    try {
+        const canvas = document.getElementById('noSleepCanvas');
+        const video = document.getElementById('noSleepVideo');
+        if (!canvas || !video) return false;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return false;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (typeof canvas.captureStream !== 'function') return false;
+        canvasStream = canvas.captureStream(1);
+        let toggle = false;
+        canvasInterval = setInterval(() => {
+            toggle = !toggle;
+            ctx.fillStyle = toggle ? '#000000' : '#010101';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }, 1000);
+        video.srcObject = canvasStream;
+        video.muted = true;
+        video.playsInline = true;
+        const playPromise = video.play();
+        if (playPromise && playPromise.catch) playPromise.catch(e => {});
+        return true;
+    } catch (e) { return false; }
+}
+
+function stopCanvasStream() {
+    if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
+    const video = document.getElementById('noSleepVideo');
+    if (video) { try { video.pause(); video.srcObject = null; } catch (e) {} }
+    if (canvasStream) {
+        try { canvasStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+        canvasStream = null;
+    }
+}
+
+async function activateWakeLock() {
+    let success = false;
+    if (isWakeLockSupported()) success = await requestWakeLockAPI();
+    if (!success) success = startCanvasStream();
+    if (!success && !canvasStream) success = startCanvasStream();
+    return success;
+}
+
+async function deactivateWakeLock() {
+    await releaseWakeLockAPI();
+    stopCanvasStream();
+}
+
+function updateWakeStatus() {
+    const el = document.getElementById('wake-status');
+    const txt = document.getElementById('wake-status-text');
+    const btn = document.getElementById('wake-toggle-btn');
+    if (!el || !txt || !btn) return;
+    el.classList.remove('active', 'warn');
+    const hasAny = isWakeLockSupported() || (document.getElementById('noSleepCanvas')?.captureStream);
+    if (!hasAny) {
+        el.classList.add('warn');
+        txt.textContent = '⚠️ Non supporté';
+        btn.style.display = 'none';
+        return;
+    }
+    btn.style.display = 'inline-block';
+    const isActive = wakeLockSentinel !== null || canvasStream !== null;
+    if (wakeLockEnabled && isActive) {
+        el.classList.add('active');
+        txt.textContent = '✅ Écran allumé';
+        btn.textContent = 'Désactiver';
+    } else if (wakeLockEnabled && !isActive) {
+        el.classList.add('warn');
+        txt.textContent = '⏳ En attente';
+        btn.textContent = 'Désactiver';
+    } else {
+        txt.textContent = '💤 Veille automatique';
+        btn.textContent = 'Garder l\'écran allumé';
+    }
+}
+
+async function toggleWakeLock() {
+    if (wakeLockEnabled) {
+        wakeLockEnabled = false;
+        await deactivateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '0'); } catch (e) {}
+        showToast('Veille automatique réactivée', 'warn');
+    } else {
+        wakeLockEnabled = true;
+        const ok = await activateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) {}
+        showToast(ok ? 'L\'écran va rester allumé' : 'Activez manuellement', ok ? 'success' : 'warn');
+    }
+    updateWakeStatus();
+}
+
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLockEnabled) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+});
+
+async function ensureWakeLockActive() {
+    if (!wakeLockEnabled) return;
+    if (wakeLockSentinel === null && canvasStream === null) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CACHE DES TEMPS
+// ══════════════════════════════════════════════════════════════════
+function loadTimingCache() {
+    try { return JSON.parse(localStorage.getItem(TIMING_CACHE_KEY) || '{}'); }
+    catch (e) { return {}; }
+}
+function saveTimingCache(cache) {
+    try { localStorage.setItem(TIMING_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+}
+function recordGenerationTime(numFrames, durationMs) {
+    const cache = loadTimingCache();
+    const key = String(numFrames);
+    if (!cache[key]) cache[key] = [];
+    cache[key].push(durationMs);
+    if (cache[key].length > 10) cache[key] = cache[key].slice(-10);
+    saveTimingCache(cache);
+    updateTimingDisplay();
+}
+function estimateGenerationTime(numFrames) {
+    const cache = loadTimingCache();
+    const samples = cache[String(numFrames)];
+    if (samples && samples.length > 0) {
+        const sorted = [...samples].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
+    }
+    return 30000 + numFrames * 500;
+}
+function updateTimingDisplay() {
+    const cache = loadTimingCache();
+    const all = Object.values(cache).flat();
+    const speedEl = document.getElementById('stat-speed');
+    const samplesEl = document.getElementById('stat-samples');
+    if (!speedEl || !samplesEl) return;
+    if (all.length === 0) {
+        speedEl.textContent = 'en attente de données';
+        samplesEl.textContent = '0 génération';
+        return;
+    }
+    const avg = all.reduce((a, b) => a + b, 0) / all.length;
+    speedEl.textContent = (avg / 1000).toFixed(1) + ' s en moyenne';
+    samplesEl.textContent = all.length + ' génération' + (all.length > 1 ? 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PRESETS DE PROMPT
+// ══════════════════════════════════════════════════════════════════
+const PROMPT_PRESETS = [
+    { label: '🐻 Ourson qui danse',
+      text: 'Un ourson bleu turquoise tout doux danse dans une prairie verdoyante. Il tape dans ses mains et sautille en rythme. Des notes de musique dorées flottent autour de lui.' },
+    { label: '🐤 Poussin au chapeau',
+      text: 'Un petit poussin jaune avec un chapeau de paille danse joyeusement dans un champ de fleurs multicolores. Il sautille et balance ses bras en rythme.' },
+    { label: '🦋 Papillons magiques',
+      text: 'Un ourson bleu turquoise danse entouré de papillons aux ailes lumineuses. Des notes de musique roses flottent dans l\'air. Le soleil brille doucement.' },
+    { label: '🌈 Danse arc-en-ciel',
+      text: 'Un ourson bleu turquoise danse sous un arc-en-ciel dans une prairie ensoleillée. Il tape dans ses mains et sourit. Ambiance joyeuse et magique.' },
+    { label: '🎵 Concert dans le pré',
+      text: 'Un ourson bleu turquoise chante et danse dans une prairie fleurie. Des notes de musique dorées s\'échappent de sa bouche. Des oiseaux l\'accompagnent.' },
+    { label: '🌻 Tournesols géants',
+      text: 'Un ourson bleu turquoise danse au milieu de tournesols géants. Le soleil brille, des notes de musique flottent, ambiance estivale joyeuse.' },
+    { label: '🎈 Fête aux ballons',
+      text: 'Un ourson bleu turquoise danse entouré de ballons colorés dans une prairie ensoleillée. Confettis et notes de musique flottent dans l\'air.' },
+    { label: '🍭 Prairie sucrée',
+      text: 'Un ourson bleu turquoise danse dans une prairie de bonbons géants. Couleurs pastel, ambiance sucrée et joyeuse, notes de musique scintillantes.' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// THÈMES JOYEUX
+// ══════════════════════════════════════════════════════════════════
+const JOYFUL_THEMES = [
+    { id: 'sunny-meadow', name: 'Prairie Ensoleillée', emoji: '🌻', desc: 'Herbe verte, soleil doux',
+      prompt: 'lush green meadow with colorful wildflowers, clear azure blue sky with fluffy white clouds, warm golden sunlight, gentle breeze moving the flowers' },
+    { id: 'rainbow-sky', name: 'Ciel Arc-en-ciel', emoji: '🌈', desc: 'Arcs-en-ciel, nuages doux',
+      prompt: 'vibrant rainbow sky with soft fluffy clouds, colorful rainbow arcs, bright pastel colors, magical children\'s atmosphere' },
+    { id: 'candy-meadow', name: 'Prairie Sucrée', emoji: '🍭', desc: 'Bonbons, couleurs pastel',
+      prompt: 'magical meadow with giant colorful lollipops and candy, pastel colors, sweet joyful children\'s world' },
+    { id: 'flower-field', name: 'Champ Fleuri', emoji: '🌺', desc: 'Fleurs géantes, papillons',
+      prompt: 'beautiful flower field with giant colorful flowers, soft butterflies, warm sunny light, joyful children\'s garden' },
+    { id: 'sunny-beach', name: 'Plage Ensoleillée', emoji: '🏖️', desc: 'Sable doré, mer douce',
+      prompt: 'sunny beach with golden sand, gentle blue waves, bright sun, cheerful safe children\'s beach' },
+    { id: 'farm-friends', name: 'Ferme Joyeuse', emoji: '🚜', desc: 'Animaux, verdure',
+      prompt: 'cheerful farm with cute animals, green pastures, red barn, sunny day, joyful children\'s atmosphere' },
+    { id: 'jungle-fun', name: 'Jungle Amicale', emoji: '🌴', desc: 'Feuilles, animaux rigolos',
+      prompt: 'friendly colorful jungle with cute animals, bright green leaves, exotic flowers, sunny and joyful' },
+    { id: 'space-kids', name: 'Espace Enfants', emoji: '🚀', desc: 'Étoiles, planètes souriantes',
+      prompt: 'colorful kid-friendly outer space with smiling stars, cute planets, friendly rockets, bright joyful' },
+    { id: 'underwater-joy', name: 'Fonds Marin Joyeux', emoji: '🐠', desc: 'Poissons souriants, coraux',
+      prompt: 'colorful friendly underwater world with smiling fish, bright corals, gentle bubbles, joyful' },
+    { id: 'snow-fun', name: 'Neige Joyeuse', emoji: '⛄', desc: 'Bonhomme de neige, flocons',
+      prompt: 'bright snowy landscape with friendly snowman, gentle falling snowflakes, warm winter sun, joyful' },
+    { id: 'birthday-party', name: 'Fête d\'Anniversaire', emoji: '🎂', desc: 'Ballons, gâteau, confettis',
+      prompt: 'joyful birthday party with colorful balloons, confetti, birthday cake, bright festive atmosphere' },
+    { id: 'musical-meadow', name: 'Prairie Musicale', emoji: '🎵', desc: 'Notes flottantes, danse',
+      prompt: 'magical musical meadow with floating music notes, dancing flowers, happy animals, bright joyful' },
+    { id: 'pixar-3d', name: 'Pixar 3D (défaut)', emoji: '✨', desc: 'Style 3D doux et coloré',
+      prompt: 'high-quality 3D computer animation, Pixar-style rendering, soft subsurface scattering, cinematic warm lighting, smooth rounded shapes' },
+    { id: 'claymation-soft', name: 'Pâte à Modeler', emoji: '🧱', desc: 'Texture douce, artisanale',
+      prompt: 'soft claymation stop-motion animation, plasticine texture, rounded friendly shapes, warm studio lighting' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// ÉLÉMENTS DE PROMPT
+// ══════════════════════════════════════════════════════════════════
+const CHARACTER_PROMPTS = {
+    'blue-bear': 'cute fluffy blue turquoise teddy bear with big expressive friendly eyes, warm smile, soft rounded shapes, adorable and huggable',
+    'yellow-chick': 'cute yellow baby chick wearing a small straw hat, big expressive eyes, warm smile, soft rounded shapes, adorable',
+    'cute-animals': 'cute anthropomorphic animals (bunnies, bears, cats) with big friendly eyes, soft rounded shapes, gentle smiles, adorable',
+    'mixed': 'cute fluffy blue turquoise teddy bear and happy stylized children together, all smiling and friendly, bright colorful cartoon style'
+};
+
+const ACTIVITY_PROMPTS = {
+    'dancing-clapping': 'doing a simple repetitive happy dance, clapping hands and bouncing on the spot to a cheerful rhythm, hypnotic and easy to follow for young children',
+    'dancing-jumping': 'doing a simple repetitive happy dance, jumping and bouncing on the spot to a cheerful rhythm, hypnotic and easy to follow',
+    'singing': 'singing happily with visible glowing music notes floating from its mouth, mouth open in joyful song',
+    'dancing-singing': 'dancing and singing joyfully at the same time, glowing music notes floating around, rhythmic happy movements'
+};
+
+const ALWAYS_ADDED = [
+    'The scene MUST be set in a lush vibrant green meadow with colorful flowers (yellow, pink, purple) under a clear azure blue sky with soft white fluffy clouds',
+    'Warm golden sunlight, no harsh shadows, no scary elements',
+    'The character is doing a simple, rhythmic, repetitive dance — clapping hands, bouncing, swaying arms — hypnotic and easy for young children to follow',
+    'Glowing colorful music notes (golden, pink) floating and shining around the character, synchronized with the music',
+    'Soft butterflies with luminous wings in the blurred bokeh background to add depth without distracting',
+    'Bright saturated but soft colors, high quality 3D render, smooth 24fps animation, Pixar style, vertical 9:16',
+    'Safe for children, COPPA compliant, absolutely no text, no watermarks, no sharp movements, no sudden cuts',
+    'Perfect seamless loop — the end of the video connects smoothly to the beginning',
+    'Consistent character design with the source image, transformed into a friendly Pixar-style 3D character'
+];
+
+const NEGATIVE_PROMPT = 'scary, dark, deformed, text, watermark, realistic, creepy, sharp shadows, sudden movements, distortion, extra limbs, uncanny valley, harsh contrast, cold colors, sad, angry, violent';
+
+// ══════════════════════════════════════════════════════════════════
+// CONSTRUCTION DU PROMPT — OPTIMISÉ PIXAR 3D
+// ══════════════════════════════════════════════════════════════════
+function buildPrompt() {
+    const theme = state.selectedTheme
+        ? JOYFUL_THEMES.find(t => t.id === state.selectedTheme)
+        : JOYFUL_THEMES.find(t => t.id === 'pixar-3d');
+
+    const parts = [];
+
+    // Base : transformation Pixar 3D
+    parts.push(
+        'Transform this image into a joyful, colorful 3D Pixar-style children\'s animation. ' +
+        'The character must be transformed into a cute, fluffy, rounded 3D character with big expressive friendly eyes and a warm smile. ' +
+        'This is a CHILDREN\'S VIDEO — absolutely no scary, dark, violent, or inappropriate elements. COPPA compliant.'
+    );
+
+    // Thème
+    if (theme) parts.push(theme.prompt);
+
+    // Personnage
+    parts.push(CHARACTER_PROMPTS[state.characters] || CHARACTER_PROMPTS['blue-bear']);
+
+    // Action
+    parts.push(ACTIVITY_PROMPTS[state.activity] || ACTIVITY_PROMPTS['dancing-clapping']);
+
+    // Prompt utilisateur
+    if (state.mainPrompt && state.mainPrompt.trim().length > 0) {
+        parts.push('Additional joyful direction: ' + state.mainPrompt.trim());
+    }
+
+    // Éléments toujours ajoutés
+    parts.push(...ALWAYS_ADDED);
+
+    // Boucle parfaite
+    if (state.loop === 'perfect') {
+        parts.push('The animation forms a perfect seamless loop — the first and last frames match exactly');
+    }
+
+    // Prompt négatif
+    parts.push('NEGATIVE PROMPT: ' + NEGATIVE_PROMPT);
+
+    return parts.join('. ');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AUDIO — UPLOAD + DÉTECTION BPM
+// ══════════════════════════════════════════════════════════════════
+async function detectBPM(file) {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        const channelData = audioBuffer.getChannelData(0);
+        const sampleRate = audioBuffer.sampleRate;
+
+        // Algorithme simple de détection de tempo par autocorrélation
+        const peaks = [];
+        const threshold = 0.3;
+        const minPeakDistance = Math.floor(sampleRate * 0.1);
+
+        for (let i = 0; i < channelData.length; i++) {
+            if (Math.abs(channelData[i]) > threshold) {
+                if (peaks.length === 0 || (i - peaks[peaks.length - 1]) > minPeakDistance) {
+                    peaks.push(i);
+                }
+            }
+        }
+
+        if (peaks.length < 2) {
+            audioCtx.close();
+            return null;
+        }
+
+        // Intervalle moyen entre les pics
+        let totalInterval = 0;
+        for (let i = 1; i < peaks.length; i++) {
+            totalInterval += (peaks[i] - peaks[i - 1]);
+        }
+        const avgInterval = totalInterval / (peaks.length - 1);
+        const bpm = Math.round(60 / (avgInterval / sampleRate));
+
+        audioCtx.close();
+        return bpm > 0 && bpm < 300 ? bpm : null;
+    } catch (e) {
+        console.warn('Erreur détection BPM :', e);
+        return null;
+    }
+}
+
+function displayBPM(bpm) {
+    const el = document.getElementById('bpm-display');
+    const valEl = document.getElementById('bpm-value');
+    const msgEl = document.getElementById('bpm-message');
+    if (!el || !valEl || !msgEl) return;
+
+    el.classList.add('visible');
+    el.classList.remove('ok', 'warn');
+
+    if (bpm === null) {
+        valEl.textContent = '—';
+        msgEl.textContent = '⚠️ Analyse impossible — vérifie manuellement le tempo';
+        el.classList.add('warn');
+        return;
+    }
+
+    valEl.textContent = bpm;
+    if (bpm >= 90 && bpm <= 120) {
+        el.classList.add('ok');
+        msgEl.textContent = '✅ Tempo idéal pour les tout-petits (100-110 BPM recommandé)';
+    } else if (bpm < 90) {
+        el.classList.add('warn');
+        msgEl.textContent = '⚠️ Tempo un peu lent — idéal : 100-110 BPM';
+    } else {
+        el.classList.add('warn');
+        msgEl.textContent = '⚠️ Tempo un peu rapide — idéal : 100-110 BPM';
+    }
+}
+
+async function handleAudioFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('audio/')) {
+        showToast('Fichier audio invalide', 'error');
+        return;
+    }
+    if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+    state.audioFile = file;
+    state.audioObjectUrl = URL.createObjectURL(file);
+
+    const audioZone = document.getElementById('audio-zone');
+    const filenameEl = document.getElementById('audio-filename');
+    const previewEl = document.getElementById('audio-preview');
+    const removeBtn = document.getElementById('audio-remove-btn');
+
+    audioZone.classList.add('has-file');
+    filenameEl.textContent = '🎵 ' + file.name;
+    filenameEl.style.display = 'block';
+    previewEl.src = state.audioObjectUrl;
+    previewEl.style.display = 'block';
+    removeBtn.style.display = 'inline-block';
+
+    showToast('Analyse du tempo…', 'warn', 1500);
+    const bpm = await detectBPM(file);
+    state.audioBpm = bpm;
+    displayBPM(bpm);
+    showToast('Musique ajoutée ✓', 'success');
+}
+
+function removeAudioFile() {
+    if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+    state.audioFile = null;
+    state.audioObjectUrl = null;
+    state.audioBpm = null;
+
+    const audioZone = document.getElementById('audio-zone');
+    const filenameEl = document.getElementById('audio-filename');
+    const previewEl = document.getElementById('audio-preview');
+    const removeBtn = document.getElementById('audio-remove-btn');
+    const bpmEl = document.getElementById('bpm-display');
+
+    audioZone.classList.remove('has-file');
+    filenameEl.style.display = 'none';
+    previewEl.src = '';
+    previewEl.style.display = 'none';
+    removeBtn.style.display = 'none';
+    if (bpmEl) bpmEl.classList.remove('visible');
+
+    showToast('Musique retirée', 'warn');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SFX — GÉNÉRATION VIA WEB AUDIO API (pop, clochette, froufrou)
+// ══════════════════════════════════════════════════════════════════
+function playPopSFX(ctx, time) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, time);
+    osc.frequency.exponentialRampToValueAtTime(400, time + 0.08);
+    gain.gain.setValueAtTime(0.15, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.12);
+}
+
+function playBellSFX(ctx, time) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2000, time);
+    gain.gain.setValueAtTime(0.1, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.35);
+}
+
+function playWhooshSFX(ctx, time) {
+    const bufferSize = ctx.sampleRate * 0.2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize) * 0.3;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.08, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start(time);
+}
+
+async function generateSFXTrack(bpm, durationSec) {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const dest = audioCtx.createMediaStreamDestination();
+    const beatInterval = 60 / (bpm || 105);
+
+    // Limiteur pour éviter les sons stridents
+    const limiter = audioCtx.createDynamicsCompressor();
+    limiter.threshold.value = -6;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.25;
+    limiter.connect(dest);
+
+    // Rediriger les SFX vers le limiteur
+    const originalDestination = audioCtx.destination;
+    // On crée un contexte de rendu séparé pour ne pas perturber l'audio principal
+    // Pour simplifier, on génère les SFX dans un buffer offline
+
+    const sampleRate = 44100;
+    const offlineCtx = new OfflineAudioContext(1, sampleRate * durationSec, sampleRate);
+
+    for (let t = 0; t < durationSec; t += beatInterval) {
+        const i = Math.round(t / beatInterval);
+        if (i % 4 === 0) {
+            // Pop sur le temps fort
+            const osc = offlineCtx.createOscillator();
+            const gain = offlineCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, t);
+            osc.frequency.exponentialRampToValueAtTime(400, t + 0.08);
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+            osc.connect(gain);
+            gain.connect(offlineCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.12);
+        } else if (i % 4 === 2) {
+            // Clochette
+            const osc = offlineCtx.createOscillator();
+            const gain = offlineCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(2000, t);
+            gain.gain.setValueAtTime(0.08, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+            osc.connect(gain);
+            gain.connect(offlineCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.35);
+        } else {
+            // Froufrou
+            const bufferSize = Math.floor(sampleRate * 0.2);
+            const buffer = offlineCtx.createBuffer(1, bufferSize, sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let j = 0; j < bufferSize; j++) {
+                data[j] = (Math.random() * 2 - 1) * (1 - j / bufferSize) * 0.2;
+            }
+            const source = offlineCtx.createBufferSource();
+            source.buffer = buffer;
+            const gain = offlineCtx.createGain();
+            gain.gain.setValueAtTime(0.06, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+            source.connect(gain);
+            gain.connect(offlineCtx.destination);
+            source.start(t);
+        }
+    }
+
+    const renderedBuffer = await offlineCtx.startRendering();
+    // Retourner un blob WAV
+    return audioBufferToWav(renderedBuffer);
+}
+
+function audioBufferToWav(buffer) {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1;
+    const bitDepth = 16;
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    const data = buffer.getChannelData(0);
+    const dataLength = data.length * bytesPerSample;
+    const bufferLength = 44 + dataLength;
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    let offset = 0;
+    const writeString = (s) => {
+        for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+        offset += s.length;
+    };
+    writeString('RIFF');
+    view.setUint32(offset, 36 + dataLength, true); offset += 4;
+    writeString('WAVE');
+    writeString('fmt ');
+    view.setUint32(offset, 16, true); offset += 4;
+    view.setUint16(offset, format, true); offset += 2;
+    view.setUint16(offset, numChannels, true); offset += 2;
+    view.setUint32(offset, sampleRate, true); offset += 4;
+    view.setUint32(offset, sampleRate * blockAlign, true); offset += 4;
+    view.setUint16(offset, blockAlign, true); offset += 2;
+    view.setUint16(offset, bitDepth, true); offset += 2;
+    writeString('data');
+    view.setUint32(offset, dataLength, true); offset += 4;
+    let pos = offset;
+    for (let i = 0; i < data.length; i++) {
+        let sample = Math.max(-1, Math.min(1, data[i]));
+        sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(pos, sample, true);
+        pos += 2;
+    }
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MÉTADONNÉES YOUTUBE
+// ══════════════════════════════════════════════════════════════════
+function generateYouTubeMetadata() {
+    const theme = state.selectedTheme
+        ? JOYFUL_THEMES.find(t => t.id === state.selectedTheme)
+        : JOYFUL_THEMES.find(t => t.id === 'pixar-3d');
+    const themeName = theme ? theme.name : 'Prairie Ensoleillée';
+    const themeEmoji = theme ? theme.emoji : '🌻';
+
+    const activityLabel = {
+        'dancing-clapping': 'danse et tape dans ses mains',
+        'dancing-jumping': 'danse et sautille',
+        'singing': 'chante joyeusement',
+        'dancing-singing': 'danse et chante'
+    }[state.activity] || 'danse';
+
+    const titles = [
+        `${themeEmoji} Ourson Bleu qui ${activityLabel} | Short Enfant Joyeux`,
+        `${themeEmoji} Danse des Animaux Mignons pour Bébés | Shorts Dessin Animé 3D`,
+        `${themeEmoji} Comptine Animée — Ourson Bleu Turquoise | Vidéo Enfant Colorée`,
+        `${themeEmoji} Bébé Ourson Danse dans la Prairie | Short Enfant Sécurisé COPPA`,
+        `${themeEmoji} Animation 3D pour Tout-Petits | Ourson Bleu qui Danse et Chante`
+    ];
+    const title = titles[Math.floor(Math.random() * titles.length)];
+
+    const description =
+`${themeEmoji} Bienvenue dans un monde joyeux et coloré pour les tout-petits !
+
+Regardez cet adorable ourson bleu turquoise qui ${activityLabel} dans une magnifique prairie ensoleillée pleine de fleurs colorées. Des notes de musique dorées flottent autour de lui et des papillons lumineux dansent en arrière-plan.
+
+✨ Une vidéo courte, joyeuse et 100% sécurisée pour les enfants :
+✅ Animation 3D style Pixar, douce et colorée
+✅ Personnages mignons et attachants (aucun visage humain réaliste)
+✅ Musique joyeuse et rythmée (100-110 BPM, idéal pour les tout-petits)
+✅ Effets sonores doux (pop, clochette, froufrou)
+✅ Aucun texte, aucun filigrane
+✅ Boucle parfaite — à regarder en répétition !
+✅ Aucune violence, aucun contenu effrayant, aucun mouvement brusque
+✅ COPPA compliant — contenu pour enfants
+
+🎵 Musique libre de droit (Bibliothèque audio YouTube)
+🎬 Animation générée par IA — montage CapCut
+📱 Format Short vertical 1080x1920
+
+Abonnez-vous pour plus de vidéos joyeuses pour enfants ! 🌟
+
+#Shorts #ShortsEnfants #VidéoEnfant #DessinAnimé #Comptine #Danse #Chanson #Bébé #ToutPetit #Enfants #Joyeux #Coloré #Sécurisé #COPPA #YouTubeKids #NurseryRhymes #KidsVideo`;
+
+    const tags = [
+        'shorts', 'shorts enfants', 'vidéo enfant', 'dessin animé', 'animation 3D',
+        'comptine', 'chanson bébé', 'danse enfant', 'ourson bleu', 'animal mignon',
+        'vidéo joyeuse', 'contenu sécurisé', 'COPPA', 'YouTube Kids', 'tout-petit',
+        'bébé', 'enfant', 'couleurs vives', 'pixar', 'animation douce',
+        'nursery rhymes', 'kids video', 'children animation', 'happy kids',
+        'dancing animals', 'singing bear', 'sunny meadow', 'joyful shorts',
+        'safe for kids', 'toddler video', 'preschool animation', 'kids entertainment',
+        'musique enfant', 'notes de musique', 'papillons', 'prairie ensoleillée',
+        'short kid', 'kid friendly', 'family friendly', 'loop animation'
+    ];
+
+    const hashtags = '#Shorts #ShortsEnfants #VidéoEnfant #DessinAnimé #Comptine #Danse #Chanson #Bébé #ToutPetit #Enfants #Joyeux #Coloré #Sécurisé #COPPA #YouTubeKids #NurseryRhymes #KidsVideo';
+
+    return { title, description, tags: tags.join(', '), hashtags };
+}
+
+function displayYouTubeMetadata() {
+    const meta = generateYouTubeMetadata();
+    document.getElementById('meta-title').value = meta.title;
+    document.getElementById('meta-description').value = meta.description;
+    document.getElementById('meta-tags').value = meta.tags;
+    document.getElementById('meta-hashtags').value = meta.hashtags;
+    document.getElementById('meta-panel').classList.add('visible');
+    document.getElementById('capcut-guide').classList.add('visible');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CLÉ API
+// ══════════════════════════════════════════════════════════════════
+function getApiKey() {
+    try { return (localStorage.getItem(API_KEY_STORAGE) || '').trim(); }
+    catch (e) { return ''; }
+}
+
+function saveApiKey() {
+    const input = document.getElementById('api-key-input');
+    if (!input) return;
+    const key = input.value.trim();
+    if (!key) {
+        try { localStorage.removeItem(API_KEY_STORAGE); } catch (e) {}
+        updateApiPanel();
+        showToast('Clé supprimée', 'warn');
+        return;
+    }
+    if (!key.startsWith('sk-')) {
+        if (!confirm('La clé ne commence pas par "sk-". La sauvegarder quand même ?')) return;
+    }
+    try {
+        localStorage.setItem(API_KEY_STORAGE, key);
+        updateApiPanel();
+        showToast('Clé API enregistrée ✓', 'success');
+        input.blur();
+    } catch (e) {
+        showToast('Erreur lors de la sauvegarde', 'error');
+    }
+}
+
+function updateApiPanel() {
+    const panel = document.getElementById('api-panel');
+    const input = document.getElementById('api-key-input');
+    const statusLine = document.getElementById('api-status-line');
+    const statusText = document.getElementById('api-status-text');
+    const key = getApiKey();
+    if (!panel || !input || !statusLine || !statusText) return;
+    if (key) {
+        panel.classList.add('ok');
+        statusLine.classList.add('ok');
+        statusText.textContent = 'Clé API active · ' + key.slice(0, 8) + '…' + key.slice(-4);
+        input.value = key;
+        input.placeholder = '';
+    } else {
+        panel.classList.remove('ok');
+        statusLine.classList.remove('ok');
+        statusText.textContent = 'Aucune clé API enregistrée';
+        input.value = '';
+        input.placeholder = 'Collez votre clé API ici (sk-...)';
+    }
+    updateGenerateBtn();
+}
+
+function updateGenerateBtn() {
+    const btn = document.getElementById('generate-btn');
+    if (!btn) return;
+    const hasImages = state.images.length > 0;
+    const hasKey = !!getApiKey();
+    btn.disabled = !hasImages || !hasKey || state.isRunning || state.isLoadingImages;
+    if (state.isLoadingImages) {
+        btn.textContent = 'Chargement des images… (' + state.images.length + ')';
+    } else if (state.isRunning) {
+        const total = state.queue.length;
+        const done = state.completed + state.failed;
+        btn.textContent = 'Création en cours… (' + done + '/' + total + ')';
+    } else if (!hasKey) {
+        btn.textContent = '🔑 Ajoutez votre clé API';
+    } else if (!hasImages) {
+        btn.textContent = '📸 Ajoutez des images';
+    } else {
+        btn.textContent = '🌟 Créer ' + state.images.length + ' Short' + (state.images.length > 1 ? 's' : '') + ' Pixar';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ══════════════════════════════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function log(msg) { console.log('[KidsShortsPro] ' + msg); }
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const txt = document.getElementById('status-text');
+    if (!bar || !txt) return;
+    if (text) { bar.classList.add('visible'); txt.textContent = text; }
+    else bar.classList.remove('visible');
+}
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+function formatEta(seconds) {
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return m + 'm' + (s > 0 ? ' ' + s + 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRAITEMENT DES IMAGES
+// ══════════════════════════════════════════════════════════════════
+function fileToDataUri(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Erreur lecture'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function generateThumbnail(dataUri) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ratio = img.height / img.width;
+                canvas.width = THUMBNAIL_MAX_WIDTH;
+                canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * ratio);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            } catch (e) { resolve(dataUri); }
+        };
+        img.onerror = () => resolve(dataUri);
+        img.src = dataUri;
+    });
+}
+
+async function processOneFile(file) {
+    if (!file.type.startsWith('image/')) return null;
+    if (file.size > MAX_IMAGE_SIZE) {
+        log('Image trop lourde ignorée : ' + file.name);
+        return null;
+    }
+    try {
+        const dataUri = await fileToDataUri(file);
+        const thumbnail = await generateThumbnail(dataUri);
+        return { file: file, dataUri: dataUri, thumbnail: thumbnail, id: Date.now() + Math.random() };
+    } catch (e) {
+        log('Erreur traitement ' + file.name + ' : ' + e.message);
+        return null;
+    }
+}
+
+async function handleFiles(files) {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (!imageFiles.length) return;
+    state.isLoadingImages = true;
+    updateGenerateBtn();
+    setStatus('Chargement de ' + imageFiles.length + ' image' + (imageFiles.length > 1 ? 's' : '') + '…');
+    const uploadZone = document.getElementById('upload-zone');
+    uploadZone.classList.add('loading');
+    const BATCH = 5;
+    let processed = 0;
+    for (let i = 0; i < imageFiles.length; i += BATCH) {
+        const batch = imageFiles.slice(i, i + BATCH);
+        const results = await Promise.allSettled(batch.map(f => processOneFile(f)));
+        for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) {
+                state.images.push(r.value);
+                processed++;
+            }
+        }
+        renderImages();
+        setStatus('Chargement des images… ' + processed + '/' + imageFiles.length);
+    }
+    state.isLoadingImages = false;
+    uploadZone.classList.remove('loading');
+    setStatus(null);
+    updateGenerateBtn();
+}
+
+function removeImage(id) {
+    state.images = state.images.filter(img => img.id !== id);
+    renderImages();
+}
+
+function renderImages() {
+    const grid = document.getElementById('images-grid');
+    grid.innerHTML = state.images.map(img => {
+        return '<div class="image-card">' +
+            '<img src="' + (img.thumbnail || img.dataUri) + '" alt="" loading="lazy">' +
+            '<button class="remove-btn" data-remove="' + img.id + '">✕</button>' +
+            '</div>';
+    }).join('');
+    grid.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeImage(parseFloat(btn.dataset.remove));
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDU — PRESETS
+// ══════════════════════════════════════════════════════════════════
+function renderPromptPresets() {
+    const container = document.getElementById('prompt-presets');
+    container.innerHTML = PROMPT_PRESETS.map((p, i) => {
+        return '<div class="prompt-preset" data-preset="' + i + '">' + esc(p.label) + '</div>';
+    }).join('');
+    container.querySelectorAll('.prompt-preset').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.preset, 10);
+            const preset = PROMPT_PRESETS[idx];
+            if (!preset) return;
+            const ta = document.getElementById('main-prompt');
+            ta.value = preset.text;
+            state.mainPrompt = preset.text;
+            ta.focus();
+            showToast('Exemple appliqué', 'success', 1200);
+        });
+    });
+}
+
+function renderStyles() {
+    const container = document.getElementById('styles-grid');
+    let html = '';
+    html += '<div class="no-style-card ' + (state.selectedTheme === null ? 'selected' : '') + '" data-theme="none">' +
+        (state.selectedTheme === null
+            ? '✓ Thème par défaut — Pixar 3D ✨'
+            : '✨ Utiliser le thème par défaut (Pixar 3D)') +
+        '</div>';
+    html += '<div class="style-category-header">🌈 Thèmes joyeux pour enfants</div>';
+    html += '<div class="style-category-desc">Tous ces thèmes sont colorés, joyeux et sécurisés pour les enfants.</div>';
+    html += JOYFUL_THEMES.map(s => {
+        return '<div class="style-card ' + (state.selectedTheme === s.id ? 'selected' : '') + '" data-theme="' + s.id + '">' +
+            '<div class="style-emoji">' + s.emoji + '</div>' +
+            '<div>' +
+                '<div class="style-name">' + esc(s.name) + '</div>' +
+                '<div class="style-desc">' + esc(s.desc) + '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+    container.innerHTML = html;
+    container.querySelectorAll('[data-theme]').forEach(el => {
+        el.addEventListener('click', () => {
+            const val = el.dataset.theme;
+            state.selectedTheme = (val === 'none') ? null : val;
+            renderStyles();
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// API AGNES
+// ══════════════════════════════════════════════════════════════════
+async function apiFetch(url, options = {}, label = 'API') {
+    for (let attempt = 0; attempt < 7; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        try {
+            const res = await fetch(url, options);
+            if (res.status === 429) {
+                state.creationAttemptsSinceLastError = 0;
+                if (createIntervalMs < CREATE_INTERVAL_SAFE) {
+                    createIntervalMs = Math.min(createIntervalMs + 8000, CREATE_INTERVAL_MAX);
+                }
+                const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
+                setStatus('L\'IA se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.status === 503) {
+                const wait = [5, 10, 15, 20, 30, 45][Math.min(attempt, 5)];
+                setStatus('Votre Short se prépare… (' + wait + 's)');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.ok && createIntervalMs > CREATE_INTERVAL_MIN) {
+                state.creationAttemptsSinceLastError++;
+                if (state.creationAttemptsSinceLastError >= 3) {
+                    createIntervalMs = Math.max(createIntervalMs - 4000, CREATE_INTERVAL_MIN);
+                    state.creationAttemptsSinceLastError = 0;
+                }
+            }
+            return res;
+        } catch (e) {
+            if (e.message === 'Arrêt demandé') throw e;
+            const wait = [3, 5, 8, 12, 20, 30][Math.min(attempt, 5)];
+            setStatus('Connexion en cours… (' + wait + 's)');
+            await sleep(wait * 1000);
+        }
+    }
+    return fetch(url, options);
+}
+
+async function createVideoTask(imageDataUri, prompt) {
+    const body = {
+        model: MODEL_VIDEO,
+        prompt: prompt,
+        image: imageDataUri,
+        num_frames: state.durationFrames,
+        frame_rate: FRAME_RATE
+    };
+    const res = await apiFetch(API_BASE + '/videos', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + getApiKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    }, 'Création');
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+    }
+    const data = await res.json();
+    const videoId = data.video_id || data.id || data.task_id;
+    if (!videoId) throw new Error('Pas de video_id retourné');
+    return videoId;
+}
+
+async function pollVideo(videoId, onProgress) {
+    const estimatedMs = estimateGenerationTime(state.durationFrames);
+    const estimatedSec = estimatedMs / 1000;
+    let remaining = Math.max(20, Math.floor(estimatedSec * 0.8));
+    while (remaining > 0) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        onProgress('Votre Short se prépare… — ' + remaining + 's');
+        await sleep(1000);
+        remaining--;
+    }
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        if (attempt > 0) {
+            let r = POLL_INTERVAL_SEC;
+            while (r > 0) {
+                if (state.stopRequested) throw new Error('Arrêt demandé');
+                onProgress('L\'image prend vie… — ' + r + 's');
+                await sleep(1000);
+                r--;
+            }
+        }
+        const url = POLL_BASE + '?video_id=' + encodeURIComponent(videoId) + '&model_name=' + encodeURIComponent(MODEL_VIDEO);
+        const res = await apiFetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + getApiKey() }
+        }, 'Polling');
+        const d = await res.json();
+        const status = d.status || 'unknown';
+        const progress = d.progress || 0;
+        onProgress('Création en cours… — ' + progress + '%');
+        if (status === 'completed' || status === 'succeeded' || status === 'done') {
+            const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url);
+            if (!videoUrl) throw new Error('Terminé mais pas d\'URL');
+            return videoUrl;
+        }
+        if (status === 'failed' || status === 'error' || status === 'cancelled') {
+            throw new Error('Échec (' + status + ')');
+        }
+    }
+    throw new Error('Délai maximal dépassé');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE D'ATTENTE
+// ══════════════════════════════════════════════════════════════════
+function renderQueue() {
+    const queueEl = document.getElementById('queue');
+    if (!state.queue.length) { queueEl.style.display = 'none'; return; }
+    queueEl.style.display = 'block';
+    const total = state.queue.length;
+    const done = state.completed + state.failed;
+    const inProgress = state.queue.filter(q => q.status === 'processing').length;
+    const pending = total - done - inProgress;
+    const estGen = estimateGenerationTime(state.durationFrames) / 1000;
+    const remainingCreates = pending;
+    const eta = remainingCreates > 0
+        ? (remainingCreates * (createIntervalMs / 1000)) + estGen
+        : (inProgress * estGen / Math.max(inProgress, 1));
+    let html = '<div class="queue-summary">' +
+        '<span class="progress-text">Progression : ' + done + '/' + total + '</span>' +
+        '<span class="eta-text">' + (done < total ? '≈ ' + formatEta(eta) + ' restant' : 'Terminé ✨') + '</span>' +
+        '</div>';
+    const visible = state.queue.slice(0, MAX_VISIBLE_QUEUE);
+    const hidden = state.queue.length - visible.length;
+    html += visible.map(item => {
+        let icon = '○', statusText = 'En file d\'attente', cls = 'pending';
+        if (item.status === 'creating') { icon = '◐'; statusText = 'Préparation…'; cls = 'creating'; }
+        else if (item.status === 'processing') { icon = '◐'; statusText = item.progress || 'En cours…'; cls = 'processing'; }
+        else if (item.status === 'done') { icon = '🌟'; statusText = 'Terminé'; cls = 'done'; }
+        else if (item.status === 'failed') { icon = '✕'; statusText = 'Échec'; cls = 'failed'; }
+        return '<div class="queue-item ' + cls + '">' +
+            '<div class="q-icon">' + icon + '</div>' +
+            '<div class="q-name">Image ' + (item.imageIndex + 1) + '</div>' +
+            '<div class="q-status">' + esc(statusText) + '</div>' +
+        '</div>';
+    }).join('');
+    if (hidden > 0) {
+        html += '<div class="queue-more">… et ' + hidden + ' autre' + (hidden > 1 ? 's' : '') + '</div>';
+    }
+    queueEl.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GALERIE — avec synchronisation audio
+// ══════════════════════════════════════════════════════════════════
+function addToGallery(videoUrl, label) {
+    const galleryEl = document.getElementById('gallery');
+    const galleryGrid = document.getElementById('gallery-grid');
+    galleryEl.style.display = 'block';
+    const el = document.createElement('div');
+    el.className = 'gallery-item';
+    el.innerHTML = '<video controls preload="metadata" muted playsinline>' +
+        '<source src="' + videoUrl + '" type="video/mp4">' +
+        '</video>' +
+        '<div class="g-caption">🌟 ' + esc(label) + '</div>';
+    galleryGrid.appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE
+// ══════════════════════════════════════════════════════════════════
+async function createTaskOnly(item) {
+    item.status = 'creating';
+    item.progress = 'Préparation…';
+    renderQueue();
+    const prompt = buildPrompt();
+    item.prompt = prompt;
+    log('[Image ' + (item.imageIndex + 1) + '] Création…');
+    const videoId = await createVideoTask(item.image.dataUri, prompt);
+    item.videoId = videoId;
+    item.startTime = Date.now();
+    item.status = 'processing';
+    item.progress = 'En cours…';
+    renderQueue();
+    return videoId;
+}
+
+async function pollTaskAndDisplay(item) {
+    try {
+        const videoUrl = await pollVideo(item.videoId, (prog) => {
+            item.progress = prog;
+            renderQueue();
+        });
+        const elapsed = Date.now() - item.startTime;
+        recordGenerationTime(state.durationFrames, elapsed);
+        item.status = 'done';
+        item.videoUrl = videoUrl;
+        item.progress = 'Terminé';
+        state.completed++;
+        renderQueue();
+        updateGenerateBtn();
+        addToGallery(videoUrl, 'Short ' + (item.imageIndex + 1));
+    } catch (e) {
+        if (e.message === 'Arrêt demandé') {
+            item.status = 'failed';
+            item.progress = 'Arrêté';
+        } else {
+            log('[Image ' + (item.imageIndex + 1) + '] ' + e.message);
+            item.status = 'failed';
+            item.progress = 'Échec';
+            state.failed++;
+        }
+        renderQueue();
+        updateGenerateBtn();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// WORKFLOW PRINCIPAL
+// ══════════════════════════════════════════════════════════════════
+async function startGeneration() {
+    if (state.isRunning || !state.images.length) return;
+    if (!getApiKey()) {
+        showToast('Ajoutez d\'abord votre clé API', 'error');
+        document.getElementById('api-key-input').focus();
+        return;
+    }
+    state.mainPrompt = document.getElementById('main-prompt').value.trim();
+    state.isRunning = true;
+    state.stopRequested = false;
+    state.completed = 0;
+    state.failed = 0;
+    state.creationAttemptsSinceLastError = 0;
+    createIntervalMs = CREATE_INTERVAL_MIN;
+    state.queue = state.images.map((img, i) => ({
+        imageIndex: i,
+        image: img,
+        status: 'pending',
+        progress: null,
+        videoId: null,
+        videoUrl: null,
+        prompt: null,
+        startTime: null
+    }));
+    document.getElementById('gallery-grid').innerHTML = '';
+    document.getElementById('gallery').style.display = 'none';
+    document.getElementById('stop-btn').classList.add('visible');
+    document.getElementById('generate-btn').disabled = true;
+    document.getElementById('meta-panel').classList.remove('visible');
+    document.getElementById('capcut-guide').classList.remove('visible');
+    await ensureWakeLockActive();
+    renderQueue();
+    updateGenerateBtn();
+    log('Démarrage — ' + state.images.length + ' Shorts Pixar');
+    const totalStart = Date.now();
+    const pollingTasks = [];
+    try {
+        for (let i = 0; i < state.queue.length; i++) {
+            if (state.stopRequested) break;
+            const item = state.queue[i];
+            try {
+                await createTaskOnly(item);
+                pollingTasks.push(pollTaskAndDisplay(item));
+            } catch (e) {
+                if (e.message === 'Arrêt demandé') break;
+                item.status = 'failed';
+                item.progress = 'Échec';
+                state.failed++;
+                renderQueue();
+                updateGenerateBtn();
+            }
+            if (i < state.queue.length - 1 && !state.stopRequested) {
+                const waitSec = Math.ceil(createIntervalMs / 1000);
+                for (let r = waitSec; r > 0; r--) {
+                    if (state.stopRequested) break;
+                    setStatus('Respiration créative… — Short ' + (i + 2) + '/' + state.queue.length + ' dans ' + r + 's');
+                    await sleep(1000);
+                }
+            }
+        }
+        if (pollingTasks.length > 0) {
+            setStatus('Finalisation…');
+            await Promise.allSettled(pollingTasks);
+        }
+    } catch (e) {
+        log('Erreur globale : ' + e.message);
+    }
+    const totalElapsed = (Date.now() - totalStart) / 1000;
+    const summary = state.stopRequested
+        ? 'Arrêté — ' + state.completed + '/' + state.queue.length + ' Shorts'
+        : '✦ ' + state.completed + '/' + state.queue.length + ' Shorts Pixar créés en ' + formatEta(totalElapsed) + ' ✦';
+    setStatus(summary);
+    await sleep(4000);
+    setStatus(null);
+    state.isRunning = false;
+    state.stopRequested = false;
+    document.getElementById('stop-btn').classList.remove('visible');
+    updateGenerateBtn();
+    if (state.completed > 0) {
+        displayYouTubeMetadata();
+    }
+    showToast(state.completed + ' Short' + (state.completed > 1 ? 's' : '') + ' Pixar créé' + (state.completed > 1 ? 's' : ''), 'success');
+}
+
+function stopGeneration() {
+    if (!state.isRunning) return;
+    state.stopRequested = true;
+    setStatus('Arrêt en cours…');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INITIALISATION
+// ══════════════════════════════════════════════════════════════════
+(function init() {
+    const saveBtn = document.getElementById('api-save-btn');
+    if (saveBtn) saveBtn.addEventListener('click', saveApiKey);
+
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) stopBtn.addEventListener('click', stopGeneration);
+
+    const apiInput = document.getElementById('api-key-input');
+    if (apiInput) {
+        apiInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveApiKey(); }
+        });
+    }
+
+    document.querySelectorAll('[data-toggle]').forEach(header => {
+        header.addEventListener('click', () => {
+            document.getElementById(header.dataset.toggle).classList.toggle('open');
+        });
+    });
+
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    if (uploadZone && fileInput) {
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => {
+            handleFiles(e.target.files);
+            fileInput.value = '';
+        });
+    }
+
+    // AUDIO
+    const audioZone = document.getElementById('audio-zone');
+    const audioInput = document.getElementById('audio-input');
+    const audioRemoveBtn = document.getElementById('audio-remove-btn');
+    if (audioZone && audioInput) {
+        audioZone.addEventListener('click', (e) => {
+            if (e.target.tagName === 'AUDIO' || e.target.tagName === 'BUTTON') return;
+            audioInput.click();
+        });
+        audioInput.addEventListener('change', e => {
+            if (e.target.files && e.target.files[0]) {
+                handleAudioFile(e.target.files[0]);
+            }
+            audioInput.value = '';
+        });
+    }
+    if (audioRemoveBtn) {
+        audioRemoveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeAudioFile();
+        });
+    }
+
+    // SFX toggle
+    const sfxCheckbox = document.getElementById('sfx-checkbox');
+    if (sfxCheckbox) {
+        sfxCheckbox.addEventListener('change', e => {
+            state.sfxEnabled = e.target.checked;
+        });
+    }
+
+    const mainPrompt = document.getElementById('main-prompt');
+    if (mainPrompt) {
+        mainPrompt.addEventListener('input', e => {
+            state.mainPrompt = e.target.value;
+        });
+    }
+
+    const durationSelect = document.getElementById('duration-select');
+    if (durationSelect) {
+        durationSelect.addEventListener('change', e => {
+            state.durationFrames = parseInt(e.target.value, 10);
+        });
+    }
+    const charactersSelect = document.getElementById('characters-select');
+    if (charactersSelect) {
+        charactersSelect.addEventListener('change', e => { state.characters = e.target.value; });
+    }
+    const activitySelect = document.getElementById('activity-select');
+    if (activitySelect) {
+        activitySelect.addEventListener('change', e => { state.activity = e.target.value; });
+    }
+    const loopSelect = document.getElementById('loop-select');
+    if (loopSelect) {
+        loopSelect.addEventListener('change', e => { state.loop = e.target.value; });
+    }
+
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) generateBtn.addEventListener('click', startGeneration);
+
+    const wakeBtn = document.getElementById('wake-toggle-btn');
+    if (wakeBtn) wakeBtn.addEventListener('click', toggleWakeLock);
+
+    try {
+        const saved = localStorage.getItem(WAKE_LOCK_PREF);
+        wakeLockEnabled = saved === '1';
+    } catch (e) {}
+
+    if (wakeLockEnabled) {
+        activateWakeLock().then(() => updateWakeStatus());
+    }
+
+    // Copier métadonnées
+    const metaCopyBtn = document.getElementById('meta-copy-btn');
+    if (metaCopyBtn) {
+        metaCopyBtn.addEventListener('click', () => {
+            const title = document.getElementById('meta-title').value;
+            const desc = document.getElementById('meta-description').value;
+            const tags = document.getElementById('meta-tags').value;
+            const hashtags = document.getElementById('meta-hashtags').value;
+            const coppaChecked = document.getElementById('coppa-checkbox').checked;
+            const full = 'TITRE :\n' + title + '\n\nDESCRIPTION :\n' + desc + '\n\nTAGS :\n' + tags + '\n\nHASHTAGS :\n' + hashtags + '\n\nCOPPA : ' + (coppaChecked ? '✅ Contenu pour enfants' : '⚠️ Non coché');
+            navigator.clipboard.writeText(full).then(() => {
+                showToast('Métadonnées copiées ✓', 'success');
+            }).catch(() => {
+                showToast('Impossible de copier', 'error');
+            });
+        });
+    }
+
+    updateApiPanel();
+    updateTimingDisplay();
+    updateWakeStatus();
+    renderPromptPresets();
+    renderStyles();
+    renderImages();
+    renderQueue();
+
+    log('Kids Shorts Studio Pro prêt 🌈✨');
+})();
+</script>
+
+</body>
+</html>
