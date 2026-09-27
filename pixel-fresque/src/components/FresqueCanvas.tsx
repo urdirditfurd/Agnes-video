@@ -235,7 +235,7 @@ export function FresqueCanvas({
       />
       <p className="canvas-hint">
         {selecting
-          ? 'Clic = 1 pixel · glisse pour une zone · molette = zoom. Le studio agrandit ta sélection.'
+          ? 'Clic = 1 pixel · glisse = zone · puis « Personnaliser dans le studio ».'
           : 'Clique un bloc · glisse pour naviguer · molette pour zoomer.'}
       </p>
     </div>

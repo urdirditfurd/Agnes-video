@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { checkout, confirmStripe, fetchBlocks, fetchHealth, fetchStats } from './api'
-import { BlockBuilder } from './components/BlockBuilder'
+import { DesignStudio } from './components/DesignStudio'
 import { FresqueCanvas } from './components/FresqueCanvas'
 import type { BlockDraft, FresqueStats, PixelBlock, Selection } from './types'
+import type { DesignDocument } from './design/types'
 import './App.css'
 
 const emptyDraft: BlockDraft = {
@@ -11,10 +12,11 @@ const emptyDraft: BlockDraft = {
   title: '',
   message: '',
   linkUrl: '',
-  color: '#f4f1de',
+  color: '#ffffff',
   imageData: null,
   attachments: [],
   useStripe: false,
+  designDoc: null,
 }
 
 export default function App() {
@@ -23,6 +25,7 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null)
   const [draft, setDraft] = useState<BlockDraft>(emptyDraft)
   const [selecting, setSelecting] = useState(false)
+  const [studioOpen, setStudioOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stripeEnabled, setStripeEnabled] = useState(false)
@@ -66,6 +69,18 @@ export default function App() {
     return () => window.clearTimeout(t)
   }, [toast])
 
+  function openStudioFromSelection(sel: Selection) {
+    setSelection(sel)
+    setDraft((d) => ({
+      ...d,
+      designDoc: null,
+      imageData: null,
+      color: d.color || '#ffffff',
+    }))
+    setStudioOpen(true)
+    setSelecting(false)
+  }
+
   async function onBuy() {
     if (!selection) return
     setBusy(true)
@@ -83,6 +98,7 @@ export default function App() {
       }
       setToast('Bloc acheté (démo) — il apparaît sur la fresque.')
       setSelecting(false)
+      setStudioOpen(false)
       setSelection(null)
       setDraft(emptyDraft)
       await refresh()
@@ -92,6 +108,8 @@ export default function App() {
       setBusy(false)
     }
   }
+
+  const pixels = selection ? selection.width * selection.height : 0
 
   return (
     <div className="app">
@@ -108,8 +126,8 @@ export default function App() {
             <p className="brand-hero">Pixora</p>
             <h1>Une fresque d’un million de pixels. La tienne à 1&nbsp;€.</h1>
             <p className="lede">
-              Achète un bloc, personnalise-le avec le builder, et laisse ta marque sur la toile
-              collective.
+              Achète un bloc, personnalise-le dans un studio type Canva, et laisse ta marque sur la
+              toile collective.
             </p>
             <div className="cta-row">
               <button
@@ -133,6 +151,49 @@ export default function App() {
             ))}
           </div>
         </section>
+      ) : studioOpen && selection ? (
+        <>
+          <header className="app-bar">
+            <button
+              type="button"
+              className="brand-mark"
+              onClick={() => {
+                setStudioOpen(false)
+                setShowApp(false)
+              }}
+            >
+              Pixora
+            </button>
+            <div className="stats">
+              <span>
+                Studio · <strong>{selection.width}×{selection.height}</strong>
+              </span>
+            </div>
+          </header>
+          <DesignStudio
+            selection={selection}
+            background={draft.color}
+            attachments={draft.attachments}
+            initialDoc={draft.designDoc}
+            onBackgroundChange={(color) => setDraft((d) => ({ ...d, color }))}
+            onAttachmentsChange={(attachments) => setDraft((d) => ({ ...d, attachments }))}
+            onExport={(imageData, designDoc: DesignDocument) =>
+              setDraft((d) => ({ ...d, imageData, designDoc }))
+            }
+            onBuy={onBuy}
+            onBack={() => {
+              setStudioOpen(false)
+              setSelecting(true)
+            }}
+            busy={busy}
+            stripeEnabled={stripeEnabled}
+            useStripe={draft.useStripe}
+            onUseStripeChange={(useStripe) => setDraft((d) => ({ ...d, useStripe }))}
+            error={error}
+            priceEuros={pixels}
+            pixels={pixels}
+          />
+        </>
       ) : (
         <>
           <header className="app-bar">
@@ -143,7 +204,8 @@ export default function App() {
               {stats && (
                 <>
                   <span>
-                    <strong>{stats.soldPixels.toLocaleString('fr-FR')}</strong> / 1&nbsp;000&nbsp;000 px
+                    <strong>{stats.soldPixels.toLocaleString('fr-FR')}</strong> / 1&nbsp;000&nbsp;000
+                    px
                   </span>
                   <span>
                     <strong>{stats.occupancyPercent}%</strong> occupé
@@ -166,7 +228,7 @@ export default function App() {
             </button>
           </header>
 
-          <main className="workspace">
+          <main className="workspace fresque-only">
             <FresqueCanvas
               blocks={blocks}
               selection={selection}
@@ -174,15 +236,26 @@ export default function App() {
               onOpenBlock={setActiveBlock}
               selecting={selecting}
             />
-            <BlockBuilder
-              selection={selection}
-              draft={draft}
-              onChange={setDraft}
-              onBuy={onBuy}
-              busy={busy}
-              stripeEnabled={stripeEnabled}
-              error={error}
-            />
+            {selecting && selection && (
+              <div className="select-cta">
+                <p>
+                  Zone <strong>{selection.width}×{selection.height}</strong> ·{' '}
+                  <strong>{pixels.toLocaleString('fr-FR')} €</strong>
+                </p>
+                <button
+                  type="button"
+                  className="cta-primary"
+                  onClick={() => openStudioFromSelection(selection)}
+                >
+                  Personnaliser dans le studio
+                </button>
+              </div>
+            )}
+            {selecting && !selection && (
+              <div className="select-cta muted-cta">
+                <p>Clique (1 px) ou glisse une zone, puis ouvre le studio type Canva.</p>
+              </div>
+            )}
           </main>
         </>
       )}

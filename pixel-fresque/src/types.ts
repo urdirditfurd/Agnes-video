@@ -1,3 +1,5 @@
+import type { DesignDocument } from './design/types'
+
 export const GRID_SIZE = 1000
 export const MIN_BLOCK = 1
 export const PRICE_PER_PIXEL = 1
@@ -60,8 +62,7 @@ export type BlockDraft = {
   imageData: string | null
   attachments: BlockAttachment[]
   useStripe: boolean
+  designDoc: DesignDocument | null
 }
 
-export type BuilderTool = 'board' | 'select' | 'link'
-
-export type BoardDrawTool = 'pen' | 'eraser' | 'fill' | 'text' | 'stamp'
+export type { DesignDocument }

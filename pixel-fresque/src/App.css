@@ -234,10 +234,334 @@
   font-weight: 600;
 }
 
-.workspace {
+.workspace.fresque-only {
+  grid-template-columns: 1fr;
+  position: relative;
+}
+
+.select-cta {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
+  background: rgba(12, 15, 10, 0.92);
+  border: 1px solid rgba(200, 245, 66, 0.35);
+  backdrop-filter: blur(10px);
+  z-index: 15;
+  max-width: min(92vw, 520px);
+}
+
+.select-cta p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.select-cta.muted-cta {
+  border-color: var(--line);
+  color: var(--paper-dim);
+}
+
+/* ——— Canva studio ——— */
+.canva-studio {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 56px);
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(200, 245, 66, 0.07), transparent 45%),
+    #10140c;
+}
+
+.canva-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.canva-top-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.canva-top-meta strong {
+  font-size: 0.95rem;
+}
+
+.canva-top-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.canva-top-actions button {
+  background: rgba(244, 241, 222, 0.06);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  border-radius: 2px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.82rem;
+}
+
+.canva-top-actions button:disabled {
+  opacity: 0.4;
+}
+
+.canva-body {
+  flex: 1;
   display: grid;
-  grid-template-columns: 1fr min(400px, 100%);
-  min-height: calc(100dvh - 64px);
+  grid-template-columns: 72px 1fr min(300px, 34vw);
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .canva-body {
+    grid-template-columns: 64px 1fr;
+  }
+  .canva-props {
+    display: none;
+  }
+}
+
+.canva-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.35rem;
+  border-right: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.canva-rail button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--paper-dim);
+  border-radius: 4px;
+  padding: 0.45rem 0.2rem;
+  font-size: 0.65rem;
+}
+
+.canva-rail button.active,
+.canva-rail button:hover {
+  background: rgba(200, 245, 66, 0.14);
+  border-color: rgba(200, 245, 66, 0.35);
+  color: var(--accent);
+}
+
+.rail-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.canva-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1rem;
+  overflow: auto;
+  background:
+    repeating-conic-gradient(#1a1f14 0% 25%, #141910 0% 50%) 0 0 / 24px 24px;
+}
+
+.canva-artboard-wrap {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.canva-artboard {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  cursor: default;
+  border: 1px solid rgba(244, 241, 222, 0.2);
+}
+
+.canva-artboard.tool-text {
+  cursor: text;
+}
+.canva-artboard.tool-rect,
+.canva-artboard.tool-ellipse,
+.canva-artboard.tool-draw {
+  cursor: crosshair;
+}
+.canva-artboard.tool-select {
+  cursor: default;
+}
+
+.canva-el {
+  position: absolute;
+  user-select: none;
+}
+
+.canva-el.selected {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 1px solid #0c0f0a;
+  border-radius: 1px;
+  z-index: 2;
+}
+
+.handle-nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.handle-ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.handle-sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.handle-se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+
+.canva-text-edit {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  resize: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  outline: 1px dashed var(--accent);
+}
+
+.canva-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+  text-align: center;
+}
+
+.canva-props {
+  border-left: 1px solid var(--line);
+  padding: 0.85rem;
+  overflow: auto;
+  background: rgba(12, 15, 10, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.canva-props h3,
+.canva-props h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.canva-props h4 {
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.props-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.props-stack label,
+.canva-props label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+}
+
+.props-stack input,
+.props-stack textarea,
+.props-stack select {
+  background: rgba(244, 241, 222, 0.06);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  border-radius: 2px;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+
+.row-check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.45rem !important;
+}
+
+.align-row,
+.layer-btns {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.align-row button,
+.layer-btns button {
+  flex: 1;
+  background: rgba(244, 241, 222, 0.06);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  border-radius: 2px;
+  padding: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.align-row button.active {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.canva-layers ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.canva-layers button {
+  width: 100%;
+  text-align: left;
+  background: rgba(244, 241, 222, 0.04);
+  border: 1px solid var(--line);
+  color: var(--paper-dim);
+  border-radius: 2px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+}
+
+.canva-layers button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.canva-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--line);
+  background: rgba(12, 15, 10, 0.95);
+}
+
+.canva-foot .cta-buy {
+  margin-left: auto;
+  min-width: 180px;
+}
+
+.canva-foot .price-line {
+  min-width: 140px;
 }
 
 @media (max-width: 900px) {
