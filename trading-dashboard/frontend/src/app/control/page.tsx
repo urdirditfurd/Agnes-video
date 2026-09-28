@@ -3,6 +3,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/dashboard/AppShell";
 import { AuthGate } from "@/components/dashboard/AuthGate";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { api, type Settings } from "@/lib/api";
 
 export default function ControlPage() {
@@ -42,8 +46,7 @@ export default function ControlPage() {
     try {
       await api.command(action);
       setMessage(`Commande « ${action} » envoyée.`);
-      const s = await api.settings();
-      setSettings(s);
+      setSettings(await api.settings());
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Erreur");
     } finally {
@@ -51,27 +54,22 @@ export default function ControlPage() {
     }
   }
 
-  function field(
-    key: keyof Settings,
-    label: string,
-    step = 1,
-  ) {
+  function field(key: keyof Settings, label: string, step = 1) {
     if (!settings) return null;
     const value = settings[key];
     if (typeof value !== "number") return null;
     return (
-      <label className="block text-xs uppercase tracking-wider text-ink-faint">
-        {label}
-        <input
+      <div>
+        <Label htmlFor={key}>{label}</Label>
+        <Input
+          id={key}
           type="number"
           step={step}
           value={value}
-          onChange={(e) =>
-            setSettings({ ...settings, [key]: Number(e.target.value) })
-          }
-          className="mt-2 w-full border border-line bg-canvas px-3 py-2.5 font-mono text-sm text-ink outline-none focus:border-accent"
+          className="mt-2"
+          onChange={(e) => setSettings({ ...settings, [key]: Number(e.target.value) })}
         />
-      </label>
+      </div>
     );
   }
 
@@ -85,42 +83,30 @@ export default function ControlPage() {
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          {[
-            ["start", "Start", "bg-accent text-canvas"],
-            ["pause", "Pause", "border border-warn text-warn"],
-            ["stop", "Stop", "border border-danger text-danger"],
-            ["close_position", "Close Position (Market)", "border border-line text-ink"],
-          ].map(([action, label, cls]) => (
-            <button
-              key={action}
-              type="button"
-              disabled={busy}
-              onClick={() => void run(action)}
-              className={`px-4 py-2.5 text-sm transition disabled:opacity-50 ${cls}`}
-            >
-              {label}
-            </button>
-          ))}
+          <Button disabled={busy} onClick={() => void run("start")}>Start</Button>
+          <Button variant="warn" disabled={busy} onClick={() => void run("pause")}>Pause</Button>
+          <Button variant="danger" disabled={busy} onClick={() => void run("stop")}>Stop</Button>
+          <Button variant="outline" disabled={busy} onClick={() => void run("close_position")}>
+            Close Position (Market)
+          </Button>
         </div>
 
-        <form onSubmit={save} className="panel mt-8 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
-          {field("trade_size_usd", "Taille trade (USD)", 1)}
-          {field("rsi_period", "Période RSI", 1)}
-          {field("rsi_threshold", "Seuil RSI", 0.5)}
-          {field("bb_period", "Période Bollinger", 1)}
-          {field("bb_std", "Déviation BB", 0.1)}
-          {field("stop_loss_pct", "Stop Loss %", 0.1)}
-          {field("take_profit_pct", "Take Profit %", 0.1)}
-          <div className="flex items-end sm:col-span-2 lg:col-span-3">
-            <button
-              type="submit"
-              disabled={busy || !settings}
-              className="bg-accent px-5 py-3 text-sm font-medium text-canvas disabled:opacity-50"
-            >
-              Enregistrer
-            </button>
-          </div>
-        </form>
+        <Card className="mt-8">
+          <CardContent>
+            <form onSubmit={save} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {field("trade_size_usd", "Taille trade (USD)", 1)}
+              {field("rsi_period", "Période RSI", 1)}
+              {field("rsi_threshold", "Seuil RSI", 0.5)}
+              {field("bb_period", "Période Bollinger", 1)}
+              {field("bb_std", "Déviation BB", 0.1)}
+              {field("stop_loss_pct", "Stop Loss %", 0.1)}
+              {field("take_profit_pct", "Take Profit %", 0.1)}
+              <div className="flex items-end sm:col-span-2 lg:col-span-3">
+                <Button type="submit" disabled={busy || !settings}>Enregistrer</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         {message && <p className="mt-4 text-sm text-ink-muted">{message}</p>}
         {settings && (

@@ -14,12 +14,14 @@ def compute_rsi(closes: pd.Series, period: int = 14) -> float | None:
     loss = -delta.clip(upper=0.0)
     avg_gain = gain.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
-    rs = avg_gain / avg_loss.replace(0, np.nan)
-    rsi = 100 - (100 / (1 + rs))
-    value = float(rsi.iloc[-1])
-    if np.isnan(value):
+    last_gain = float(avg_gain.iloc[-1])
+    last_loss = float(avg_loss.iloc[-1])
+    if np.isnan(last_gain) or np.isnan(last_loss):
         return None
-    return value
+    if last_loss == 0:
+        return 100.0 if last_gain > 0 else 50.0
+    rs = last_gain / last_loss
+    return 100.0 - (100.0 / (1.0 + rs))
 
 
 def compute_bollinger(

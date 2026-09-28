@@ -1,41 +1,55 @@
 # Trading Dashboard — Bot BTC/USDT (RSI + Bollinger)
 
-Dashboard web pour piloter un bot Binance **24/7** sur VPS OVH via Docker.
+Application complète pour piloter un bot Binance **24/7** sur VPS OVH (Docker).
 
-## Statut
+## Fonctionnalités
 
-- Étapes 1–2 : infrastructure Docker / Nginx / deploy
-- **HA** : `restart: unless-stopped` + healthchecks uniformes (`python healthcheck.py` API/bot)
-- Étapes 3–5 : schéma DB, backend FastAPI + worker, frontend SignalDesk
+| Zone | Contenu |
+|------|---------|
+| Dashboard | Statut bot, PnL j/s/total, position, chandelier TradingView |
+| Contrôle | Start / Pause / Stop / Close market + paramètres à chaud |
+| Historique | Trades, winrate, profit factor, logs WebSocket |
+| Sécurité | Clés Binance chiffrées Fernet en PostgreSQL |
 
 ## Stack
 
-| Couche | Techno |
-|--------|--------|
-| API + Bot | Python 3.12, FastAPI, worker séparé (`APP_ROLE=bot`) |
-| Frontend | Next.js 15, Tailwind, lightweight-charts |
-| Data | PostgreSQL 16, Redis 7 |
-| Edge | Nginx + Certbot (Let's Encrypt) |
-| Host | Docker Compose + systemd sur Ubuntu OVH |
+FastAPI + worker bot · Next.js / Tailwind / UI Shadcn-style · PostgreSQL · Redis · Nginx · Certbot
 
-## Démarrage rapide (VPS)
+## Déploiement OVH
 
 ```bash
 cd trading-dashboard
 cp .env.example .env
-bash scripts/generate-secrets.sh   # coller FERNET_KEY + SECRET_KEY dans .env
+bash scripts/generate-secrets.sh   # coller dans .env
 nano .env                          # DOMAIN, CERTBOT_EMAIL, ADMIN_PASSWORD, DB
 
-# DNS A du DOMAIN → IP VPS, puis :
+# DNS A du DOMAIN → IP VPS
 sudo bash deploy.sh
 ```
 
+Mises à jour : `sudo bash deploy.sh --update`
+
+## Local (dev)
+
+```bash
+make secrets          # générer clés
+make up               # docker compose up --build
+make test-backend     # pytest indicateurs + healthcheck
+make build            # build frontend
+```
+
+## Stratégie par défaut
+
+- Symbole `BTC/USDT` · timeframe `15m`
+- Entrée : RSI(14) < 30 **et** close ≤ bande de Bollinger inférieure
+- Taille `200$` · SL `2%` · TP `5%`
+- Surchargeable depuis le dashboard (table `settings`)
+
 ## Sécurité
 
-- Aucune clé API en dur ; saisie dashboard → Fernet → PostgreSQL
-- `BINANCE_TESTNET=true` jusqu'à validation
-- Auth JWT via `ADMIN_PASSWORD`
+- Pas de secrets en dur (tout via `.env`)
+- `BINANCE_TESTNET=true` jusqu’à validation
+- Auth JWT (`ADMIN_PASSWORD`)
+- Healthchecks + `restart: unless-stopped` sur tous les services
 
-## Docs
-
-Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+Docs : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)

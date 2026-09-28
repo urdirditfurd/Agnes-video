@@ -4,26 +4,39 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/dashboard/AppShell";
 import { AuthGate } from "@/components/dashboard/AuthGate";
 import { CandleChart } from "@/components/charts/CandleChart";
-import { api, type BotStatusPayload } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { api, type BotStatus, type BotStatusPayload } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    running: "bg-accent/20 text-accent",
-    paused: "bg-warn/20 text-warn",
-    stopped: "bg-danger/20 text-danger",
-  };
-  const labels: Record<string, string> = {
-    running: "En marche",
-    paused: "Pause",
-    stopped: "Arrêté",
-  };
-  return (
-    <span className={cn("inline-flex items-center gap-2 px-3 py-1 text-xs font-medium", map[status] || map.stopped)}>
-      <span className="h-2 w-2 animate-pulseDot rounded-full bg-current" />
-      {labels[status] || status}
-    </span>
-  );
+function statusVariant(status: BotStatus): "success" | "warn" | "danger" {
+  switch (status) {
+    case "running":
+      return "success";
+    case "paused":
+      return "warn";
+    case "stopped":
+      return "danger";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+function statusLabel(status: BotStatus): string {
+  switch (status) {
+    case "running":
+      return "En marche";
+    case "paused":
+      return "Pause";
+    case "stopped":
+      return "Arrêté";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
 }
 
 export default function DashboardPage() {
@@ -64,7 +77,11 @@ export default function DashboardPage() {
               Surveillance live du bot RSI + Bollinger sur BTC/USDT 15m.
             </p>
           </div>
-          {status && <StatusBadge status={status.status} />}
+          {status && (
+            <Badge variant={statusVariant(status.status)} pulse>
+              {statusLabel(status.status)}
+            </Badge>
+          )}
         </div>
 
         {error && <p className="mt-4 text-sm text-danger">{error}</p>}
@@ -75,58 +92,66 @@ export default function DashboardPage() {
             { label: "PnL semaine", value: stats?.pnl_week },
             { label: "PnL total", value: stats?.pnl_total },
           ].map((item) => (
-            <div key={item.label} className="panel p-4">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">{item.label}</p>
-              <p
-                className={cn(
-                  "mt-2 font-display text-2xl",
-                  (item.value ?? 0) >= 0 ? "text-accent" : "text-danger",
-                )}
-              >
-                {item.value == null ? "—" : `${item.value >= 0 ? "+" : ""}${item.value.toFixed(2)} $`}
-              </p>
-            </div>
+            <Card key={item.label}>
+              <CardContent className="pt-4">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">{item.label}</p>
+                <p
+                  className={cn(
+                    "mt-2 font-display text-2xl",
+                    (item.value ?? 0) >= 0 ? "text-accent" : "text-danger",
+                  )}
+                >
+                  {item.value == null ? "—" : `${item.value >= 0 ? "+" : ""}${item.value.toFixed(2)} $`}
+                </p>
+              </CardContent>
+            </Card>
           ))}
         </section>
 
         <section className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <div className="panel p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-xl">BTC/USDT · 15m</h2>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-0">
+              <CardTitle>BTC/USDT · 15m</CardTitle>
               <p className="font-mono text-xs text-ink-muted">
                 RSI {status?.last_rsi?.toFixed(1) ?? "—"} · BB↓ {status?.last_bb_lower?.toFixed(0) ?? "—"}
               </p>
-            </div>
-            <CandleChart data={candles} />
-          </div>
+            </CardHeader>
+            <CardContent>
+              <CandleChart data={candles} />
+            </CardContent>
+          </Card>
 
-          <div className="panel p-4">
-            <h2 className="font-display text-xl">Position actuelle</h2>
-            {!pos?.open ? (
-              <p className="mt-6 text-sm text-ink-muted">Aucune position ouverte.</p>
-            ) : (
-              <dl className="mt-4 space-y-3 text-sm">
-                {[
-                  ["Symbole", pos.symbol],
-                  ["Entrée", pos.entry_price?.toFixed(2)],
-                  ["Stop Loss", pos.stop_loss?.toFixed(2)],
-                  ["Take Profit", pos.take_profit?.toFixed(2)],
-                  ["Mark", pos.mark_price?.toFixed(2)],
-                  [
-                    "PnL flottant",
-                    pos.floating_pnl_usd != null
-                      ? `${pos.floating_pnl_usd.toFixed(2)} $ (${pos.floating_pnl_pct?.toFixed(2)}%)`
-                      : "—",
-                  ],
-                ].map(([k, v]) => (
-                  <div key={String(k)} className="flex justify-between border-b border-line/70 pb-2">
-                    <dt className="text-ink-faint">{k}</dt>
-                    <dd className="font-mono text-ink">{v ?? "—"}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Position actuelle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!pos?.open ? (
+                <p className="text-sm text-ink-muted">Aucune position ouverte.</p>
+              ) : (
+                <dl className="space-y-3 text-sm">
+                  {[
+                    ["Symbole", pos.symbol],
+                    ["Entrée", pos.entry_price?.toFixed(2)],
+                    ["Stop Loss", pos.stop_loss?.toFixed(2)],
+                    ["Take Profit", pos.take_profit?.toFixed(2)],
+                    ["Mark", pos.mark_price?.toFixed(2)],
+                    [
+                      "PnL flottant",
+                      pos.floating_pnl_usd != null
+                        ? `${pos.floating_pnl_usd.toFixed(2)} $ (${pos.floating_pnl_pct?.toFixed(2)}%)`
+                        : "—",
+                    ],
+                  ].map(([k, v]) => (
+                    <div key={String(k)} className="flex justify-between border-b border-line/70 pb-2">
+                      <dt className="text-ink-faint">{k}</dt>
+                      <dd className="font-mono text-ink">{v ?? "—"}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </CardContent>
+          </Card>
         </section>
       </AppShell>
     </AuthGate>

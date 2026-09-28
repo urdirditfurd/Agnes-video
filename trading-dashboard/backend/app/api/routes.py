@@ -45,8 +45,6 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Healthcheck Docker — ne doit pas lever 500 si DB/Redis dégradés."""
-    from app.core.database import SessionLocal
-
     db_ok = "ok"
     redis_ok = "ok"
     try:

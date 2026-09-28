@@ -3,6 +3,10 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,35 +39,33 @@ export default function LoginPage() {
           backgroundSize: "48px 48px",
         }}
       />
-      <form
-        onSubmit={onSubmit}
-        className="panel relative z-10 w-full max-w-md animate-riseIn p-8 shadow-glow"
-      >
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">SignalDesk</p>
-        <h1 className="mt-3 font-display text-3xl text-ink">Accès opérateur</h1>
-        <p className="mt-2 text-sm text-ink-muted">
-          Authentifiez-vous pour piloter le bot BTC/USDT.
-        </p>
-        <label className="mt-8 block text-xs uppercase tracking-wider text-ink-faint">
-          Mot de passe admin
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-2 w-full border border-line bg-canvas px-3 py-3 text-sm text-ink outline-none focus:border-accent"
-            autoFocus
-            required
-          />
-        </label>
-        {error && <p className="mt-3 text-sm text-danger">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full bg-accent px-4 py-3 text-sm font-medium text-canvas transition hover:bg-accent/90 disabled:opacity-60"
-        >
-          {loading ? "Connexion…" : "Entrer"}
-        </button>
-      </form>
+      <Card className="relative z-10 w-full max-w-md animate-riseIn shadow-glow">
+        <CardHeader>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">SignalDesk</p>
+          <CardTitle className="text-3xl">Accès opérateur</CardTitle>
+          <CardDescription>Authentifiez-vous pour piloter le bot BTC/USDT.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="password">Mot de passe admin</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-2"
+                autoFocus
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Connexion…" : "Entrer"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

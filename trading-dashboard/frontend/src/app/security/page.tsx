@@ -3,6 +3,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/dashboard/AppShell";
 import { AuthGate } from "@/components/dashboard/AuthGate";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 
 export default function SecurityPage() {
@@ -52,49 +56,55 @@ export default function SecurityPage() {
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-faint">Sécurité</p>
         <h1 className="mt-1 font-display text-3xl text-ink">Clés API Binance</h1>
         <p className="mt-2 max-w-2xl text-sm text-ink-muted">
-          Les secrets sont chiffrés côté serveur avec <code className="text-accent">cryptography.fernet</code> avant
-          insertion en PostgreSQL. Ils ne transitent jamais en clair dans les réponses API.
+          Les secrets sont chiffrés côté serveur avec cryptography.fernet avant insertion en PostgreSQL.
         </p>
-
         <p className="mt-4 font-mono text-xs text-ink-faint">{status}</p>
 
-        <form onSubmit={onSubmit} className="panel mt-6 max-w-xl space-y-4 p-5">
-          <label className="block text-xs uppercase tracking-wider text-ink-faint">
-            API Key
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="mt-2 w-full border border-line bg-canvas px-3 py-2.5 font-mono text-sm outline-none focus:border-accent"
-              required
-              minLength={8}
-              autoComplete="off"
-            />
-          </label>
-          <label className="block text-xs uppercase tracking-wider text-ink-faint">
-            API Secret
-            <input
-              type="password"
-              value={apiSecret}
-              onChange={(e) => setApiSecret(e.target.value)}
-              className="mt-2 w-full border border-line bg-canvas px-3 py-2.5 font-mono text-sm outline-none focus:border-accent"
-              required
-              minLength={8}
-              autoComplete="off"
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm text-ink-muted">
-            <input
-              type="checkbox"
-              checked={isTestnet}
-              onChange={(e) => setIsTestnet(e.target.checked)}
-            />
-            Utiliser Binance Testnet
-          </label>
-          <button type="submit" className="bg-accent px-5 py-3 text-sm font-medium text-canvas">
-            Chiffrer & enregistrer
-          </button>
-        </form>
+        <Card className="mt-6 max-w-xl">
+          <CardHeader>
+            <CardTitle className="text-lg">Enregistrer des clés</CardTitle>
+            <CardDescription>Les valeurs ne sont jamais renvoyées en clair par l&apos;API.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="apiKey">API Key</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="mt-2"
+                  required
+                  minLength={8}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <Label htmlFor="apiSecret">API Secret</Label>
+                <Input
+                  id="apiSecret"
+                  type="password"
+                  value={apiSecret}
+                  onChange={(e) => setApiSecret(e.target.value)}
+                  className="mt-2"
+                  required
+                  minLength={8}
+                  autoComplete="off"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={isTestnet}
+                  onChange={(e) => setIsTestnet(e.target.checked)}
+                />
+                Utiliser Binance Testnet
+              </label>
+              <Button type="submit">Chiffrer & enregistrer</Button>
+            </form>
+          </CardContent>
+        </Card>
         {message && <p className="mt-4 text-sm text-ink-muted">{message}</p>}
       </AppShell>
     </AuthGate>

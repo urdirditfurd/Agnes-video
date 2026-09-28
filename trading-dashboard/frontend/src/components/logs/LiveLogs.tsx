@@ -1,46 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { wsUrl, type LogRow } from "@/lib/api";
+import { useBotStream } from "@/hooks/useBotStream";
+import type { LogRow } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export function LiveLogs({ initial }: { initial: LogRow[] }) {
-  const [logs, setLogs] = useState<LogRow[]>(initial);
-
-  useEffect(() => {
-    setLogs(initial);
-  }, [initial]);
-
-  useEffect(() => {
-    const url = wsUrl();
-    if (!url) return;
-    const ws = new WebSocket(url);
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data) as {
-          channel: string;
-          data: LogRow & { type?: string };
-        };
-        if (msg.channel === "bot:logs" && msg.data?.message) {
-          setLogs((prev) => [msg.data as LogRow, ...prev].slice(0, 200));
-        }
-      } catch {
-        // ignore malformed
-      }
-    };
-    const ping = window.setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) ws.send("ping");
-    }, 25000);
-    return () => {
-      window.clearInterval(ping);
-      ws.close();
-    };
-  }, []);
+  const { connected, logs } = useBotStream(initial);
 
   return (
     <div className="panel max-h-[420px] overflow-auto font-mono text-xs">
-      <div className="sticky top-0 border-b border-line bg-canvas-raised px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-ink-faint">
-        Console temps réel
+      <div className="sticky top-0 flex items-center justify-between border-b border-line bg-canvas-raised px-3 py-2">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+          Console temps réel
+        </span>
+        <Badge variant={connected ? "success" : "danger"} pulse={connected}>
+          {connected ? "WS live" : "WS off"}
+        </Badge>
       </div>
       <ul className="divide-y divide-line/60">
         {logs.length === 0 && (
