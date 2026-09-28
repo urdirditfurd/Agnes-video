@@ -115,8 +115,20 @@ Internet
 | Temps réel | Redis pub/sub → Backend WS `/ws/` → Frontend |
 | Secrets Binance | Jamais en clair en DB ; `cryptography.fernet` + `FERNET_KEY` env |
 | SSL | Let's Encrypt via webroot ; cron + container certbot |
-| Résilience | `restart: unless-stopped` + systemd `trading-dashboard.service` |
+| Résilience | `restart: unless-stopped` sur **tous** les services + systemd |
+| Healthchecks 24/7 | timings communs `30s / 10s / 3 / 40s` ; `python healthcheck.py` pour API + bot |
 | Zero-downtime soft | `docker compose up -d` + healthchecks ; rebuild puis recreate ordonné |
+
+### Healthchecks
+
+| Service | Commande |
+|---------|----------|
+| `backend` / `bot` | `python healthcheck.py` (HTTP `/api/health` ou heartbeat fichier) |
+| `frontend` | `wget` page locale (image Node) |
+| `nginx` | `nginx -t` |
+| `postgres` | `pg_isready` |
+| `redis` | `redis-cli ping` |
+| `certbot` | process loop vivant |
 
 ---
 
@@ -149,8 +161,11 @@ Internet
 
 ---
 
-## Prochaines étapes (après validation)
+## Prochaines étapes
 
-3. Schéma PostgreSQL (SQLAlchemy + Alembic) : `trades`, `logs`, `settings`, `api_credentials`
-4. Backend FastAPI + worker bot (RSI 14 + BB, SL 2%, TP 5%, taille 200$)
-5. Frontend Next.js + Tailwind + Shadcn (Dashboard, Contrôle, Historique, Sécurité)
+Déploiement VPS :
+1. DNS `A` → IP OVH
+2. `.env` renseigné (`scripts/generate-secrets.sh`)
+3. `sudo bash deploy.sh`
+4. Login dashboard avec `ADMIN_PASSWORD`
+5. Saisir clés Binance (testnet) puis Start

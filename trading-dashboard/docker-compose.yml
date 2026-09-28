@@ -1,6 +1,6 @@
 # =============================================================================
 # Trading Dashboard — orchestration Docker Compose (prod VPS OVH)
-# Services: nginx | frontend | backend | bot | postgres | redis | certbot
+# HA 24/7 : restart unless-stopped + healthchecks sur TOUS les services
 # =============================================================================
 
 x-logging: &default-logging
@@ -9,8 +9,16 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "5"
 
+# Politique de restart commune (crash, OOM, reboot hôte via systemd)
 x-restart: &default-restart
   restart: unless-stopped
+
+# Timings healthcheck demandés (interval / timeout / retries / start_period)
+x-healthcheck-timing: &healthcheck-timing
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
 
 services:
   # ---------------------------------------------------------------------------
@@ -36,10 +44,9 @@ services:
     networks:
       - trading-net
     healthcheck:
+      <<: *healthcheck-timing
+      # Image nginx : pas de Python — validation conf (HTTP/HTTPS gérés par templates)
       test: ["CMD", "nginx", "-t"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   # ---------------------------------------------------------------------------
   # Frontend Next.js
@@ -65,11 +72,9 @@ services:
     networks:
       - trading-net
     healthcheck:
+      <<: *healthcheck-timing
+      # Image Node : pas de Python — HTTP local
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
 
   # ---------------------------------------------------------------------------
   # Backend FastAPI (API REST + WebSocket)
@@ -100,14 +105,11 @@ services:
     networks:
       - trading-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      <<: *healthcheck-timing
+      test: ["CMD", "python", "healthcheck.py"]
 
   # ---------------------------------------------------------------------------
-  # Worker bot (même image que backend, rôle différent — ne bloque pas l'API)
+  # Worker bot — critique 24/7 (same image, APP_ROLE=bot)
   # ---------------------------------------------------------------------------
   bot:
     build:
@@ -126,6 +128,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - TZ=${TZ:-Europe/Paris}
       - BINANCE_TESTNET=${BINANCE_TESTNET:-true}
+      - BOT_HEALTH_FILE=/tmp/bot_healthy
+      - BOT_HEARTBEAT_MAX_AGE_SEC=90
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,13 +139,10 @@ services:
         condition: service_healthy
     networks:
       - trading-net
-    # Le bot n'expose pas de port HTTP ; health via fichier/process
     healthcheck:
-      test: ["CMD", "python", "-c", "import os,sys; sys.exit(0 if os.path.exists('/tmp/bot_healthy') else 1)"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 45s
+      <<: *healthcheck-timing
+      # Si unhealthy 3× → Docker stop + recreate (unless-stopped)
+      test: ["CMD", "python", "healthcheck.py"]
 
   # ---------------------------------------------------------------------------
   # PostgreSQL — trades, logs, settings, credentials chiffrés
@@ -160,10 +161,8 @@ services:
     networks:
       - trading-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      <<: *healthcheck-timing
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
 
   # ---------------------------------------------------------------------------
   # Redis — pub/sub temps réel + cache état bot
@@ -178,10 +177,8 @@ services:
     networks:
       - trading-net
     healthcheck:
+      <<: *healthcheck-timing
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
 
   # ---------------------------------------------------------------------------
   # Certbot — renouvellement SSL automatique
@@ -197,6 +194,10 @@ services:
     entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
     networks:
       - trading-net
+    healthcheck:
+      <<: *healthcheck-timing
+      # Processus shell de boucle toujours vivant
+      test: ["CMD-SHELL", "pgrep -f 'certbot|sleep' >/dev/null || exit 1"]
 
 networks:
   trading-net:

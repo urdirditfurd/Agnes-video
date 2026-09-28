@@ -2,15 +2,18 @@
 
 Dashboard web pour piloter un bot Binance **24/7** sur VPS OVH via Docker.
 
-> **Statut :** étapes **1 (arborescence)** et **2 (Docker / Nginx / deploy)** livrées.  
-> Backend métier, DB et UI : **en attente de votre validation**.
+## Statut
+
+- Étapes 1–2 : infrastructure Docker / Nginx / deploy
+- **HA** : `restart: unless-stopped` + healthchecks uniformes (`python healthcheck.py` API/bot)
+- Étapes 3–5 : schéma DB, backend FastAPI + worker, frontend SignalDesk
 
 ## Stack
 
 | Couche | Techno |
 |--------|--------|
 | API + Bot | Python 3.12, FastAPI, worker séparé (`APP_ROLE=bot`) |
-| Frontend | Next.js 15 (stub), Tailwind + Shadcn à l'étape 5 |
+| Frontend | Next.js 15, Tailwind, lightweight-charts |
 | Data | PostgreSQL 16, Redis 7 |
 | Edge | Nginx + Certbot (Let's Encrypt) |
 | Host | Docker Compose + systemd sur Ubuntu OVH |
@@ -18,31 +21,21 @@ Dashboard web pour piloter un bot Binance **24/7** sur VPS OVH via Docker.
 ## Démarrage rapide (VPS)
 
 ```bash
-# 1. Sur le VPS (après clone du repo)
 cd trading-dashboard
 cp .env.example .env
 bash scripts/generate-secrets.sh   # coller FERNET_KEY + SECRET_KEY dans .env
-nano .env                          # DOMAIN, CERTBOT_EMAIL, mots de passe DB
+nano .env                          # DOMAIN, CERTBOT_EMAIL, ADMIN_PASSWORD, DB
 
-# 2. DNS : enregistrement A du DOMAIN → IP du VPS
-# 3. Déploiement
+# DNS A du DOMAIN → IP VPS, puis :
 sudo bash deploy.sh
 ```
 
-Mises à jour :
-
-```bash
-sudo bash deploy.sh --update
-sudo bash deploy.sh --renew-ssl
-```
-
-## Documentation
-
-- Architecture & arborescence : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- Variables : [`.env.example`](.env.example)
-
 ## Sécurité
 
-- Aucune clé API en dur dans le code.
-- Binance keys : saisie via dashboard + chiffrement Fernet (étape 4).
-- Garder `BINANCE_TESTNET=true` jusqu'à validation complète.
+- Aucune clé API en dur ; saisie dashboard → Fernet → PostgreSQL
+- `BINANCE_TESTNET=true` jusqu'à validation
+- Auth JWT via `ADMIN_PASSWORD`
+
+## Docs
+
+Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
