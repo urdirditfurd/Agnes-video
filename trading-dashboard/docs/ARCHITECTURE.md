@@ -53,11 +53,13 @@ backend ←→ postgres + redis ←→ bot worker (APP_ROLE=bot)
 
 | Mécanisme | Détail |
 |-----------|--------|
-| Restart | `unless-stopped` sur tous les services |
-| Healthchecks | `30s / 10s / 3 / 40s` |
+| Restart | `restart: unless-stopped` sur tous les services |
+| Healthchecks | `30s / 10s / 3 retries / start_period 40s` |
 | API + Bot | `python healthcheck.py` |
+| Autoheal | `willfarrell/autoheal` recrée les containers `autoheal=true` si unhealthy |
 | Systemd | `trading-dashboard.service` au boot |
-| SSL | certbot container + cron |
+| SSL | optionnel (`deploy.sh --full`) ; démarrage IP via `--no-ssl` |
+| Limites RAM | `mem_limit` par service pour éviter OOM host |
 
 ## Config à chaud
 

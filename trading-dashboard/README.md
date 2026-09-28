@@ -1,55 +1,57 @@
 # Trading Dashboard — Bot BTC/USDT (RSI + Bollinger)
 
-Application complète pour piloter un bot Binance **24/7** sur VPS OVH (Docker).
+Dashboard + bot Binance 24/7 sur VPS OVH (Docker).
 
-## Fonctionnalités
+## Déploiement immédiat (VPS, SANS domaine)
 
-| Zone | Contenu |
-|------|---------|
-| Dashboard | Statut bot, PnL j/s/total, position, chandelier TradingView |
-| Contrôle | Start / Pause / Stop / Close market + paramètres à chaud |
-| Historique | Trades, winrate, profit factor, logs WebSocket |
-| Sécurité | Clés Binance chiffrées Fernet en PostgreSQL |
+Sur le VPS après SSH :
+
+```bash
+cd ~/Agnes-video
+git fetch origin
+git checkout cursor/trading-dashboard-infra-129e
+git pull --ff-only
+
+cd trading-dashboard
+bash scripts/setup-env.sh --no-ssl
+# → affiche ADMIN_PASSWORD (à noter)
+
+bash deploy.sh --no-ssl
+```
+
+Ouvrir : `http://51.254.135.158` (ou l’IP affichée)  
+Login : `ADMIN_PASSWORD` généré par `setup-env.sh`
+
+## Déploiement HTTPS (avec domaine)
+
+```bash
+bash scripts/setup-env.sh --ssl
+nano .env   # DOMAIN=trading.example.com + CERTBOT_EMAIL
+# DNS A → IP VPS, puis :
+bash deploy.sh --full
+```
 
 ## Stack
 
-FastAPI + worker bot · Next.js / Tailwind / UI Shadcn-style · PostgreSQL · Redis · Nginx · Certbot
+| Couche | Techno |
+|--------|--------|
+| API + Bot | FastAPI + worker (`APP_ROLE=bot`) |
+| Frontend | Next.js + Tailwind + UI Shadcn-style |
+| Data | PostgreSQL 16 + Redis 7 |
+| Edge | Nginx (+ Certbot si SSL) |
+| HA | `restart: unless-stopped` + healthchecks + **autoheal** |
 
-## Déploiement OVH
+## Stratégie
 
-```bash
-cd trading-dashboard
-cp .env.example .env
-bash scripts/generate-secrets.sh   # coller dans .env
-nano .env                          # DOMAIN, CERTBOT_EMAIL, ADMIN_PASSWORD, DB
+BTC/USDT 15m · RSI(14)<30 + close ≤ BB lower · 200$ · SL 2% · TP 5%
 
-# DNS A du DOMAIN → IP VPS
-sudo bash deploy.sh
-```
-
-Mises à jour : `sudo bash deploy.sh --update`
-
-## Local (dev)
+## Commandes utiles
 
 ```bash
-make secrets          # générer clés
-make up               # docker compose up --build
-make test-backend     # pytest indicateurs + healthcheck
-make build            # build frontend
+docker compose ps
+docker compose logs -f bot backend
+bash deploy.sh --update
+make test-backend
 ```
 
-## Stratégie par défaut
-
-- Symbole `BTC/USDT` · timeframe `15m`
-- Entrée : RSI(14) < 30 **et** close ≤ bande de Bollinger inférieure
-- Taille `200$` · SL `2%` · TP `5%`
-- Surchargeable depuis le dashboard (table `settings`)
-
-## Sécurité
-
-- Pas de secrets en dur (tout via `.env`)
-- `BINANCE_TESTNET=true` jusqu’à validation
-- Auth JWT (`ADMIN_PASSWORD`)
-- Healthchecks + `restart: unless-stopped` sur tous les services
-
-Docs : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+Docs : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Issues connues : [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md)
