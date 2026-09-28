@@ -3,30 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Kids Story Studio — Histoires Animées pour Enfants</title>
+<title>Kids Story Studio — Film Animé pour Enfants</title>
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     :root {
-        --bg: #fff9f0;
-        --panel: #ffffff;
-        --panel-2: #fff4e6;
-        --border: #ffe0b8;
-        --ink: #3a2a1a;
-        --ink-dim: #a07a52;
-        --ink-faint: #d4b898;
-        --pink: #ff6b9d;
-        --yellow: #ffd93d;
-        --blue: #4ecdc4;
-        --green: #7ed957;
-        --orange: #ff9f43;
-        --purple: #b983ff;
-        --success: #4caf50;
-        --error: #ff5252;
-        --warn: #ffa726;
+        --bg: #fff9f0; --panel: #ffffff; --panel-2: #fff4e6; --border: #ffe0b8;
+        --ink: #3a2a1a; --ink-dim: #a07a52; --ink-faint: #d4b898;
+        --pink: #ff6b9d; --yellow: #ffd93d; --blue: #4ecdc4; --green: #7ed957;
+        --orange: #ff9f43; --purple: #b983ff;
+        --success: #4caf50; --error: #ff5252; --warn: #ffa726;
         --radius: 16px;
     }
     body {
-        font-family: 'Comic Sans MS', 'Chalkboard SE', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Comic Sans MS', 'Chalkboard SE', -apple-system, sans-serif;
         background: linear-gradient(135deg, #fff9f0 0%, #ffe8f0 50%, #e8f4ff 100%);
         color: var(--ink); min-height: 100vh;
         padding: 1.5rem 1rem 6rem; font-size: 15px; line-height: 1.5;
@@ -34,7 +23,7 @@
     }
     header { margin-bottom: 1.5rem; text-align: center; }
     h1 {
-        font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.3rem;
+        font-size: 1.6rem; font-weight: 700; margin-bottom: 0.3rem;
         background: linear-gradient(90deg, var(--pink), var(--orange), var(--yellow), var(--green), var(--blue), var(--purple));
         -webkit-background-clip: text; background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -151,11 +140,6 @@
 
     .api-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.4rem; }
     .api-hint a { color: var(--pink); text-decoration: underline; }
-    .stat-line {
-        font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.5rem;
-        padding: 0.45rem 0.7rem; background: var(--panel-2); border-radius: 8px;
-        display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.3rem;
-    }
 
     .wake-status {
         font-size: 0.75rem; padding: 0.55rem 0.8rem;
@@ -171,20 +155,6 @@
         color: inherit; padding: 0.3rem 0.7rem; border-radius: 8px;
         font-size: 0.7rem; cursor: pointer; font-family: inherit; font-weight: 600;
     }
-    .wake-status button:active { opacity: 0.6; }
-
-    .upload-zone {
-        border: 3px dashed var(--pink); border-radius: var(--radius);
-        padding: 2rem 1rem; text-align: center; cursor: pointer;
-        transition: all 0.2s; margin-bottom: 1rem;
-        background: linear-gradient(135deg, #fff9f0, #ffe8f0);
-    }
-    .upload-zone:active { border-color: var(--purple); background: var(--panel-2); }
-    .upload-zone.loading { pointer-events: none; opacity: 0.6; }
-    .upload-zone input[type="file"] { display: none; }
-    .upload-icon { font-size: 2.6rem; margin-bottom: 0.6rem; }
-    .upload-text { font-size: 1rem; color: var(--ink); margin-bottom: 0.2rem; font-weight: 700; }
-    .upload-hint { font-size: 0.78rem; color: var(--ink-dim); }
 
     .audio-zone {
         border: 3px dashed var(--blue); border-radius: var(--radius);
@@ -222,24 +192,6 @@
     .bpm-display.ok { border-color: var(--green); background: #e8f8e8; color: var(--success); }
     .bpm-display.warn { border-color: var(--warn); background: #fff8e8; color: var(--warn); }
     .bpm-display .bpm-value { font-size: 1.1rem; font-weight: 700; }
-
-    .images-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-        gap: 0.5rem; margin-bottom: 1rem;
-    }
-    .image-card {
-        position: relative; border-radius: 10px; overflow: hidden;
-        border: 2px solid var(--border); background: #f0f0f0;
-        aspect-ratio: 9/16;
-    }
-    .image-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .image-card .remove-btn {
-        position: absolute; top: 4px; right: 4px;
-        background: rgba(255,82,82,0.9); color: #fff; border: none;
-        width: 24px; height: 24px; border-radius: 50%; font-size: 12px;
-        cursor: pointer; display: flex; align-items: center; justify-content: center;
-        line-height: 1; font-weight: 700;
-    }
 
     .prompt-main {
         width: 100%; padding: 0.9rem 1rem;
@@ -292,38 +244,6 @@
     .style-card .style-name { font-size: 0.82rem; font-weight: 700; line-height: 1.2; }
     .style-card .style-desc { font-size: 0.68rem; opacity: 0.75; margin-top: 0.1rem; line-height: 1.2; }
 
-    .style-category-header {
-        grid-column: 1 / -1;
-        font-size: 0.75rem; font-weight: 700;
-        color: var(--pink); text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 0.7rem 0 0.35rem;
-        border-bottom: 2px solid var(--border);
-        margin-bottom: 0.35rem;
-    }
-    .style-category-header:first-child { padding-top: 0; border-bottom: none; }
-    .style-category-desc {
-        grid-column: 1 / -1;
-        font-size: 0.72rem; color: var(--ink-dim);
-        font-style: italic; margin-bottom: 0.45rem; line-height: 1.35;
-    }
-
-    .no-style-card {
-        grid-column: 1 / -1;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        border: 3px dashed var(--border);
-        background: transparent;
-        text-align: center; cursor: pointer;
-        transition: all 0.15s;
-        font-size: 0.85rem; color: var(--ink-dim); font-weight: 600;
-    }
-    .no-style-card:active { transform: scale(0.99); }
-    .no-style-card.selected {
-        border-color: var(--pink); border-style: solid;
-        background: var(--panel-2); color: var(--ink);
-    }
-
     .control-row { margin-bottom: 1rem; }
     .control-row:last-child { margin-bottom: 0; }
     .control-label {
@@ -351,7 +271,6 @@
         width: 100%; padding: 1.15rem; border-radius: var(--radius);
         border: none;
         background: linear-gradient(135deg, var(--pink), var(--orange), var(--yellow));
-        background-size: 200% 200%;
         color: #fff;
         font-size: 1.05rem; font-weight: 700; font-family: inherit;
         cursor: pointer; transition: all 0.2s, transform 0.1s;
@@ -365,15 +284,29 @@
         background: #ccc; box-shadow: none;
     }
 
-    .btn-secondary {
-        width: 100%; padding: 0.9rem; border-radius: var(--radius);
-        border: 2px solid var(--blue); background: #fff;
-        color: var(--blue); font-size: 0.9rem; font-weight: 700;
-        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
+    .btn-assemble {
+        width: 100%; padding: 1.15rem; border-radius: var(--radius);
+        border: 3px solid var(--green); background: #fff;
+        color: var(--green);
+        font-size: 1rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; margin-bottom: 1rem;
         display: none;
     }
-    .btn-secondary.visible { display: block; }
-    .btn-secondary:active { background: #e8f4ff; }
+    .btn-assemble.visible { display: block; }
+    .btn-assemble:active { background: #e8f8e8; }
+
+    .btn-download {
+        width: 100%; padding: 1.15rem; border-radius: var(--radius);
+        border: none;
+        background: linear-gradient(135deg, var(--green), var(--blue));
+        color: #fff;
+        font-size: 1rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; margin-bottom: 1rem;
+        display: none;
+        box-shadow: 0 6px 20px rgba(76,175,80,0.3);
+    }
+    .btn-download.visible { display: block; }
+    .btn-download:active { transform: scale(0.98); }
 
     .btn-stop {
         width: 100%; padding: 0.85rem; border-radius: var(--radius);
@@ -406,7 +339,7 @@
     .queue-item.generating-image { border-color: var(--purple); }
     .queue-item.processing { border-color: var(--blue); }
     .queue-item.done { border-color: var(--green); background: #f0faf0; }
-    .queue-item.failed { border-color: var(--error); }
+    .queue-item.failed { border-color: var(--error); background: #fff0f0; }
     .queue-item .q-icon { font-size: 1.1rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
     .queue-item .q-info { flex: 1; min-width: 0; }
     .queue-item .q-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -418,11 +351,6 @@
     }
     .queue-item .q-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-    .queue-more {
-        text-align: center; padding: 0.5rem; color: var(--ink-dim);
-        font-size: 0.78rem; font-style: italic;
-    }
-
     .gallery { margin-top: 1.5rem; }
     .gallery-grid {
         display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -433,7 +361,6 @@
         border: 3px solid var(--border); background: #000;
         animation: fadeIn 0.4s ease;
         box-shadow: 0 4px 12px rgba(255,107,157,0.15);
-        position: relative;
     }
     .gallery-item video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
     .gallery-item .g-caption {
@@ -441,96 +368,30 @@
         font-size: 0.72rem; color: var(--ink-dim); font-weight: 600;
     }
 
-    .meta-panel {
-        background: linear-gradient(135deg, #fff9f0, #e8f4ff);
-        border: 2px solid var(--blue); border-radius: var(--radius);
-        padding: 1rem 1.2rem; margin-top: 1.5rem;
+    .final-film {
+        margin-top: 1.5rem; padding: 1rem;
+        background: linear-gradient(135deg, #e8f8e8, #e8f4ff);
+        border: 3px solid var(--green); border-radius: var(--radius);
         display: none;
     }
-    .meta-panel.visible { display: block; }
-    .meta-panel h3 {
-        font-size: 0.95rem; color: var(--blue); margin-bottom: 0.7rem;
+    .final-film.visible { display: block; }
+    .final-film h3 {
+        font-size: 1rem; color: var(--green); margin-bottom: 0.7rem;
         font-weight: 700;
     }
-    .meta-field {
-        margin-bottom: 0.7rem;
-    }
-    .meta-field label {
-        display: block; font-size: 0.72rem; color: var(--ink-dim);
-        text-transform: uppercase; letter-spacing: 0.05em;
-        font-weight: 700; margin-bottom: 0.25rem;
-    }
-    .meta-field input, .meta-field textarea {
-        width: 100%; padding: 0.6rem 0.8rem;
-        border-radius: 8px; border: 2px solid var(--border);
-        background: #fff; color: var(--ink);
-        font-family: inherit; font-size: 0.82rem;
-        resize: vertical;
-    }
-    .meta-field textarea { min-height: 90px; }
-    .meta-field input:focus, .meta-field textarea:focus {
-        outline: none; border-color: var(--blue);
-    }
-    .meta-copy-btn {
-        width: 100%; padding: 0.75rem; border-radius: 10px;
-        border: none; background: var(--blue); color: #fff;
-        font-size: 0.85rem; font-weight: 700; font-family: inherit;
-        cursor: pointer; margin-top: 0.4rem;
-    }
-    .meta-copy-btn:active { transform: scale(0.98); }
-
-    .coppa-check {
-        display: flex; align-items: center; gap: 0.6rem;
-        padding: 0.75rem 0.9rem; background: #e8f8e8;
-        border: 2px solid var(--green); border-radius: 10px;
-        margin-bottom: 0.7rem;
-    }
-    .coppa-check input { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; }
-    .coppa-check label { font-size: 0.82rem; font-weight: 600; cursor: pointer; }
-
-    .capcut-guide {
-        background: linear-gradient(135deg, #fff4e6, #ffe8f0);
-        border: 2px solid var(--orange); border-radius: var(--radius);
-        padding: 1rem 1.2rem; margin-top: 1.5rem;
-        display: none;
-    }
-    .capcut-guide.visible { display: block; }
-    .capcut-guide h3 {
-        font-size: 0.95rem; color: var(--orange); margin-bottom: 0.7rem;
-        font-weight: 700;
-    }
-    .capcut-guide ol {
-        margin-left: 1.2rem; font-size: 0.82rem; line-height: 1.7;
-        color: var(--ink);
-    }
-    .capcut-guide ol li { margin-bottom: 0.3rem; }
-    .capcut-guide code {
-        background: var(--panel-2); padding: 0.1rem 0.35rem;
-        border-radius: 4px; font-size: 0.78rem;
-        font-family: ui-monospace, monospace;
+    .final-film video {
+        width: 100%; border-radius: 10px; background: #000;
+        aspect-ratio: 9/16; object-fit: cover;
     }
 
-    .story-segments {
-        margin-top: 1rem; padding: 0.85rem 1rem;
-        background: var(--panel-2); border-radius: 12px;
-        border: 2px solid var(--border);
-        display: none;
+    .progress-bar-container {
+        width: 100%; height: 12px; background: var(--panel-2);
+        border-radius: 6px; overflow: hidden; margin: 0.5rem 0;
+        border: 1px solid var(--border);
     }
-    .story-segments.visible { display: block; }
-    .story-segments h4 {
-        font-size: 0.82rem; color: var(--pink);
-        margin-bottom: 0.6rem; font-weight: 700;
-    }
-    .story-segment {
-        background: #fff; padding: 0.6rem 0.8rem;
-        border-radius: 8px; margin-bottom: 0.4rem;
-        font-size: 0.78rem; line-height: 1.4;
-        border-left: 3px solid var(--pink);
-    }
-    .story-segment .seg-num {
-        display: inline-block; background: var(--pink); color: #fff;
-        padding: 0.05rem 0.4rem; border-radius: 6px;
-        font-size: 0.68rem; font-weight: 700; margin-right: 0.4rem;
+    .progress-bar-fill {
+        height: 100%; background: linear-gradient(90deg, var(--pink), var(--orange));
+        width: 0%; transition: width 0.3s;
     }
 
     .status-bar {
@@ -550,7 +411,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    .hidden { display: none !important; }
     #noSleepCanvas { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
     #noSleepVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
 </style>
@@ -566,10 +426,10 @@
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
     <strong>Comment ça marche :</strong> Écrivez votre histoire, choisissez un thème joyeux.
     L'IA découpe intelligemment votre histoire en scènes, génère une image Pixar 3D par scène,
-    puis une vidéo par image, et assemble le tout en un film animé pour enfants.
+    puis une vidéo par image, et <strong>assemble le tout en un seul film téléchargeable</strong>.
     <br><br>
-    ✅ Découpage intelligent par phrases • ✅ Images Gemini 3D Pixar • ✅ Vidéos 5-10s par scène
-    • ✅ Assemblage automatique • ✅ COPPA • ✅ Métadonnées YouTube
+    ✅ Découpage intelligent • ✅ Images Gemini 3D Pixar • ✅ Vidéos par scène
+    • ✅ <strong>Assemblage automatique en un seul fichier</strong> • ✅ COPPA • ✅ Métadonnées YouTube
 </div>
 
 <div class="api-panel" id="api-panel">
@@ -594,17 +454,12 @@
         Agnes : <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a> ·
         Gemini : <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
     </div>
-    <div class="stat-line" id="stat-line">
-        <span>📊 Vitesse moyenne : <span id="stat-speed">en attente de données</span></span>
-        <span id="stat-samples">0 génération</span>
-    </div>
     <div class="wake-status" id="wake-status">
         <span id="wake-status-text">💤 Veille automatique</span>
         <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
     </div>
 </div>
 
-<!-- HISTOIRE -->
 <div class="section open" id="section-prompt">
     <div class="section-header" data-toggle="section-prompt">
         <span class="section-title">📖 Votre histoire <span class="badge soft">obligatoire</span></span>
@@ -613,30 +468,19 @@
     <div class="section-body">
         <div class="section-content">
             <textarea class="prompt-main" id="main-prompt"
-                placeholder="Écrivez votre histoire pour enfants. Par exemple :
-
-« Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie. Un matin, il décida d'organiser une grande fête avec tous ses amis. Il invita la petite lapine rose et le poussin jaune. Ensemble, ils préparèrent des gâteaux et décorèrent la prairie avec des ballons colorés. Quand le soleil se coucha, ils dansèrent et chantèrent toute la nuit sous les étoiles. L'ourson était le plus heureux des oursons. »
-
-L'IA découpera intelligemment cette histoire en scènes cohérentes. Chaque scène deviendra une image Pixar 3D, puis une vidéo animée. Le tout sera assemblé en un film animé. »"></textarea>
+                placeholder="Écrivez votre histoire pour enfants. L'IA la découpera en scènes cohérentes."></textarea>
             <div class="prompt-presets" id="prompt-presets"></div>
             <div class="story-counter">
                 <span>📝 <strong id="story-words">0</strong> mots</span>
-                <span>🎬 <strong id="story-scenes">0</strong> scènes estimées</span>
-            </div>
-            <div class="story-segments" id="story-segments">
-                <h4>✂️ Aperçu du découpage</h4>
-                <div id="story-segments-list"></div>
+                <span>🎬 <strong id="story-scenes">0</strong> scènes</span>
             </div>
             <div class="prompt-main-hint">
-                💡 Le découpage se fait <strong>par phrases complètes</strong> (jamais au milieu).
-                Les scènes trop courtes sont fusionnées, les scènes trop longues sont re-découpées
-                intelligemment. Le style Pixar 3D joyeux est <strong>toujours appliqué</strong>.
+                💡 Découpage par phrases complètes. Style Pixar 3D joyeux toujours appliqué.
             </div>
         </div>
     </div>
 </div>
 
-<!-- LONGUEUR DES SCÈNES -->
 <div class="section" id="section-tech">
     <div class="section-header" data-toggle="section-tech">
         <span class="section-title">⚙️ Réglages du film</span>
@@ -655,34 +499,28 @@ L'IA découpera intelligemment cette histoire en scènes cohérentes. Chaque sc�
             <div class="control-row">
                 <label class="control-label">Nombre de scènes cible</label>
                 <select id="scenes-count-select">
-                    <option value="auto" selected>🤖 Automatique (selon l'histoire)</option>
-                    <option value="3">3 scènes (~30s)</option>
-                    <option value="5">5 scènes (~50s)</option>
-                    <option value="7">7 scènes (~70s)</option>
-                    <option value="10">10 scènes (~100s)</option>
+                    <option value="auto" selected>🤖 Automatique</option>
+                    <option value="3">3 scènes</option>
+                    <option value="5">5 scènes</option>
+                    <option value="7">7 scènes</option>
+                    <option value="10">10 scènes</option>
                 </select>
             </div>
             <div class="control-row">
-                <label class="control-label">Type de personnage principal</label>
+                <label class="control-label">Personnage principal</label>
                 <select id="characters-select">
-                    <option value="blue-bear" selected>🐻 Ourson bleu turquoise</option>
-                    <option value="yellow-chick">🐤 Poussin jaune au chapeau</option>
+                    <option value="custom">🎭 Suivre l'histoire (personnage décrit)</option>
+                    <option value="blue-bear">🐻 Ourson bleu turquoise</option>
+                    <option value="yellow-chick">🐤 Poussin jaune</option>
                     <option value="pink-rabbit">🐰 Lapine rose</option>
+                    <option value="dragon">🐲 Petit dragon</option>
                     <option value="mixed">🌈 Mix animaux mignons</option>
-                </select>
-            </div>
-            <div class="control-row">
-                <label class="control-label">Type de boucle</label>
-                <select id="loop-select">
-                    <option value="perfect" selected>🔄 Boucle parfaite (fin = début)</option>
-                    <option value="standard">Normal</option>
                 </select>
             </div>
         </div>
     </div>
 </div>
 
-<!-- THÈMES -->
 <div class="section open" id="section-style">
     <div class="section-header" data-toggle="section-style">
         <span class="section-title">🌈 Thème joyeux <span class="badge">obligatoire</span></span>
@@ -695,12 +533,11 @@ L'IA découpera intelligemment cette histoire en scènes cohérentes. Chaque sc�
     </div>
 </div>
 
-<!-- AUDIO -->
 <div class="audio-zone" id="audio-zone">
     <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
     <div class="audio-icon">🎵</div>
-    <div class="audio-text">Ajoutez une musique libre de droit</div>
-    <div class="audio-hint">MP3, WAV ou OGG — BPM analysé automatiquement</div>
+    <div class="audio-text">Ajoutez une musique libre de droit (optionnel)</div>
+    <div class="audio-hint">MP3, WAV ou OGG — sera intégrée au film final</div>
     <div class="audio-filename" id="audio-filename" style="display:none;"></div>
     <div class="bpm-display" id="bpm-display">
         <div>🎼 Tempo détecté : <span class="bpm-value" id="bpm-value">—</span> BPM</div>
@@ -711,7 +548,15 @@ L'IA découpera intelligemment cette histoire en scènes cohérentes. Chaque sc�
 </div>
 
 <button type="button" class="btn-primary" id="generate-btn" disabled>
-    🌟 Créer le film animé
+    🌟 Créer les scènes du film
+</button>
+
+<button type="button" class="btn-assemble" id="assemble-btn">
+    🎬 Assembler le film final (toutes les scènes)
+</button>
+
+<button type="button" class="btn-download" id="download-btn">
+    ⬇️ Télécharger le film (WebM)
 </button>
 
 <button type="button" class="btn-stop" id="stop-btn">
@@ -720,54 +565,39 @@ L'IA découpera intelligemment cette histoire en scènes cohérentes. Chaque sc�
 
 <div class="queue" id="queue" style="display:none;"></div>
 
+<div class="final-film" id="final-film">
+    <h3>🎬 Film final assemblé</h3>
+    <video id="final-video" controls playsinline></video>
+    <div class="progress-bar-container" id="assembly-progress" style="display:none;">
+        <div class="progress-bar-fill" id="assembly-progress-fill"></div>
+    </div>
+    <div id="assembly-status" style="font-size:0.78rem; color:var(--ink-dim); text-align:center; margin-top:0.4rem;"></div>
+</div>
+
 <div class="gallery" id="gallery" style="display:none;">
-    <div class="section-title" style="margin-bottom:0.8rem;">🎬 Film animé — scènes générées</div>
+    <div class="section-title" style="margin-bottom:0.8rem;">🎬 Scènes générées</div>
     <div class="gallery-grid" id="gallery-grid"></div>
 </div>
 
-<!-- MÉTADONNÉES YOUTUBE -->
-<div class="meta-panel" id="meta-panel">
-    <h3>📋 Métadonnées YouTube optimisées</h3>
-    <div class="coppa-check">
-        <input type="checkbox" id="coppa-checkbox" checked>
-        <label for="coppa-checkbox">✅ Cette vidéo est destinée aux enfants (obligatoire COPPA)</label>
+<div class="meta-panel" id="meta-panel" style="display:none; background:linear-gradient(135deg,#fff9f0,#e8f4ff); border:2px solid var(--blue); border-radius:var(--radius); padding:1rem 1.2rem; margin-top:1.5rem;">
+    <h3 style="font-size:0.95rem; color:var(--blue); margin-bottom:0.7rem; font-weight:700;">📋 Métadonnées YouTube</h3>
+    <div class="coppa-check" style="display:flex; align-items:center; gap:0.6rem; padding:0.75rem 0.9rem; background:#e8f8e8; border:2px solid var(--green); border-radius:10px; margin-bottom:0.7rem;">
+        <input type="checkbox" id="coppa-checkbox" checked style="width:20px; height:20px; accent-color:var(--green);">
+        <label for="coppa-checkbox" style="font-size:0.82rem; font-weight:600;">✅ Contenu destiné aux enfants (COPPA)</label>
     </div>
-    <div class="meta-field">
-        <label>Titre optimisé</label>
-        <input type="text" id="meta-title" readonly>
+    <div style="margin-bottom:0.7rem;">
+        <label style="display:block; font-size:0.72rem; color:var(--ink-dim); text-transform:uppercase; font-weight:700; margin-bottom:0.25rem;">Titre</label>
+        <input type="text" id="meta-title" readonly style="width:100%; padding:0.6rem 0.8rem; border-radius:8px; border:2px solid var(--border); background:#fff; font-family:inherit; font-size:0.82rem;">
     </div>
-    <div class="meta-field">
-        <label>Description</label>
-        <textarea id="meta-description" readonly></textarea>
+    <div style="margin-bottom:0.7rem;">
+        <label style="display:block; font-size:0.72rem; color:var(--ink-dim); text-transform:uppercase; font-weight:700; margin-bottom:0.25rem;">Description</label>
+        <textarea id="meta-description" readonly style="width:100%; padding:0.6rem 0.8rem; border-radius:8px; border:2px solid var(--border); background:#fff; font-family:inherit; font-size:0.82rem; min-height:90px;"></textarea>
     </div>
-    <div class="meta-field">
-        <label>Tags SEO</label>
-        <textarea id="meta-tags" readonly style="min-height:60px;"></textarea>
+    <div style="margin-bottom:0.7rem;">
+        <label style="display:block; font-size:0.72rem; color:var(--ink-dim); text-transform:uppercase; font-weight:700; margin-bottom:0.25rem;">Tags</label>
+        <textarea id="meta-tags" readonly style="width:100%; padding:0.6rem 0.8rem; border-radius:8px; border:2px solid var(--border); background:#fff; font-family:inherit; font-size:0.82rem; min-height:60px;"></textarea>
     </div>
-    <div class="meta-field">
-        <label>Hashtags</label>
-        <input type="text" id="meta-hashtags" readonly>
-    </div>
-    <button type="button" class="meta-copy-btn" id="meta-copy-btn">📋 Copier toutes les métadonnées</button>
-</div>
-
-<!-- GUIDE CAPCUT -->
-<div class="capcut-guide" id="capcut-guide">
-    <h3>🎬 Guide CapCut — Assemblage final</h3>
-    <ol>
-        <li>Ouvre <strong>CapCut</strong> (gratuit sur mobile/PC).</li>
-        <li>Crée un nouveau projet <code>9:16</code> (1080x1920).</li>
-        <li>Importe <strong>toutes les scènes vidéo</strong> dans l'ordre (1, 2, 3...).</li>
-        <li>Glisse-les sur la timeline dans l'ordre numéroté.</li>
-        <li>Ajoute ta <strong>piste musicale libre de droit</strong> en fond.</li>
-        <li>Cale les transitions entre scènes sur les <strong>temps forts</strong> (BPM affiché).</li>
-        <li>Ajoute un <strong>fondu au noir</strong> de 0.5s entre chaque scène.</li>
-        <li>Ajoute un <strong>fondu audio</strong> de 0.5s au début et à la fin.</li>
-        <li>Ajoute un <strong>fondu au noir final</strong> de 1s sur la dernière scène.</li>
-        <li>Exporte en <code>1080x1920</code>, 30 fps, qualité maximale.</li>
-        <li>Copie les métadonnées ci-dessus dans YouTube Studio.</li>
-        <li>Coche <strong>« Contenu pour enfants »</strong> — obligatoire.</li>
-    </ol>
+    <button type="button" id="meta-copy-btn" style="width:100%; padding:0.75rem; border-radius:10px; border:none; background:var(--blue); color:#fff; font-size:0.85rem; font-weight:700; font-family:inherit; cursor:pointer;">📋 Copier les métadonnées</button>
 </div>
 
 <div class="status-bar" id="status-bar">
@@ -797,18 +627,15 @@ const FRAME_RATE = 24;
 let createIntervalMs = 62000;
 const CREATE_INTERVAL_MIN = 62000;
 const CREATE_INTERVAL_MAX = 90000;
-const CREATE_INTERVAL_SAFE = 75000;
-const POLL_INTERVAL_SEC = 8;
-const MAX_POLL_ATTEMPTS = 100;
 
-const TIMING_CACHE_KEY = 'kids_story_timing_v1';
+const POLL_INTERVAL_SEC = 8;
+const MAX_POLL_ATTEMPTS = 120;
+
 const AGNES_KEY_STORAGE = 'agnes_api_key';
 const GEMINI_KEY_STORAGE = 'gemini_api_key';
 const WAKE_LOCK_PREF = 'agnes_wakelock_enabled';
-const STORY_CACHE_KEY = 'kids_story_cache_v1';
 
 const MAX_VISIBLE_QUEUE = 30;
-const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
 const THUMBNAIL_MAX_WIDTH = 200;
 
 // ══════════════════════════════════════════════════════════════════
@@ -817,21 +644,21 @@ const THUMBNAIL_MAX_WIDTH = 200;
 const state = {
     story: '',
     storySegments: [],
-    scenes: [],           // { index, text, imageDataUri, thumbnail, videoUrl, status, error }
+    scenes: [],
     isRunning: false,
     stopRequested: false,
     completed: 0,
     failed: 0,
     selectedTheme: 'pixar-3d',
-    characters: 'blue-bear',
-    loop: 'perfect',
+    characters: 'custom',
     durationFrames: 153,
     targetScenes: 'auto',
-    isLoadingImages: false,
     audioFile: null,
     audioObjectUrl: null,
     audioBpm: null,
     audioDuration: 0,
+    finalFilmBlob: null,
+    isAssembling: false,
     geminiRetries: 3,
     agnesRetries: 3
 };
@@ -844,7 +671,7 @@ function showToast(message, type = 'success', duration = 2500) {
     const toast = document.getElementById('toast');
     const icon = document.getElementById('toast-icon');
     const text = document.getElementById('toast-text');
-    if (!toast || !icon || !text) return;
+    if (!toast) return;
     toast.classList.remove('visible', 'success', 'error', 'warn');
     void toast.offsetWidth;
     const icons = { success: '✓', error: '✕', warn: '⚠' };
@@ -971,12 +798,12 @@ async function toggleWakeLock() {
         wakeLockEnabled = false;
         await deactivateWakeLock();
         try { localStorage.setItem(WAKE_LOCK_PREF, '0'); } catch (e) {}
-        showToast('Veille automatique réactivée', 'warn');
+        showToast('Veille réactivée', 'warn');
     } else {
         wakeLockEnabled = true;
         const ok = await activateWakeLock();
         try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) {}
-        showToast(ok ? 'L\'écran va rester allumé' : 'Activez manuellement', ok ? 'success' : 'warn');
+        showToast(ok ? 'Écran allumé' : 'Activez manuellement', ok ? 'success' : 'warn');
     }
     updateWakeStatus();
 }
@@ -997,71 +824,12 @@ async function ensureWakeLockActive() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CACHE DES TEMPS
+// DÉCOUPAGE INTELLIGENT
 // ══════════════════════════════════════════════════════════════════
-function loadTimingCache() {
-    try { return JSON.parse(localStorage.getItem(TIMING_CACHE_KEY) || '{}'); }
-    catch (e) { return {}; }
-}
-function saveTimingCache(cache) {
-    try { localStorage.setItem(TIMING_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
-}
-function recordGenerationTime(numFrames, durationMs) {
-    const cache = loadTimingCache();
-    const key = String(numFrames);
-    if (!cache[key]) cache[key] = [];
-    cache[key].push(durationMs);
-    if (cache[key].length > 10) cache[key] = cache[key].slice(-10);
-    saveTimingCache(cache);
-    updateTimingDisplay();
-}
-function estimateGenerationTime(numFrames) {
-    const cache = loadTimingCache();
-    const samples = cache[String(numFrames)];
-    if (samples && samples.length > 0) {
-        const sorted = [...samples].sort((a, b) => a - b);
-        const mid = Math.floor(sorted.length / 2);
-        return sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
-    }
-    return 30000 + numFrames * 500;
-}
-function updateTimingDisplay() {
-    const cache = loadTimingCache();
-    const all = Object.values(cache).flat();
-    const speedEl = document.getElementById('stat-speed');
-    const samplesEl = document.getElementById('stat-samples');
-    if (!speedEl || !samplesEl) return;
-    if (all.length === 0) {
-        speedEl.textContent = 'en attente de données';
-        samplesEl.textContent = '0 génération';
-        return;
-    }
-    const avg = all.reduce((a, b) => a + b, 0) / all.length;
-    speedEl.textContent = (avg / 1000).toFixed(1) + ' s en moyenne';
-    samplesEl.textContent = all.length + ' génération' + (all.length > 1 ? 's' : '');
-}
-
-// ══════════════════════════════════════════════════════════════════
-// DÉCOUPAGE INTELLIGENT DE L'HISTOIRE
-// ══════════════════════════════════════════════════════════════════
-/**
- * Découpe l'histoire en scènes cohérentes :
- *  1. Split par ponctuation forte (. ! ? …)
- *  2. Fusion des segments trop courts (< 40 chars)
- *  3. Re-split des segments trop longs (> 250 chars) par virgules
- *  4. Regroupement pour atteindre le nombre de scènes cible
- */
 function segmentStory(text, targetScenes) {
     if (!text || !text.trim()) return [];
-
-    // 1. Normaliser et splitter par ponctuation forte
-    let normalized = text.replace(/\s+/g, ' ').trim();
-    const sentences = normalized
-        .split(/(?<=[.!?…])\s+/)
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-
-    // 2. Fusionner les phrases trop courtes avec la suivante
+    let normalized = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    const sentences = normalized.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(s => s.length > 0);
     const MIN_LEN = 40;
     const merged = [];
     let buffer = '';
@@ -1076,15 +844,12 @@ function segmentStory(text, targetScenes) {
         if (merged.length > 0) merged[merged.length - 1] += ' ' + buffer;
         else merged.push(buffer);
     }
-
-    // 3. Re-split des segments trop longs par virgules
     const MAX_LEN = 250;
     const finalSegments = [];
     for (const seg of merged) {
         if (seg.length <= MAX_LEN) {
             finalSegments.push(seg);
         } else {
-            // Split par virgules ou conjonctions
             const parts = seg.split(/[,;]\s+|\s+(?:et|puis|alors|donc|mais|car)\s+/i);
             let sub = '';
             for (const p of parts) {
@@ -1100,13 +865,9 @@ function segmentStory(text, targetScenes) {
             }
         }
     }
-
-    // 4. Regrouper pour atteindre le nombre cible
     if (targetScenes === 'auto' || !targetScenes) return finalSegments;
     const target = parseInt(targetScenes, 10);
     if (isNaN(target) || target <= 0 || finalSegments.length <= target) return finalSegments;
-
-    // Fusionner les segments adjacents pour atteindre la cible
     const result = [];
     const groupSize = finalSegments.length / target;
     for (let i = 0; i < target; i++) {
@@ -1122,42 +883,27 @@ function updateStoryPreview() {
     const storyEl = document.getElementById('main-prompt');
     const story = storyEl.value.trim();
     state.story = story;
-
-    // Compteur de mots
     const words = story ? story.split(/\s+/).filter(w => w.length > 0).length : 0;
     document.getElementById('story-words').textContent = words;
-
-    // Nombre de scènes estimées
     const targetScenes = document.getElementById('scenes-count-select').value;
     const segments = segmentStory(story, targetScenes);
     state.storySegments = segments;
     document.getElementById('story-scenes').textContent = segments.length;
-
-    // Aperçu du découpage
-    const previewEl = document.getElementById('story-segments');
-    const listEl = document.getElementById('story-segments-list');
-    if (segments.length > 0) {
-        previewEl.classList.add('visible');
-        listEl.innerHTML = segments.map((s, i) =>
-            '<div class="story-segment"><span class="seg-num">Scène ' + (i + 1) + '</span>' + esc(s) + '</div>'
-        ).join('');
-    } else {
-        previewEl.classList.remove('visible');
-    }
-
     updateGenerateBtn();
 }
 
 // ══════════════════════════════════════════════════════════════════
-// PRESETS D'HISTOIRES
+// HISTOIRES EXEMPLES
 // ══════════════════════════════════════════════════════════════════
 const STORY_PRESETS = [
     { label: '🐻 L\'ourson et la fête',
       text: 'Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie. Un matin, il décida d\'organiser une grande fête avec tous ses amis. Il invita la petite lapine rose et le poussin jaune. Ensemble, ils préparèrent des gâteaux et décorèrent la prairie avec des ballons colorés. Quand le soleil se coucha, ils dansèrent et chantèrent toute la nuit sous les étoiles. L\'ourson était le plus heureux des oursons.' },
+    { label: '🐲 Le dragon aux bulles',
+      text: 'Il était une fois un petit dragon prénommé Barnabé. Contrairement à tous les autres dragons, Barnabé ne crachait pas de feu. Quand il essayait, il ne sortait que des bulles de savon colorées. Ses frères se moquaient de lui. Un après-midi, un grand nuage noir cacha le soleil et la forêt devint sombre. Barnabé souffla une gigantesque bulle qui captura les rayons du soleil. Elles illuminèrent toute la forêt. Depuis ce jour, Barnabé est le dragon le plus populaire du royaume.' },
     { label: '🌻 La fleur magique',
       text: 'Dans un jardin ensoleillé, une petite fleur magique poussait au milieu des tournesols. Chaque matin, elle chantait pour réveiller les abeilles. Un jour, un papillon bleu vint lui rendre visite. Ils devinrent les meilleurs amis du monde. Ensemble, ils firent danser tout le jardin.' },
     { label: '🐤 Le poussin perdu',
-      text: 'Un petit poussin jaune s\'éloigna de sa maman pour explorer la ferme. Il rencontra un chaton qui jouait avec une pelote de laine. Le chaton lui proposa de l\'aider à retrouver sa maman. Ils traversèrent la grange et le potager. Finalement, ils retrouvèrent la maman poule qui les attendait près de l\'étang. Le poussin promit de ne plus jamais s\'éloigner.' },
+      text: 'Un petit poussin jaune s\'éloigna de sa maman pour explorer la ferme. Il rencontra un chaton qui jouait avec une pelote de laine. Le chaton lui proposa de l\'aider à retrouver sa maman. Ils traversèrent la grange et le potager. Finalement, ils retrouvèrent la maman poule près de l\'étang. Le poussin promit de ne plus jamais s\'éloigner.' },
     { label: '🌈 La licorne joyeuse',
       text: 'Au sommet d\'une colline arc-en-ciel vivait une petite licorne rose. Elle aimait danser sous la pluie de paillettes. Un jour, elle rencontra un ourson bleu qui cherchait des amis. La licorne lui apprit à danser. Ils firent la fête ensemble jusqu\'au coucher du soleil.' },
     { label: '🎈 Les ballons magiques',
@@ -1165,118 +911,256 @@ const STORY_PRESETS = [
     { label: '🐰 La lapine courageuse',
       text: 'Une petite lapine rose vivait dans un terrier au bord de la forêt. Elle avait peur du noir, mais elle voulait aider ses amis. Un soir, elle partit chercher des lucioles pour éclairer le terrier. Sur le chemin, elle rencontra un hibou sage qui l\'accompagna. Grâce à leur aide, elle rapporta plein de lumières. Toute la forêt brilla cette nuit-là.' },
     { label: '🌟 Le voyage dans les étoiles',
-      text: 'Un petit renard rêvait de voyager dans les étoiles. Un soir, une fusée magique atterrit dans son jardin. Il monta à bord et décolla vers la lune. Là-haut, il rencontra des étoiles qui chantaient. Elles lui apprirent une chanson magique. Le renard rentra chez lui en chantant, le cœur rempli de bonheur.' },
-    { label: '🎵 Le concert des animaux',
-      text: 'Tous les animaux de la forêt décidèrent d\'organiser un grand concert. Le lapin jouait du tambour, l\'écureuil du xylophone, et l\'oiseau chantait. Chacun apporta son instrument. Ils répétèrent toute la journée dans la clairière. Le soir, tous les animaux de la forêt vinrent les écouter. Ce fut le plus beau concert de l\'année.' }
+      text: 'Un petit renard rêvait de voyager dans les étoiles. Un soir, une fusée magique atterrit dans son jardin. Il monta à bord et décolla vers la lune. Là-haut, il rencontra des étoiles qui chantaient. Elles lui apprirent une chanson magique. Le renard rentra chez lui en chantant, le cœur rempli de bonheur.' }
 ];
 
 // ══════════════════════════════════════════════════════════════════
-// THÈMES JOYEUX
+// THÈMES
 // ══════════════════════════════════════════════════════════════════
 const JOYFUL_THEMES = [
-    { id: 'pixar-3d', name: 'Pixar 3D (défaut)', emoji: '✨', desc: 'Style 3D doux et coloré',
-      prompt: 'high-quality 3D computer animation, Pixar-style rendering, soft subsurface scattering, cinematic warm lighting, smooth rounded shapes' },
-    { id: 'sunny-meadow', name: 'Prairie Ensoleillée', emoji: '🌻', desc: 'Herbe verte, soleil doux',
-      prompt: 'lush green meadow with colorful wildflowers, clear azure blue sky with fluffy white clouds, warm golden sunlight, gentle breeze' },
-    { id: 'rainbow-sky', name: 'Ciel Arc-en-ciel', emoji: '🌈', desc: 'Arcs-en-ciel, nuages doux',
-      prompt: 'vibrant rainbow sky with soft fluffy clouds, colorful rainbow arcs, bright pastel colors' },
-    { id: 'candy-meadow', name: 'Prairie Sucrée', emoji: '🍭', desc: 'Bonbons, couleurs pastel',
-      prompt: 'magical meadow with giant colorful lollipops and candy, pastel colors, sweet joyful world' },
-    { id: 'flower-field', name: 'Champ Fleuri', emoji: '🌺', desc: 'Fleurs géantes, papillons',
-      prompt: 'beautiful flower field with giant colorful flowers, soft butterflies, warm sunny light' },
-    { id: 'sunny-beach', name: 'Plage Ensoleillée', emoji: '🏖️', desc: 'Sable doré, mer douce',
-      prompt: 'sunny beach with golden sand, gentle blue waves, bright sun, cheerful safe atmosphere' },
-    { id: 'farm-friends', name: 'Ferme Joyeuse', emoji: '🚜', desc: 'Animaux, verdure',
+    { id: 'pixar-3d', name: 'Pixar 3D', emoji: '✨', desc: 'Style 3D doux',
+      prompt: 'high-quality 3D computer animation, Pixar-style rendering, soft subsurface scattering, cinematic warm lighting' },
+    { id: 'sunny-meadow', name: 'Prairie Ensoleillée', emoji: '🌻', desc: 'Herbe, soleil',
+      prompt: 'lush green meadow with colorful wildflowers, clear azure blue sky, warm golden sunlight' },
+    { id: 'rainbow-sky', name: 'Ciel Arc-en-ciel', emoji: '🌈', desc: 'Arcs-en-ciel',
+      prompt: 'vibrant rainbow sky with soft clouds, bright pastel colors' },
+    { id: 'candy-meadow', name: 'Prairie Sucrée', emoji: '🍭', desc: 'Bonbons',
+      prompt: 'magical meadow with giant colorful lollipops and candy, pastel colors' },
+    { id: 'flower-field', name: 'Champ Fleuri', emoji: '🌺', desc: 'Fleurs géantes',
+      prompt: 'beautiful flower field with giant colorful flowers, butterflies, warm sunny light' },
+    { id: 'enchanted-forest', name: 'Forêt Enchantée', emoji: '🌲', desc: 'Arbres magiques',
+      prompt: 'enchanted magical forest with glowing trees, soft sparkles, fireflies, warm friendly atmosphere' },
+    { id: 'sunny-beach', name: 'Plage Ensoleillée', emoji: '🏖️', desc: 'Sable, mer',
+      prompt: 'sunny beach with golden sand, gentle blue waves, bright sun' },
+    { id: 'farm-friends', name: 'Ferme Joyeuse', emoji: '🚜', desc: 'Animaux',
       prompt: 'cheerful farm with cute animals, green pastures, red barn, sunny day' },
-    { id: 'jungle-fun', name: 'Jungle Amicale', emoji: '🌴', desc: 'Feuilles, animaux rigolos',
-      prompt: 'friendly colorful jungle with cute animals, bright green leaves, exotic flowers, sunny' },
-    { id: 'space-kids', name: 'Espace Enfants', emoji: '🚀', desc: 'Étoiles, planètes souriantes',
+    { id: 'jungle-fun', name: 'Jungle Amicale', emoji: '🌴', desc: 'Jungle colorée',
+      prompt: 'friendly colorful jungle with cute animals, bright green leaves, exotic flowers' },
+    { id: 'space-kids', name: 'Espace Enfants', emoji: '🚀', desc: 'Étoiles, planètes',
       prompt: 'colorful kid-friendly outer space with smiling stars, cute planets, friendly rockets' },
-    { id: 'underwater-joy', name: 'Fonds Marin Joyeux', emoji: '🐠', desc: 'Poissons souriants, coraux',
+    { id: 'underwater-joy', name: 'Fonds Marin Joyeux', emoji: '🐠', desc: 'Poissons, coraux',
       prompt: 'colorful friendly underwater world with smiling fish, bright corals, gentle bubbles' },
-    { id: 'snow-fun', name: 'Neige Joyeuse', emoji: '⛄', desc: 'Bonhomme de neige, flocons',
+    { id: 'snow-fun', name: 'Neige Joyeuse', emoji: '⛄', desc: 'Neige, bonhomme',
       prompt: 'bright snowy landscape with friendly snowman, gentle falling snowflakes, warm winter sun' },
-    { id: 'birthday-party', name: 'Fête d\'Anniversaire', emoji: '🎂', desc: 'Ballons, gâteau, confettis',
+    { id: 'birthday-party', name: 'Fête d\'Anniversaire', emoji: '🎂', desc: 'Ballons, gâteau',
       prompt: 'joyful birthday party with colorful balloons, confetti, birthday cake, streamers' },
-    { id: 'musical-meadow', name: 'Prairie Musicale', emoji: '🎵', desc: 'Notes flottantes, danse',
+    { id: 'musical-meadow', name: 'Prairie Musicale', emoji: '🎵', desc: 'Notes, danse',
       prompt: 'magical musical meadow with floating music notes, dancing flowers, happy animals' },
-    { id: 'claymation-soft', name: 'Pâte à Modeler', emoji: '🧱', desc: 'Texture douce, artisanale',
+    { id: 'claymation-soft', name: 'Pâte à Modeler', emoji: '🧱', desc: 'Texture douce',
       prompt: 'soft claymation stop-motion animation, plasticine texture, rounded friendly shapes' }
 ];
 
 // ══════════════════════════════════════════════════════════════════
-// ÉLÉMENTS DE PROMPT
+// PROMPTS
 // ══════════════════════════════════════════════════════════════════
 const CHARACTER_PROMPTS = {
-    'blue-bear': 'cute fluffy blue turquoise teddy bear with big expressive friendly eyes, warm smile, soft rounded shapes',
-    'yellow-chick': 'cute yellow baby chick wearing a small straw hat, big expressive eyes, warm smile, soft rounded shapes',
-    'pink-rabbit': 'cute pink rabbit with long soft ears, big expressive eyes, warm smile, soft rounded shapes',
-    'mixed': 'cute fluffy blue turquoise teddy bear, pink rabbit and yellow chick together, all smiling and friendly'
+    'custom': null,
+    'blue-bear': 'cute fluffy blue turquoise teddy bear with big expressive friendly eyes, warm smile',
+    'yellow-chick': 'cute yellow baby chick wearing a small straw hat, big expressive eyes',
+    'pink-rabbit': 'cute pink rabbit with long soft ears, big expressive eyes',
+    'dragon': 'cute small friendly dragon with soft rounded scales, big expressive eyes',
+    'mixed': 'cute fluffy animals together, all smiling and friendly'
 };
-
-const ALWAYS_ADDED = [
-    'Bright saturated but soft colors, high quality 3D render, smooth 24fps animation, Pixar style, vertical 9:16',
-    'Safe for children, COPPA compliant, absolutely no text, no watermarks, no scary elements',
-    'Warm golden sunlight, no harsh shadows',
-    'The final 0.8 seconds must smoothly fade out — the character gradually slows down, the music notes gently fade away, the light softens, and the animation comes to a peaceful, natural rest. No abrupt cut, no sudden stop, no frozen frame.',
-    'Consistent character design across all scenes with the main character specified'
-];
 
 const NEGATIVE_PROMPT = 'scary, dark, deformed, text, watermark, realistic, creepy, sharp shadows, sudden movements, distortion, extra limbs, uncanny valley, harsh contrast, cold colors, sad, angry, violent';
 
-// ══════════════════════════════════════════════════════════════════
-// CONSTRUCTION DU PROMPT
-// ══════════════════════════════════════════════════════════════════
+function extractMainCharacter(storyText) {
+    if (!storyText) return 'the main character described in the scene';
+    const lower = storyText.toLowerCase();
+    const animalPatterns = [
+        { regex: /(ourson|ours)\s+(bleu|turquoise|brun|blanc|noir|gris)?/, value: 'cute fluffy ' + (lower.includes('bleu') || lower.includes('turquoise') ? 'blue turquoise ' : '') + 'teddy bear with big expressive friendly eyes, warm smile' },
+        { regex: /(dragon|dragonneau)\s*(\w+)?/, value: 'cute small friendly dragon with soft rounded scales, big expressive eyes' },
+        { regex: /(lapin|lapine|lièvre)/, value: 'cute ' + (lower.includes('rose') ? 'pink ' : '') + 'rabbit with long soft ears, big expressive eyes' },
+        { regex: /(poussin|poule|poulet)/, value: 'cute yellow baby chick with big expressive eyes' },
+        { regex: /(renard)/, value: 'cute orange fox with big expressive eyes, fluffy tail' },
+        { regex: /(licorne)/, value: 'cute ' + (lower.includes('rose') ? 'pink ' : '') + 'unicorn with rainbow mane, big expressive eyes' },
+        { regex: /(chaton|chat)/, value: 'cute kitten with big expressive eyes, soft fur' },
+        { regex: /(chiot|chien)/, value: 'cute puppy with big expressive eyes, soft fur' },
+        { regex: /(souris|souriceau)/, value: 'cute little mouse with big expressive eyes' },
+        { regex: /(hibou|chouette)/, value: 'cute wise owl with big expressive eyes, soft feathers' },
+        { regex: /(écureuil)/, value: 'cute squirrel with fluffy tail, big expressive eyes' },
+        { regex: /(papillon)/, value: 'cute colorful butterfly with luminous wings' }
+    ];
+    for (const p of animalPatterns) {
+        if (p.regex.test(lower)) return p.value;
+    }
+    if (/(garçon|petit garçon|enfant|fille|petite fille)/.test(lower)) {
+        return 'cute stylized child with big expressive eyes, warm smile, simple colorful clothing';
+    }
+    return 'cute adorable character with big expressive friendly eyes';
+}
+
 function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
-    const theme = JOYFUL_THEMES.find(t => t.id === (state.selectedTheme || 'pixar-3d')) || JOYFUL_THEMES[0];
-    const charPrompt = CHARACTER_PROMPTS[state.characters] || CHARACTER_PROMPTS['blue-bear'];
+    const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
+    let charPrompt = CHARACTER_PROMPTS[state.characters];
+    if (!charPrompt || state.characters === 'custom') {
+        charPrompt = extractMainCharacter(state.story);
+    }
 
     const parts = [];
-    parts.push('Create a single illustration for a children\'s animated storybook. This is scene ' + (sceneIndex + 1) + ' of ' + totalScenes + '.');
-    parts.push('SCENE DESCRIPTION: ' + sceneText);
-    parts.push('MAIN CHARACTER: ' + charPrompt);
+    parts.push('Create a single illustration for a children\'s animated storybook. Scene ' + (sceneIndex + 1) + ' of ' + totalScenes + '.');
+    parts.push('SCENE: ' + sceneText);
+    parts.push('MAIN CHARACTER (must appear consistently): ' + charPrompt);
     parts.push('STYLE: ' + theme.prompt);
     parts.push('MOOD: joyful, colorful, warm, safe for children, COPPA compliant.');
-    parts.push('The scene must be bright and cheerful with a sunny atmosphere.');
     if (previousContext) {
-        parts.push('CONTEXT FROM PREVIOUS SCENE (for visual consistency): ' + previousContext);
+        parts.push('CONTEXT (previous scene for visual consistency): ' + previousContext);
     }
     parts.push('Portrait orientation 9:16, no text, no watermarks, no scary elements.');
     return parts.join(' ');
 }
 
 function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
-    const theme = JOYFUL_THEMES.find(t => t.id === (state.selectedTheme || 'pixar-3d')) || JOYFUL_THEMES[0];
-    const charPrompt = CHARACTER_PROMPTS[state.characters] || CHARACTER_PROMPTS['blue-bear'];
+    const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
+    let charPrompt = CHARACTER_PROMPTS[state.characters];
+    if (!charPrompt || state.characters === 'custom') {
+        charPrompt = extractMainCharacter(state.story);
+    }
 
     const parts = [];
-    parts.push('Animate this exact image as the starting frame. The character must remain IDENTICAL to the input image: same face, same expression, same clothing, same identity.');
+    parts.push('Animate this exact image as the starting frame. The character must remain IDENTICAL: same face, same expression, same identity.');
     parts.push('SCENE: ' + sceneText);
     parts.push('CHARACTER: ' + charPrompt);
     parts.push('STYLE: ' + theme.prompt);
-    parts.push('The character does a simple, rhythmic, joyful dance — clapping hands, bouncing, swaying arms — hypnotic and easy for young children to follow.');
-    parts.push('Glowing colorful music notes (golden, pink) floating and shining around the character.');
-    parts.push(...ALWAYS_ADDED);
-    if (state.loop === 'perfect') {
-        parts.push('The animation must form a PERFECT SEAMLESS LOOP: the character returns to EXACTLY the same pose as the first frame.');
-    }
+    parts.push('Simple rhythmic joyful animation — gentle movements, breathing, blinking, subtle sway. Hypnotic and easy for young children.');
+    parts.push('Soft glowing sparkles or music notes floating gently if appropriate.');
+    parts.push('Bright saturated but soft colors, high quality 3D render, smooth 24fps, Pixar style, vertical 9:16.');
+    parts.push('Safe for children, COPPA compliant, no text, no watermarks, no scary elements.');
+    parts.push('Warm golden sunlight, no harsh shadows.');
+    parts.push('The final 0.8 seconds smoothly fade out — the character gradually slows down, the light softens, natural peaceful ending. No abrupt cut.');
     parts.push('NEGATIVE PROMPT: ' + NEGATIVE_PROMPT);
     return parts.join('. ');
 }
 
 // ══════════════════════════════════════════════════════════════════
-// API GEMINI — GÉNÉRATION D'IMAGES
+// CLÉS API
+// ══════════════════════════════════════════════════════════════════
+function getAgnesKey() { try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
+function getGeminiKey() { try { return (localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
+
+function saveAgnesKey() {
+    const input = document.getElementById('api-key-input');
+    const key = input.value.trim();
+    if (!key) { localStorage.removeItem(AGNES_KEY_STORAGE); updateApiPanel(); showToast('Clé Agnes supprimée', 'warn'); return; }
+    localStorage.setItem(AGNES_KEY_STORAGE, key);
+    updateApiPanel();
+    showToast('Clé Agnes enregistrée ✓', 'success');
+}
+
+function saveGeminiKey() {
+    const input = document.getElementById('gemini-key-input');
+    const key = input.value.trim();
+    if (!key) { localStorage.removeItem(GEMINI_KEY_STORAGE); updateApiPanel(); showToast('Clé Gemini supprimée', 'warn'); return; }
+    localStorage.setItem(GEMINI_KEY_STORAGE, key);
+    updateApiPanel();
+    showToast('Clé Gemini enregistrée ✓', 'success');
+}
+
+function updateApiPanel() {
+    const panel = document.getElementById('api-panel');
+    const input = document.getElementById('api-key-input');
+    const statusLine = document.getElementById('api-status-line');
+    const statusText = document.getElementById('api-status-text');
+    const agnesKey = getAgnesKey();
+    if (agnesKey) {
+        statusLine.classList.add('ok');
+        statusText.textContent = 'Clé Agnes active · ' + agnesKey.slice(0, 8) + '…' + agnesKey.slice(-4);
+        input.value = agnesKey;
+    } else {
+        statusLine.classList.remove('ok');
+        statusText.textContent = 'Aucune clé Agnes enregistrée';
+        input.value = '';
+    }
+
+    const geminiInput = document.getElementById('gemini-key-input');
+    const geminiStatusLine = document.getElementById('gemini-status-line');
+    const geminiStatusText = document.getElementById('gemini-status-text');
+    const geminiKey = getGeminiKey();
+    if (geminiKey) {
+        geminiStatusLine.classList.add('ok');
+        geminiStatusText.textContent = 'Clé Gemini active · ' + geminiKey.slice(0, 8) + '…' + geminiKey.slice(-4);
+        geminiInput.value = geminiKey;
+    } else {
+        geminiStatusLine.classList.remove('ok');
+        geminiStatusText.textContent = 'Aucune clé Gemini enregistrée';
+        geminiInput.value = '';
+    }
+
+    if (agnesKey && geminiKey) panel.classList.add('ok');
+    else panel.classList.remove('ok');
+    updateGenerateBtn();
+}
+
+function updateGenerateBtn() {
+    const btn = document.getElementById('generate-btn');
+    if (!btn) return;
+    const hasStory = state.storySegments.length > 0;
+    const hasAgnes = !!getAgnesKey();
+    const hasGemini = !!getGeminiKey();
+    btn.disabled = !hasStory || !hasAgnes || !hasGemini || state.isRunning;
+
+    if (state.isRunning) {
+        const total = state.scenes.length;
+        const done = state.completed + state.failed;
+        btn.textContent = '🎬 Création… (' + done + '/' + total + ')';
+    } else if (!hasAgnes) {
+        btn.textContent = '🔑 Ajoutez votre clé Agnes';
+    } else if (!hasGemini) {
+        btn.textContent = '🎨 Ajoutez votre clé Gemini';
+    } else if (!hasStory) {
+        btn.textContent = '📖 Écrivez votre histoire';
+    } else {
+        btn.textContent = '🌟 Créer les ' + state.storySegments.length + ' scènes';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ══════════════════════════════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function log(msg) { console.log('[KidsStory] ' + msg); }
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const txt = document.getElementById('status-text');
+    if (!bar || !txt) return;
+    if (text) { bar.classList.add('visible'); txt.textContent = text; }
+    else bar.classList.remove('visible');
+}
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+function generateThumbnail(dataUri) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ratio = img.height / img.width;
+                canvas.width = THUMBNAIL_MAX_WIDTH;
+                canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * ratio);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            } catch (e) { resolve(dataUri); }
+        };
+        img.onerror = () => resolve(dataUri);
+        img.src = dataUri;
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GEMINI — GÉNÉRATION D'IMAGES
 // ══════════════════════════════════════════════════════════════════
 async function generateImageWithGemini(prompt, retries = 3) {
     const apiKey = getGeminiKey();
     if (!apiKey) throw new Error('Clé Gemini manquante');
 
     const url = GEMINI_API_BASE + '/models/' + GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(apiKey);
-
     const body = {
-        contents: [{
-            parts: [{ text: prompt }]
-        }],
+        contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
             responseModalities: ['IMAGE', 'TEXT'],
             temperature: 0.9
@@ -1294,8 +1178,7 @@ async function generateImageWithGemini(prompt, retries = 3) {
 
             if (res.status === 429) {
                 const wait = [10, 20, 40][Math.min(attempt, 2)];
-                log('Gemini 429 → attente ' + wait + 's');
-                setStatus('Gemini se prépare… (' + wait + 's)');
+                setStatus('Gemini 429 — attente ' + wait + 's');
                 await sleep(wait * 1000);
                 continue;
             }
@@ -1326,7 +1209,7 @@ async function generateImageWithGemini(prompt, retries = 3) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// API AGNES — GÉNÉRATION DE VIDÉOS
+// AGNES — VIDÉOS
 // ══════════════════════════════════════════════════════════════════
 async function apiFetch(url, options = {}, label = 'API') {
     for (let attempt = 0; attempt < 7; attempt++) {
@@ -1334,9 +1217,6 @@ async function apiFetch(url, options = {}, label = 'API') {
         try {
             const res = await fetch(url, options);
             if (res.status === 429) {
-                if (createIntervalMs < CREATE_INTERVAL_SAFE) {
-                    createIntervalMs = Math.min(createIntervalMs + 8000, CREATE_INTERVAL_MAX);
-                }
                 const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
                 setStatus('L\'IA se prépare… (' + wait + 's)');
                 await sleep(wait * 1000);
@@ -1386,12 +1266,11 @@ async function createVideoTask(imageDataUri, prompt) {
 }
 
 async function pollVideo(videoId, onProgress) {
-    const estimatedMs = estimateGenerationTime(state.durationFrames);
-    const estimatedSec = estimatedMs / 1000;
-    let remaining = Math.max(20, Math.floor(estimatedSec * 0.8));
+    const estimatedMs = 30000 + state.durationFrames * 500;
+    let remaining = Math.max(20, Math.floor((estimatedMs / 1000) * 0.8));
     while (remaining > 0) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
-        onProgress('Votre scène se prépare… — ' + remaining + 's');
+        onProgress('Préparation… — ' + remaining + 's');
         await sleep(1000);
         remaining--;
     }
@@ -1428,7 +1307,7 @@ async function pollVideo(videoId, onProgress) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// PIPELINE PRINCIPAL — HISTOIRE → IMAGES → VIDÉOS → FILM
+// PIPELINE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
 async function generateAllScenes() {
     const scenes = state.storySegments.map((text, i) => ({
@@ -1444,9 +1323,9 @@ async function generateAllScenes() {
     state.scenes = scenes;
     renderQueue();
 
-    // ═══ ÉTAPE 1 : GÉNÉRATION DES IMAGES (Gemini) ═══
-    log('═══ ÉTAPE 1 : Génération des images (' + scenes.length + ' scènes) ═══');
-    setStatus('Étape 1/' + '3 : génération des images…');
+    // ═══ ÉTAPE 1 : IMAGES GEMINI ═══
+    log('═══ ÉTAPE 1 : Images Gemini (' + scenes.length + ' scènes) ═══');
+    setStatus('Étape 1/2 : génération des images…');
 
     let previousContext = '';
     for (let i = 0; i < scenes.length; i++) {
@@ -1462,12 +1341,8 @@ async function generateAllScenes() {
             scene.imageDataUri = imageDataUri;
             scene.thumbnail = await generateThumbnail(imageDataUri);
             scene.status = 'image-done';
-            scene.error = null;
-
-            // Contexte pour cohérence visuelle du segment suivant
             previousContext = scene.text.slice(0, 150);
-
-            log('[Scène ' + (i + 1) + '] Image générée ✓');
+            log('[Scène ' + (i + 1) + '] Image ✓');
         } catch (e) {
             log('[Scène ' + (i + 1) + '] Image échouée : ' + e.message);
             scene.status = 'failed';
@@ -1476,19 +1351,15 @@ async function generateAllScenes() {
         }
         renderQueue();
         updateGenerateBtn();
-
-        // Pause entre les images pour éviter le rate limit Gemini
-        if (i < scenes.length - 1 && !state.stopRequested) {
-            await sleep(2000);
-        }
+        if (i < scenes.length - 1 && !state.stopRequested) await sleep(2000);
     }
 
     if (state.stopRequested) return;
 
-    // ═══ ÉTAPE 2 : GÉNÉRATION DES VIDÉOS (Agnes) ═══
+    // ═══ ÉTAPE 2 : VIDÉOS AGNES ═══
     const validScenes = scenes.filter(s => s.imageDataUri && s.status === 'image-done');
-    log('═══ ÉTAPE 2 : Génération des vidéos (' + validScenes.length + ' scènes valides) ═══');
-    setStatus('Étape 2/3 : génération des vidéos…');
+    log('═══ ÉTAPE 2 : Vidéos Agnes (' + validScenes.length + ' scènes) ═══');
+    setStatus('Étape 2/2 : génération des vidéos…');
 
     const pollingTasks = [];
     for (let i = 0; i < validScenes.length; i++) {
@@ -1505,8 +1376,6 @@ async function generateAllScenes() {
             scene.startTime = Date.now();
             scene.status = 'processing';
             renderQueue();
-
-            // Lancer le polling en parallèle
             pollingTasks.push(pollSceneVideo(scene));
         } catch (e) {
             if (e.message === 'Arrêt demandé') break;
@@ -1517,19 +1386,18 @@ async function generateAllScenes() {
             renderQueue();
         }
 
-        // Intervalle entre les créations
         if (i < validScenes.length - 1 && !state.stopRequested) {
             const waitSec = Math.ceil(createIntervalMs / 1000);
             for (let r = waitSec; r > 0; r--) {
                 if (state.stopRequested) break;
-                setStatus('Respiration créative… — vidéo ' + (i + 2) + '/' + validScenes.length + ' dans ' + r + 's');
+                setStatus('Pause… — vidéo ' + (i + 2) + '/' + validScenes.length + ' dans ' + r + 's');
                 await sleep(1000);
             }
         }
     }
 
     if (pollingTasks.length > 0) {
-        setStatus('Étape 3/3 : finalisation des vidéos…');
+        setStatus('Finalisation des vidéos…');
         await Promise.allSettled(pollingTasks);
     }
 }
@@ -1540,8 +1408,6 @@ async function pollSceneVideo(scene) {
             scene.progress = prog;
             renderQueue();
         });
-        const elapsed = Date.now() - scene.startTime;
-        recordGenerationTime(state.durationFrames, elapsed);
         scene.status = 'done';
         scene.videoUrl = videoUrl;
         scene.progress = 'Terminé';
@@ -1549,7 +1415,6 @@ async function pollSceneVideo(scene) {
         renderQueue();
         updateGenerateBtn();
         addToGallery(videoUrl, scene.index + 1);
-        saveStoryCache();
     } catch (e) {
         if (e.message === 'Arrêt demandé') {
             scene.status = 'failed';
@@ -1567,197 +1432,236 @@ async function pollSceneVideo(scene) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CACHE DE L'HISTOIRE (reprise après rechargement)
+// ASSEMBLAGE DU FILM FINAL — Téléchargement + Fusion
 // ══════════════════════════════════════════════════════════════════
-function saveStoryCache() {
-    try {
-        const cache = {
-            scenes: state.scenes.map(s => ({
-                index: s.index,
-                text: s.text,
-                imageDataUri: s.imageDataUri,
-                videoUrl: s.videoUrl,
-                status: s.status
-            })),
-            timestamp: Date.now()
-        };
-        localStorage.setItem(STORY_CACHE_KEY, JSON.stringify(cache));
-    } catch (e) {}
+async function downloadVideoBlob(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Téléchargement échoué : HTTP ' + res.status);
+    return await res.blob();
 }
 
-function loadStoryCache() {
-    try {
-        const raw = localStorage.getItem(STORY_CACHE_KEY);
-        if (!raw) return null;
-        const cache = JSON.parse(raw);
-        if (Date.now() - cache.timestamp > 24 * 60 * 60 * 1000) return null;
-        return cache;
-    } catch (e) { return null; }
-}
-
-function clearStoryCache() {
-    try { localStorage.removeItem(STORY_CACHE_KEY); } catch (e) {}
-}
-
-// ══════════════════════════════════════════════════════════════════
-// CLÉS API
-// ══════════════════════════════════════════════════════════════════
-function getAgnesKey() {
-    try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); }
-    catch (e) { return ''; }
-}
-
-function getGeminiKey() {
-    try { return (localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim(); }
-    catch (e) { return ''; }
-}
-
-function saveAgnesKey() {
-    const input = document.getElementById('api-key-input');
-    if (!input) return;
-    const key = input.value.trim();
-    if (!key) {
-        try { localStorage.removeItem(AGNES_KEY_STORAGE); } catch (e) {}
-        updateApiPanel();
-        showToast('Clé Agnes supprimée', 'warn');
+async function assembleFinalFilm() {
+    if (state.isAssembling) return;
+    const doneScenes = state.scenes.filter(s => s.status === 'done' && s.videoUrl).sort((a, b) => a.index - b.index);
+    if (doneScenes.length === 0) {
+        showToast('Aucune scène vidéo à assembler', 'error');
         return;
     }
+
+    state.isAssembling = true;
+    const finalFilmEl = document.getElementById('final-film');
+    const progressContainer = document.getElementById('assembly-progress');
+    const progressFill = document.getElementById('assembly-progress-fill');
+    const statusEl = document.getElementById('assembly-status');
+    finalFilmEl.classList.add('visible');
+    progressContainer.style.display = 'block';
+    setStatus('Assemblage du film final…');
+
     try {
-        localStorage.setItem(AGNES_KEY_STORAGE, key);
-        updateApiPanel();
-        showToast('Clé Agnes enregistrée ✓', 'success');
-        input.blur();
-    } catch (e) {
-        showToast('Erreur sauvegarde', 'error');
-    }
-}
-
-function saveGeminiKey() {
-    const input = document.getElementById('gemini-key-input');
-    if (!input) return;
-    const key = input.value.trim();
-    if (!key) {
-        try { localStorage.removeItem(GEMINI_KEY_STORAGE); } catch (e) {}
-        updateApiPanel();
-        showToast('Clé Gemini supprimée', 'warn');
-        return;
-    }
-    try {
-        localStorage.setItem(GEMINI_KEY_STORAGE, key);
-        updateApiPanel();
-        showToast('Clé Gemini enregistrée ✓', 'success');
-        input.blur();
-    } catch (e) {
-        showToast('Erreur sauvegarde', 'error');
-    }
-}
-
-function updateApiPanel() {
-    // Agnes
-    const panel = document.getElementById('api-panel');
-    const input = document.getElementById('api-key-input');
-    const statusLine = document.getElementById('api-status-line');
-    const statusText = document.getElementById('api-status-text');
-    const agnesKey = getAgnesKey();
-    if (agnesKey) {
-        statusLine.classList.add('ok');
-        statusText.textContent = 'Clé Agnes active · ' + agnesKey.slice(0, 8) + '…' + agnesKey.slice(-4);
-        input.value = agnesKey;
-        input.placeholder = '';
-    } else {
-        statusLine.classList.remove('ok');
-        statusText.textContent = 'Aucune clé Agnes enregistrée';
-        input.value = '';
-        input.placeholder = 'Collez votre clé API Agnes (sk-...)';
-    }
-
-    // Gemini
-    const geminiInput = document.getElementById('gemini-key-input');
-    const geminiStatusLine = document.getElementById('gemini-status-line');
-    const geminiStatusText = document.getElementById('gemini-status-text');
-    const geminiKey = getGeminiKey();
-    if (geminiKey) {
-        geminiStatusLine.classList.add('ok');
-        geminiStatusText.textContent = 'Clé Gemini active · ' + geminiKey.slice(0, 8) + '…' + geminiKey.slice(-4);
-        geminiInput.value = geminiKey;
-        geminiInput.placeholder = '';
-    } else {
-        geminiStatusLine.classList.remove('ok');
-        geminiStatusText.textContent = 'Aucune clé Gemini enregistrée';
-        geminiInput.value = '';
-        geminiInput.placeholder = 'Collez votre clé API Google Gemini (AIza...)';
-    }
-
-    if (agnesKey && geminiKey) panel.classList.add('ok');
-    else panel.classList.remove('ok');
-
-    updateGenerateBtn();
-}
-
-function updateGenerateBtn() {
-    const btn = document.getElementById('generate-btn');
-    if (!btn) return;
-    const hasStory = state.storySegments.length > 0;
-    const hasAgnes = !!getAgnesKey();
-    const hasGemini = !!getGeminiKey();
-    btn.disabled = !hasStory || !hasAgnes || !hasGemini || state.isRunning;
-
-    if (state.isRunning) {
-        const total = state.scenes.length;
-        const done = state.completed + state.failed;
-        btn.textContent = '🎬 Création en cours… (' + done + '/' + total + ')';
-    } else if (!hasAgnes) {
-        btn.textContent = '🔑 Ajoutez votre clé Agnes (vidéos)';
-    } else if (!hasGemini) {
-        btn.textContent = '🎨 Ajoutez votre clé Gemini (images)';
-    } else if (!hasStory) {
-        btn.textContent = '📖 Écrivez votre histoire';
-    } else {
-        btn.textContent = '🌟 Créer le film (' + state.storySegments.length + ' scènes)';
-    }
-}
-
-// ══════════════════════════════════════════════════════════════════
-// UTILITAIRES
-// ══════════════════════════════════════════════════════════════════
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function log(msg) { console.log('[KidsStory] ' + msg); }
-function setStatus(text) {
-    const bar = document.getElementById('status-bar');
-    const txt = document.getElementById('status-text');
-    if (!bar || !txt) return;
-    if (text) { bar.classList.add('visible'); txt.textContent = text; }
-    else bar.classList.remove('visible');
-}
-function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
-        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-    ));
-}
-function formatEta(seconds) {
-    if (seconds < 60) return Math.round(seconds) + 's';
-    const m = Math.floor(seconds / 60);
-    const s = Math.round(seconds % 60);
-    return m + 'm' + (s > 0 ? ' ' + s + 's' : '');
-}
-
-function generateThumbnail(dataUri) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
+        // ═══ ÉTAPE 1 : Télécharger toutes les vidéos ═══
+        statusEl.textContent = 'Téléchargement des scènes…';
+        const blobs = [];
+        for (let i = 0; i < doneScenes.length; i++) {
+            if (state.stopRequested) break;
+            const scene = doneScenes[i];
+            progressFill.style.width = ((i / doneScenes.length) * 40) + '%';
+            statusEl.textContent = 'Téléchargement scène ' + (i + 1) + '/' + doneScenes.length + '…';
             try {
-                const canvas = document.createElement('canvas');
-                const ratio = img.height / img.width;
-                canvas.width = THUMBNAIL_MAX_WIDTH;
-                canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * ratio);
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7));
-            } catch (e) { resolve(dataUri); }
-        };
-        img.onerror = () => resolve(dataUri);
-        img.src = dataUri;
-    });
+                const blob = await downloadVideoBlob(scene.videoUrl);
+                blobs.push({ index: scene.index, blob });
+            } catch (e) {
+                log('Téléchargement scène ' + (scene.index + 1) + ' échoué : ' + e.message);
+            }
+        }
+
+        if (blobs.length === 0) throw new Error('Aucune scène téléchargée');
+
+        // ═══ ÉTAPE 2 : Décoder les vidéos via <video> ═══
+        statusEl.textContent = 'Préparation des scènes…';
+        const videoElements = [];
+        for (let i = 0; i < blobs.length; i++) {
+            progressFill.style.width = (40 + (i / blobs.length) * 20) + '%';
+            const blob = blobs[i].blob;
+            const url = URL.createObjectURL(blob);
+            const video = document.createElement('video');
+            video.src = url;
+            video.muted = false;
+            video.playsInline = true;
+            video.preload = 'auto';
+            await new Promise((resolve, reject) => {
+                video.onloadedmetadata = resolve;
+                video.onerror = () => reject(new Error('Impossible de charger la vidéo ' + (i + 1)));
+                setTimeout(() => reject(new Error('Timeout chargement vidéo')), 15000);
+            });
+            videoElements.push({ index: blobs[i].index, video, url });
+        }
+
+        if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
+
+        // ═══ ÉTAPE 3 : Déterminer les dimensions ═══
+        const firstVideo = videoElements[0].video;
+        const width = firstVideo.videoWidth || 720;
+        const height = firstVideo.videoHeight || 1280;
+        log('Dimensions du film : ' + width + 'x' + height);
+
+        // ═══ ÉTAPE 4 : Créer le canvas + MediaRecorder ═══
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Flux vidéo du canvas
+        const canvasStreamOut = canvas.captureStream(30);
+
+        // ═══ ÉTAPE 5 : Préparer l'audio (si fourni) ═══
+        let audioCtx = null;
+        let audioSource = null;
+        let mixedAudioStream = null;
+
+        if (state.audioFile && state.audioObjectUrl) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const arrayBuffer = await state.audioFile.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                audioSource = audioCtx.createBufferSource();
+                audioSource.buffer = audioBuffer;
+                audioSource.loop = true;
+
+                const dest = audioCtx.createMediaStreamDestination();
+                const gain = audioCtx.createGain();
+                gain.gain.value = 0.7;
+                audioSource.connect(gain);
+                gain.connect(dest);
+                mixedAudioStream = dest.stream;
+                log('Audio préparé (' + audioBuffer.duration.toFixed(1) + 's)');
+            } catch (e) {
+                log('Erreur préparation audio : ' + e.message);
+            }
+        }
+
+        // ═══ ÉTAPE 6 : Combiner les pistes ═══
+        const combinedStream = new MediaStream();
+        canvasStreamOut.getVideoTracks().forEach(t => combinedStream.addTrack(t));
+        if (mixedAudioStream) {
+            mixedAudioStream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
+        }
+
+        // ═══ ÉTAPE 7 : Choisir le meilleur codec supporté ═══
+        const mimeTypes = [
+            'video/webm;codecs=vp9,opus',
+            'video/webm;codecs=vp8,opus',
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm'
+        ];
+        let mimeType = '';
+        for (const mt of mimeTypes) {
+            if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+        }
+        log('Codec utilisé : ' + mimeType);
+
+        const recorder = new MediaRecorder(combinedStream, {
+            mimeType: mimeType,
+            videoBitsPerSecond: 4000000,
+            audioBitsPerSecond: 128000
+        });
+
+        const chunks = [];
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+        const recordingDone = new Promise((resolve) => {
+            recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType || 'video/webm' }));
+        });
+
+        recorder.start(1000);
+
+        // Démarrer l'audio si présent
+        if (audioSource && audioCtx) {
+            audioSource.start(0);
+        }
+
+        // ═══ ÉTAPE 8 : Lecture séquentielle de chaque scène ═══
+        statusEl.textContent = 'Assemblage des scènes…';
+        const totalDuration = videoElements.reduce((sum, v) => sum + (v.video.duration || 0), 0);
+        let elapsedPlayback = 0;
+
+        for (let i = 0; i < videoElements.length; i++) {
+            if (state.stopRequested) break;
+            const { video } = videoElements[i];
+            video.currentTime = 0;
+            video.muted = false;
+
+            await new Promise((resolve) => {
+                let lastTime = 0;
+                const renderFrame = () => {
+                    if (video.paused || video.ended) { resolve(); return; }
+                    ctx.drawImage(video, 0, 0, width, height);
+                    const t = video.currentTime;
+                    elapsedPlayback += (t - lastTime);
+                    lastTime = t;
+                    const percent = 60 + (elapsedPlayback / totalDuration) * 40;
+                    progressFill.style.width = Math.min(percent, 100) + '%';
+                    statusEl.textContent = 'Assemblage scène ' + (i + 1) + '/' + videoElements.length + '…';
+                    requestAnimationFrame(renderFrame);
+                };
+                video.play().then(() => {
+                    requestAnimationFrame(renderFrame);
+                }).catch(() => resolve());
+            });
+
+            // Petite pause entre scènes
+            await sleep(200);
+        }
+
+        // ═══ ÉTAPE 9 : Stopper ═══
+        if (audioSource) { try { audioSource.stop(); } catch (e) {} }
+        if (audioCtx) { try { await audioCtx.close(); } catch (e) {} }
+        recorder.stop();
+
+        statusEl.textContent = 'Finalisation du fichier…';
+        progressFill.style.width = '100%';
+
+        const finalBlob = await recordingDone;
+        state.finalFilmBlob = finalBlob;
+
+        // ═══ ÉTAPE 10 : Afficher + proposer le téléchargement ═══
+        const finalVideo = document.getElementById('final-video');
+        const finalUrl = URL.createObjectURL(finalBlob);
+        finalVideo.src = finalUrl;
+
+        const downloadBtn = document.getElementById('download-btn');
+        downloadBtn.classList.add('visible');
+
+        statusEl.textContent = '✅ Film prêt ! Taille : ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
+        setStatus(null);
+        showToast('Film assemblé avec succès ✓', 'success');
+
+        // Nettoyage des URLs blob
+        videoElements.forEach(v => { try { URL.revokeObjectURL(v.url); } catch (e) {} });
+    } catch (e) {
+        log('Erreur assemblage : ' + e.message);
+        statusEl.textContent = '❌ Erreur : ' + e.message;
+        showToast('Erreur assemblage : ' + e.message, 'error', 5000);
+    } finally {
+        state.isAssembling = false;
+        setStatus(null);
+    }
+}
+
+function downloadFinalFilm() {
+    if (!state.finalFilmBlob) {
+        showToast('Aucun film à télécharger', 'error');
+        return;
+    }
+    const url = URL.createObjectURL(state.finalFilmBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kids-story-film-' + Date.now() + '.webm';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    showToast('Téléchargement lancé ✓', 'success');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1794,7 +1698,7 @@ function displayBPM(bpm) {
     const el = document.getElementById('bpm-display');
     const valEl = document.getElementById('bpm-value');
     const msgEl = document.getElementById('bpm-message');
-    if (!el || !valEl || !msgEl) return;
+    if (!el) return;
     el.classList.add('visible');
     el.classList.remove('ok', 'warn');
     if (bpm === null) {
@@ -1834,9 +1738,7 @@ async function handleAudioFile(file) {
     previewEl.style.display = 'block';
     removeBtn.style.display = 'inline-block';
 
-    previewEl.onloadedmetadata = () => {
-        state.audioDuration = previewEl.duration;
-    };
+    previewEl.onloadedmetadata = () => { state.audioDuration = previewEl.duration; };
 
     showToast('Analyse du tempo…', 'warn', 1500);
     const bpm = await detectBPM(file);
@@ -1864,80 +1766,11 @@ function removeAudioFile() {
     previewEl.style.display = 'none';
     removeBtn.style.display = 'none';
     if (bpmEl) bpmEl.classList.remove('visible');
-
     showToast('Musique retirée', 'warn');
 }
 
 // ══════════════════════════════════════════════════════════════════
-// MÉTADONNÉES YOUTUBE
-// ══════════════════════════════════════════════════════════════════
-function generateYouTubeMetadata() {
-    const theme = JOYFUL_THEMES.find(t => t.id === (state.selectedTheme || 'pixar-3d'));
-    const themeEmoji = theme ? theme.emoji : '✨';
-
-    const titles = [
-        `${themeEmoji} Histoire Animée pour Enfants | Conte 3D Joyeux pour Bébés`,
-        `${themeEmoji} Conte pour Enfants — Animation 3D Colorée | Histoire du Soir`,
-        `${themeEmoji} Histoire Magique pour Tout-Petits | Dessin Animé 3D Sécurisé`,
-        `${themeEmoji} Conte Enfant Joyeux | Animation 3D pour Bébés et Tout-Petits`
-    ];
-    const title = titles[Math.floor(Math.random() * titles.length)];
-
-    const description =
-`${themeEmoji} Bienvenue dans un monde joyeux et coloré pour les tout-petits !
-
-Découvrez cette histoire animée en 3D style Pixar, spécialement conçue pour les enfants. Un conte joyeux, coloré et 100% sécurisé, avec des personnages mignons et attachants.
-
-📖 L'histoire :
-${state.story.slice(0, 500)}${state.story.length > 500 ? '…' : ''}
-
-✨ Une vidéo courte, joyeuse et 100% sécurisée pour les enfants :
-✅ Animation 3D style Pixar, douce et colorée
-✅ Personnages mignons et attachants (aucun visage humain réaliste)
-✅ Musique joyeuse et rythmée (100-110 BPM, idéal pour les tout-petits)
-✅ Effets sonores doux (pop, clochette, froufrou)
-✅ Aucun texte, aucun filigrane
-✅ Boucle parfaite — à regarder en répétition !
-✅ Aucune violence, aucun contenu effrayant
-✅ COPPA compliant — contenu pour enfants
-
-🎵 Musique libre de droit (Bibliothèque audio YouTube)
-🎬 Animation générée par IA — montage CapCut
-📱 Format Short vertical 1080x1920
-
-Abonnez-vous pour plus d'histoires joyeuses pour enfants ! 🌟
-
-#Shorts #ShortsEnfants #VidéoEnfant #DessinAnimé #Conte #Histoire #Bébé #ToutPetit #Enfants #Joyeux #Coloré #Sécurisé #COPPA #YouTubeKids #NurseryRhymes`;
-
-    const tags = [
-        'shorts', 'shorts enfants', 'vidéo enfant', 'dessin animé', 'animation 3D',
-        'conte', 'histoire enfant', 'histoire du soir', 'comptine', 'chanson bébé',
-        'vidéo joyeuse', 'contenu sécurisé', 'COPPA', 'YouTube Kids', 'tout-petit',
-        'bébé', 'enfant', 'couleurs vives', 'pixar', 'animation douce',
-        'nursery rhymes', 'kids video', 'children animation', 'happy kids',
-        'kids story', 'bedtime story', 'joyful shorts', 'safe for kids',
-        'toddler video', 'preschool animation', 'kids entertainment',
-        'musique enfant', 'notes de musique', 'papillons', 'prairie ensoleillée',
-        'short kid', 'kid friendly', 'family friendly', 'loop animation'
-    ];
-
-    const hashtags = '#Shorts #ShortsEnfants #VidéoEnfant #DessinAnimé #Conte #Histoire #Bébé #ToutPetit #Enfants #Joyeux #Coloré #Sécurisé #COPPA #YouTubeKids #NurseryRhymes #KidsVideo';
-
-    return { title, description, tags: tags.join(', '), hashtags };
-}
-
-function displayYouTubeMetadata() {
-    const meta = generateYouTubeMetadata();
-    document.getElementById('meta-title').value = meta.title;
-    document.getElementById('meta-description').value = meta.description;
-    document.getElementById('meta-tags').value = meta.tags;
-    document.getElementById('meta-hashtags').value = meta.hashtags;
-    document.getElementById('meta-panel').classList.add('visible');
-    document.getElementById('capcut-guide').classList.add('visible');
-}
-
-// ══════════════════════════════════════════════════════════════════
-// RENDU — PRESETS D'HISTOIRES
+// RENDU
 // ══════════════════════════════════════════════════════════════════
 function renderStoryPresets() {
     const container = document.getElementById('prompt-presets');
@@ -1949,23 +1782,17 @@ function renderStoryPresets() {
             const idx = parseInt(el.dataset.preset, 10);
             const preset = STORY_PRESETS[idx];
             if (!preset) return;
-            const ta = document.getElementById('main-prompt');
-            ta.value = preset.text;
+            document.getElementById('main-prompt').value = preset.text;
             state.story = preset.text;
             updateStoryPreview();
-            showToast('Histoire exemple appliquée', 'success', 1200);
+            showToast('Histoire appliquée', 'success', 1200);
         });
     });
 }
 
-// ══════════════════════════════════════════════════════════════════
-// RENDU — THÈMES
-// ══════════════════════════════════════════════════════════════════
 function renderStyles() {
     const container = document.getElementById('styles-grid');
-    let html = '';
-    html += '<div style="grid-column:1/-1; font-size:0.75rem; color:var(--ink-dim); font-weight:700; padding:0.5rem 0;">Tous les thèmes sont joyeux, colorés et sécurisés pour enfants.</div>';
-    html += JOYFUL_THEMES.map(s => {
+    container.innerHTML = JOYFUL_THEMES.map(s => {
         return '<div class="style-card ' + (state.selectedTheme === s.id ? 'selected' : '') + '" data-theme="' + s.id + '">' +
             '<div class="style-emoji">' + s.emoji + '</div>' +
             '<div>' +
@@ -1974,7 +1801,6 @@ function renderStyles() {
             '</div>' +
         '</div>';
     }).join('');
-    container.innerHTML = html;
     container.querySelectorAll('[data-theme]').forEach(el => {
         el.addEventListener('click', () => {
             state.selectedTheme = el.dataset.theme;
@@ -1983,9 +1809,6 @@ function renderStyles() {
     });
 }
 
-// ══════════════════════════════════════════════════════════════════
-// FILE D'ATTENTE
-// ══════════════════════════════════════════════════════════════════
 function renderQueue() {
     const queueEl = document.getElementById('queue');
     if (!state.scenes.length) { queueEl.style.display = 'none'; return; }
@@ -2024,16 +1847,9 @@ function renderQueue() {
             '<div class="q-status">' + esc(statusText) + '</div>' +
         '</div>';
     }).join('');
-
-    if (state.scenes.length > MAX_VISIBLE_QUEUE) {
-        html += '<div class="queue-more">… et ' + (state.scenes.length - MAX_VISIBLE_QUEUE) + ' autres scènes</div>';
-    }
     queueEl.innerHTML = html;
 }
 
-// ══════════════════════════════════════════════════════════════════
-// GALERIE
-// ══════════════════════════════════════════════════════════════════
 function addToGallery(videoUrl, sceneNumber) {
     const galleryEl = document.getElementById('gallery');
     const galleryGrid = document.getElementById('gallery-grid');
@@ -2045,6 +1861,32 @@ function addToGallery(videoUrl, sceneNumber) {
         '</video>' +
         '<div class="g-caption">🎬 Scène ' + sceneNumber + '</div>';
     galleryGrid.appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MÉTADONNÉES YOUTUBE
+// ══════════════════════════════════════════════════════════════════
+function generateYouTubeMetadata() {
+    const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme);
+    const themeEmoji = theme ? theme.emoji : '✨';
+    const title = themeEmoji + ' Histoire Animée pour Enfants | Conte 3D Joyeux pour Bébés';
+    const description = themeEmoji + ' Bienvenue dans un monde joyeux et coloré !\n\n' +
+        state.story.slice(0, 400) + (state.story.length > 400 ? '…' : '') + '\n\n' +
+        '✨ Une histoire animée 3D Pixar, joyeuse et 100% sécurisée pour les enfants.\n' +
+        '✅ COPPA compliant — contenu pour enfants\n' +
+        '✅ Aucune violence, aucun contenu effrayant\n' +
+        '🎵 Musique libre de droit\n\n' +
+        '#Shorts #ShortsEnfants #VidéoEnfant #DessinAnimé #Conte #Histoire #Bébé #ToutPetit #Joyeux #COPPA';
+    const tags = 'shorts, shorts enfants, vidéo enfant, dessin animé, animation 3D, conte, histoire enfant, histoire du soir, comptine, chanson bébé, COPPA, YouTube Kids, tout-petit, bébé, enfant, pixar, kids video, children animation, kids story, bedtime story, safe for kids, toddler video, nursery rhymes';
+    return { title, description, tags };
+}
+
+function displayYouTubeMetadata() {
+    const meta = generateYouTubeMetadata();
+    document.getElementById('meta-title').value = meta.title;
+    document.getElementById('meta-description').value = meta.description;
+    document.getElementById('meta-tags').value = meta.tags;
+    document.getElementById('meta-panel').style.display = 'block';
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2062,56 +1904,53 @@ async function startGeneration() {
     state.completed = 0;
     state.failed = 0;
     state.scenes = [];
+    state.finalFilmBlob = null;
     createIntervalMs = CREATE_INTERVAL_MIN;
 
     document.getElementById('gallery-grid').innerHTML = '';
     document.getElementById('gallery').style.display = 'none';
+    document.getElementById('final-film').classList.remove('visible');
+    document.getElementById('assemble-btn').classList.remove('visible');
+    document.getElementById('download-btn').classList.remove('visible');
     document.getElementById('stop-btn').classList.add('visible');
     document.getElementById('generate-btn').disabled = true;
-    document.getElementById('meta-panel').classList.remove('visible');
-    document.getElementById('capcut-guide').classList.remove('visible');
-    clearStoryCache();
+    document.getElementById('meta-panel').style.display = 'none';
 
     await ensureWakeLockActive();
-
-    log('═══ DÉMARRAGE PIPELINE ═══');
-    log('Scènes : ' + state.storySegments.length);
-
-    const totalStart = Date.now();
+    log('═══ DÉMARRAGE ═══');
 
     try {
         await generateAllScenes();
     } catch (e) {
-        log('Erreur globale : ' + e.message);
+        log('Erreur : ' + e.message);
     }
 
-    const totalElapsed = (Date.now() - totalStart) / 1000;
     const doneScenes = state.scenes.filter(s => s.status === 'done').length;
     const failedScenes = state.scenes.filter(s => s.status === 'failed').length;
-
-    const summary = state.stopRequested
-        ? 'Arrêté — ' + doneScenes + '/' + state.scenes.length + ' scènes'
-        : '✦ ' + doneScenes + '/' + state.scenes.length + ' scènes en ' + formatEta(totalElapsed) +
-          (failedScenes > 0 ? ' (' + failedScenes + ' échec(s))' : '') + ' ✦';
-
-    log(summary);
-    setStatus(summary);
-    await sleep(4000);
-    setStatus(null);
 
     state.isRunning = false;
     state.stopRequested = false;
     document.getElementById('stop-btn').classList.remove('visible');
     updateGenerateBtn();
 
+    const summary = doneScenes + '/' + state.scenes.length + ' scènes réussies' +
+        (failedScenes > 0 ? ' (' + failedScenes + ' échec(s))' : '');
+    setStatus(summary);
+    await sleep(3000);
+    setStatus(null);
+
     if (doneScenes > 0) {
+        // Afficher le bouton d'assemblage
+        document.getElementById('assemble-btn').classList.add('visible');
         displayYouTubeMetadata();
+        showToast(doneScenes + ' scène' + (doneScenes > 1 ? 's' : '') + ' prête' + (doneScenes > 1 ? 's' : ''), 'success');
+    } else {
+        showToast('Aucune scène générée', 'error');
     }
-    showToast(doneScenes + ' scène' + (doneScenes > 1 ? 's' : '') + ' générée' + (doneScenes > 1 ? 's' : ''), 'success');
 }
 
 function stopGeneration() {
-    if (!state.isRunning) return;
+    if (!state.isRunning && !state.isAssembling) return;
     state.stopRequested = true;
     setStatus('Arrêt en cours…');
 }
@@ -2123,13 +1962,8 @@ function stopGeneration() {
     document.getElementById('api-save-btn')?.addEventListener('click', saveAgnesKey);
     document.getElementById('gemini-save-btn')?.addEventListener('click', saveGeminiKey);
     document.getElementById('stop-btn')?.addEventListener('click', stopGeneration);
-
-    document.getElementById('api-key-input')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); saveAgnesKey(); }
-    });
-    document.getElementById('gemini-key-input')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); saveGeminiKey(); }
-    });
+    document.getElementById('assemble-btn')?.addEventListener('click', assembleFinalFilm);
+    document.getElementById('download-btn')?.addEventListener('click', downloadFinalFilm);
 
     document.querySelectorAll('[data-toggle]').forEach(header => {
         header.addEventListener('click', () => {
@@ -2137,34 +1971,18 @@ function stopGeneration() {
         });
     });
 
-    // Histoire
-    const mainPrompt = document.getElementById('main-prompt');
-    if (mainPrompt) {
-        mainPrompt.addEventListener('input', updateStoryPreview);
-    }
-
-    // Scenes count
+    document.getElementById('main-prompt')?.addEventListener('input', updateStoryPreview);
     document.getElementById('scenes-count-select')?.addEventListener('change', updateStoryPreview);
-
-    // Duration
     document.getElementById('duration-select')?.addEventListener('change', e => {
         state.durationFrames = parseInt(e.target.value, 10);
     });
-
-    // Characters
     document.getElementById('characters-select')?.addEventListener('change', e => {
         state.characters = e.target.value;
-    });
-
-    // Loop
-    document.getElementById('loop-select')?.addEventListener('change', e => {
-        state.loop = e.target.value;
     });
 
     // Audio
     const audioZone = document.getElementById('audio-zone');
     const audioInput = document.getElementById('audio-input');
-    const audioRemoveBtn = document.getElementById('audio-remove-btn');
     if (audioZone && audioInput) {
         audioZone.addEventListener('click', (e) => {
             if (e.target.tagName === 'AUDIO' || e.target.tagName === 'BUTTON') return;
@@ -2175,49 +1993,33 @@ function stopGeneration() {
             audioInput.value = '';
         });
     }
-    audioRemoveBtn?.addEventListener('click', (e) => {
+    document.getElementById('audio-remove-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         removeAudioFile();
     });
 
-    // Generate
     document.getElementById('generate-btn')?.addEventListener('click', startGeneration);
-
-    // Wake lock
     document.getElementById('wake-toggle-btn')?.addEventListener('click', toggleWakeLock);
-    try {
-        const saved = localStorage.getItem(WAKE_LOCK_PREF);
-        wakeLockEnabled = saved === '1';
-    } catch (e) {}
-    if (wakeLockEnabled) {
-        activateWakeLock().then(() => updateWakeStatus());
-    }
 
-    // Meta copy
+    try {
+        wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
+    } catch (e) {}
+    if (wakeLockEnabled) activateWakeLock().then(updateWakeStatus);
+
     document.getElementById('meta-copy-btn')?.addEventListener('click', () => {
-        const title = document.getElementById('meta-title').value;
-        const desc = document.getElementById('meta-description').value;
-        const tags = document.getElementById('meta-tags').value;
-        const hashtags = document.getElementById('meta-hashtags').value;
-        const coppaChecked = document.getElementById('coppa-checkbox').checked;
-        const full = 'TITRE :\n' + title + '\n\nDESCRIPTION :\n' + desc + '\n\nTAGS :\n' + tags + '\n\nHASHTAGS :\n' + hashtags + '\n\nCOPPA : ' + (coppaChecked ? '✅ Contenu pour enfants' : '⚠️ Non coché');
-        navigator.clipboard.writeText(full).then(() => {
-            showToast('Métadonnées copiées ✓', 'success');
-        }).catch(() => {
-            showToast('Impossible de copier', 'error');
-        });
+        const text = 'TITRE :\n' + document.getElementById('meta-title').value +
+            '\n\nDESCRIPTION :\n' + document.getElementById('meta-description').value +
+            '\n\nTAGS :\n' + document.getElementById('meta-tags').value;
+        navigator.clipboard.writeText(text).then(() => showToast('Copié ✓', 'success'));
     });
 
-    // Initial
     updateApiPanel();
-    updateTimingDisplay();
     updateWakeStatus();
     renderStoryPresets();
     renderStyles();
     renderQueue();
     updateStoryPreview();
-
-    log('Kids Story Studio prêt 📖✨');
+    log('Kids Story Studio prêt');
 })();
 </script>
 
