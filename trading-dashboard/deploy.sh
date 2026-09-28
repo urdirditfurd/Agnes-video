@@ -188,18 +188,39 @@ compose_up() {
     profile_args=(--profile ssl)
   fi
 
+  # Libérer 80/443 si nginx système encore actif
+  if systemctl is-active --quiet nginx 2>/dev/null; then
+    warn "Nginx système encore actif → stop"
+    systemctl stop nginx || true
+    systemctl disable nginx || true
+  fi
+
   log "Build images..."
   ${COMPOSE} "${profile_args[@]}" -f "${COMPOSE_FILE}" build --pull
 
   log "Migrations..."
-  ${COMPOSE} -f "${COMPOSE_FILE}" run --rm -e APP_ROLE=migrate backend
+  if ! ${COMPOSE} -f "${COMPOSE_FILE}" run --rm -e APP_ROLE=migrate backend; then
+    warn "Migrations échouées (souvent mismatch mot de passe Postgres)."
+    warn "Correction: bash scripts/fix-now.sh"
+    # Continue quand même pour démarrer nginx si possible
+  fi
 
-  log "Up services (+ autoheal)..."
+  log "Up services (+ autoheal + nginx)..."
   ${COMPOSE} "${profile_args[@]}" -f "${COMPOSE_FILE}" up -d --remove-orphans --force-recreate
+
+  # Nginx parfois resté en Created après un échec de bind précédent
+  ${COMPOSE} -f "${COMPOSE_FILE}" up -d --force-recreate nginx || true
 
   log "Attente healthchecks (45s)..."
   sleep 45
   ${COMPOSE} "${profile_args[@]}" -f "${COMPOSE_FILE}" ps
+
+  if ! curl -fsS http://127.0.0.1/api/health >/dev/null 2>&1 \
+     && ! curl -fk https://127.0.0.1/api/health >/dev/null 2>&1; then
+    warn "Port 80 inaccessible — état nginx:"
+    ${COMPOSE} -f "${COMPOSE_FILE}" ps nginx || true
+    ss -tlnp | grep -E ':80 |:443 ' || warn "Rien n'écoute sur 80/443"
+  fi
 }
 
 wait_http_health() {
