@@ -444,7 +444,7 @@
 
     <label class="control-label" style="margin-top:1rem; margin-bottom:0.4rem;">🎨 Clé API Gemini (images)</label>
     <input type="password" class="api-key-input" id="gemini-key-input"
-           placeholder="Collez votre clé API Google Gemini (AIza...)" autocomplete="off" spellcheck="false">
+           placeholder="Collez votre clé API Google Gemini (AIza... ou AQ....)" autocomplete="off" spellcheck="false">
     <button type="button" class="api-save-btn" id="gemini-save-btn" style="background: linear-gradient(135deg, var(--blue), var(--purple));">Enregistrer la clé Gemini</button>
     <div class="api-status-line" id="gemini-status-line">
         <span class="status-dot"></span>
@@ -454,6 +454,10 @@
         Agnes : <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a> ·
         Gemini : <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
     </div>
+    <button type="button" id="diag-btn" style="width:100%; padding:0.7rem; border-radius:10px; border:2px solid var(--warn); background:#fff8e8; color:var(--warn); font-weight:700; cursor:pointer; margin-top:0.5rem; font-family:inherit; font-size:0.82rem;">
+        🔍 Tester mes clés API
+    </button>
+    <pre id="diag-output" style="display:none; margin-top:0.7rem; padding:0.7rem; background:#fff; border:2px solid var(--border); border-radius:8px; font-size:0.7rem; white-space:pre-wrap; word-break:break-all; max-height:250px; overflow:auto; font-family:monospace;"></pre>
     <div class="wake-status" id="wake-status">
         <span id="wake-status-text">💤 Veille automatique</span>
         <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
@@ -620,7 +624,13 @@
 const AGNES_API_BASE = 'https://apihub.agnes-ai.com/v1';
 const AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-2.0-flash-exp-image-generation';
+// ✅ Modèle image Gemini — modifiable si Google change le nom
+const GEMINI_IMAGE_MODELS = [
+    'gemini-2.5-flash-image-preview',
+    'gemini-2.0-flash-exp-image-generation',
+    'gemini-2.0-flash-preview-image-generation'
+];
+let currentGeminiModelIndex = 0;
 const MODEL_VIDEO = 'agnes-video-v2.0';
 const FRAME_RATE = 24;
 
@@ -1152,113 +1162,85 @@ function generateThumbnail(dataUri) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// GEMINI — GÉNÉRATION D'IMAGES
+// GEMINI — GÉNÉRATION D'IMAGES (corrigé, avec fallback modèles)
 // ══════════════════════════════════════════════════════════════════
 async function generateImageWithGemini(prompt, retries = 3) {
     const apiKey = getGeminiKey();
     if (!apiKey) throw new Error('Clé Gemini manquante');
 
-   async function generateImageWithGemini(prompt, retries = 3) {
-    const apiKey = getGeminiKey();
-    if (!apiKey) throw new Error('Clé Gemini manquante');
+    let lastError = null;
 
-    const url = GEMINI_API_BASE + '/models/' + GEMINI_MODEL + ':generateContent';
-    const body = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-            responseModalities: ['IMAGE', 'TEXT'],
-            temperature: 0.9
-        }
-    };
+    // Essaie chaque modèle dans l'ordre jusqu'à ce qu'un fonctionne
+    for (let modelIdx = 0; modelIdx < GEMINI_IMAGE_MODELS.length; modelIdx++) {
+        const modelName = GEMINI_IMAGE_MODELS[modelIdx];
+        const url = GEMINI_API_BASE + '/models/' + modelName + ':generateContent';
 
-    for (let attempt = 0; attempt < retries; attempt++) {
-        if (state.stopRequested) throw new Error('Arrêt demandé');
-        try {
-            // ✅ NOUVEAU : clé dans l'en-tête HTTP (compatible AQ. et AIza)
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-goog-api-key': apiKey
-                },
-                body: JSON.stringify(body)
-            });
+        for (let attempt = 0; attempt < retries; attempt++) {
+            if (state.stopRequested) throw new Error('Arrêt demandé');
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': apiKey
+                    },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            responseModalities: ['IMAGE', 'TEXT'],
+                            temperature: 0.9
+                        }
+                    })
+                });
 
-            if (res.status === 429) {
-                const wait = [10, 20, 40][Math.min(attempt, 2)];
-                setStatus('Gemini 429 — attente ' + wait + 's');
-                await sleep(wait * 1000);
-                continue;
-            }
-
-            if (!res.ok) {
-                const err = await res.text();
-                throw new Error('Gemini HTTP ' + res.status + ' — ' + err.slice(0, 300));
-            }
-
-            const data = await res.json();
-            const candidates = data.candidates || [];
-            if (!candidates.length) {
-                // Log la réponse complète pour debug
-                log('Gemini réponse vide : ' + JSON.stringify(data).slice(0, 500));
-                throw new Error('Gemini : aucune réponse');
-            }
-
-            const parts = candidates[0].content?.parts || [];
-            for (const part of parts) {
-                if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/')) {
-                    return 'data:' + part.inlineData.mimeType + ';base64,' + part.inlineData.data;
+                if (res.status === 429) {
+                    const wait = [10, 20, 40][Math.min(attempt, 2)];
+                    setStatus('Gemini 429 — attente ' + wait + 's');
+                    await sleep(wait * 1000);
+                    continue;
                 }
+
+                if (res.status === 404) {
+                    // Modèle introuvable → passe au suivant
+                    log('Modèle ' + modelName + ' introuvable (404), essai du suivant…');
+                    lastError = new Error('Modèle ' + modelName + ' indisponible');
+                    break;
+                }
+
+                if (!res.ok) {
+                    const err = await res.text();
+                    lastError = new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+                    // Si erreur non récupérable, on passe au modèle suivant
+                    if (res.status === 400 || res.status === 403) break;
+                    if (attempt < retries - 1) { await sleep(3000 * (attempt + 1)); continue; }
+                    break;
+                }
+
+                const data = await res.json();
+                const candidates = data.candidates || [];
+                if (!candidates.length) {
+                    lastError = new Error('Aucune réponse Gemini');
+                    break;
+                }
+
+                const parts = candidates[0].content?.parts || [];
+                for (const part of parts) {
+                    if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/')) {
+                        log('✅ Image générée avec ' + modelName);
+                        return 'data:' + part.inlineData.mimeType + ';base64,' + part.inlineData.data;
+                    }
+                }
+                lastError = new Error('Aucune image dans la réponse');
+                break;
+            } catch (e) {
+                lastError = e;
+                log('Gemini tentative ' + (attempt + 1) + ' échouée : ' + e.message);
+                if (attempt < retries - 1) await sleep(3000 * (attempt + 1));
             }
-            throw new Error('Gemini : aucune image dans la réponse');
-        } catch (e) {
-            log('Gemini tentative ' + (attempt + 1) + ' échouée : ' + e.message);
-            if (attempt === retries - 1) throw e;
-            await sleep(3000 * (attempt + 1));
         }
     }
-    throw new Error('Gemini : échec après ' + retries + ' tentatives');
-}
 
-    for (let attempt = 0; attempt < retries; attempt++) {
-        if (state.stopRequested) throw new Error('Arrêt demandé');
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            if (res.status === 429) {
-                const wait = [10, 20, 40][Math.min(attempt, 2)];
-                setStatus('Gemini 429 — attente ' + wait + 's');
-                await sleep(wait * 1000);
-                continue;
-            }
-
-            if (!res.ok) {
-                const err = await res.text();
-                throw new Error('Gemini HTTP ' + res.status + ' — ' + err.slice(0, 200));
-            }
-
-            const data = await res.json();
-            const candidates = data.candidates || [];
-            if (!candidates.length) throw new Error('Gemini : aucune réponse');
-
-            const parts = candidates[0].content?.parts || [];
-            for (const part of parts) {
-                if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/')) {
-                    return 'data:' + part.inlineData.mimeType + ';base64,' + part.inlineData.data;
-                }
-            }
-            throw new Error('Gemini : aucune image dans la réponse');
-        } catch (e) {
-            log('Gemini tentative ' + (attempt + 1) + ' échouée : ' + e.message);
-            if (attempt === retries - 1) throw e;
-            await sleep(3000 * (attempt + 1));
-        }
-    }
-    throw new Error('Gemini : échec après ' + retries + ' tentatives');
+    throw new Error('Gemini : ' + (lastError ? lastError.message : 'échec total'));
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1485,7 +1467,7 @@ async function pollSceneVideo(scene) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ASSEMBLAGE DU FILM FINAL — Téléchargement + Fusion
+// ASSEMBLAGE DU FILM FINAL
 // ══════════════════════════════════════════════════════════════════
 async function downloadVideoBlob(url) {
     const res = await fetch(url);
@@ -1511,7 +1493,6 @@ async function assembleFinalFilm() {
     setStatus('Assemblage du film final…');
 
     try {
-        // ═══ ÉTAPE 1 : Télécharger toutes les vidéos ═══
         statusEl.textContent = 'Téléchargement des scènes…';
         const blobs = [];
         for (let i = 0; i < doneScenes.length; i++) {
@@ -1529,7 +1510,6 @@ async function assembleFinalFilm() {
 
         if (blobs.length === 0) throw new Error('Aucune scène téléchargée');
 
-        // ═══ ÉTAPE 2 : Décoder les vidéos via <video> ═══
         statusEl.textContent = 'Préparation des scènes…';
         const videoElements = [];
         for (let i = 0; i < blobs.length; i++) {
@@ -1551,22 +1531,17 @@ async function assembleFinalFilm() {
 
         if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
 
-        // ═══ ÉTAPE 3 : Déterminer les dimensions ═══
         const firstVideo = videoElements[0].video;
         const width = firstVideo.videoWidth || 720;
         const height = firstVideo.videoHeight || 1280;
         log('Dimensions du film : ' + width + 'x' + height);
 
-        // ═══ ÉTAPE 4 : Créer le canvas + MediaRecorder ═══
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-
-        // Flux vidéo du canvas
         const canvasStreamOut = canvas.captureStream(30);
 
-        // ═══ ÉTAPE 5 : Préparer l'audio (si fourni) ═══
         let audioCtx = null;
         let audioSource = null;
         let mixedAudioStream = null;
@@ -1579,7 +1554,6 @@ async function assembleFinalFilm() {
                 audioSource = audioCtx.createBufferSource();
                 audioSource.buffer = audioBuffer;
                 audioSource.loop = true;
-
                 const dest = audioCtx.createMediaStreamDestination();
                 const gain = audioCtx.createGain();
                 gain.gain.value = 0.7;
@@ -1592,14 +1566,12 @@ async function assembleFinalFilm() {
             }
         }
 
-        // ═══ ÉTAPE 6 : Combiner les pistes ═══
         const combinedStream = new MediaStream();
         canvasStreamOut.getVideoTracks().forEach(t => combinedStream.addTrack(t));
         if (mixedAudioStream) {
             mixedAudioStream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
         }
 
-        // ═══ ÉTAPE 7 : Choisir le meilleur codec supporté ═══
         const mimeTypes = [
             'video/webm;codecs=vp9,opus',
             'video/webm;codecs=vp8,opus',
@@ -1628,12 +1600,10 @@ async function assembleFinalFilm() {
 
         recorder.start(1000);
 
-        // Démarrer l'audio si présent
         if (audioSource && audioCtx) {
             audioSource.start(0);
         }
 
-        // ═══ ÉTAPE 8 : Lecture séquentielle de chaque scène ═══
         statusEl.textContent = 'Assemblage des scènes…';
         const totalDuration = videoElements.reduce((sum, v) => sum + (v.video.duration || 0), 0);
         let elapsedPlayback = 0;
@@ -1662,11 +1632,9 @@ async function assembleFinalFilm() {
                 }).catch(() => resolve());
             });
 
-            // Petite pause entre scènes
             await sleep(200);
         }
 
-        // ═══ ÉTAPE 9 : Stopper ═══
         if (audioSource) { try { audioSource.stop(); } catch (e) {} }
         if (audioCtx) { try { await audioCtx.close(); } catch (e) {} }
         recorder.stop();
@@ -1677,19 +1645,16 @@ async function assembleFinalFilm() {
         const finalBlob = await recordingDone;
         state.finalFilmBlob = finalBlob;
 
-        // ═══ ÉTAPE 10 : Afficher + proposer le téléchargement ═══
         const finalVideo = document.getElementById('final-video');
         const finalUrl = URL.createObjectURL(finalBlob);
         finalVideo.src = finalUrl;
 
-        const downloadBtn = document.getElementById('download-btn');
-        downloadBtn.classList.add('visible');
+        document.getElementById('download-btn').classList.add('visible');
 
         statusEl.textContent = '✅ Film prêt ! Taille : ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
         setStatus(null);
         showToast('Film assemblé avec succès ✓', 'success');
 
-        // Nettoyage des URLs blob
         videoElements.forEach(v => { try { URL.revokeObjectURL(v.url); } catch (e) {} });
     } catch (e) {
         log('Erreur assemblage : ' + e.message);
@@ -1993,7 +1958,6 @@ async function startGeneration() {
     setStatus(null);
 
     if (doneScenes > 0) {
-        // Afficher le bouton d'assemblage
         document.getElementById('assemble-btn').classList.add('visible');
         displayYouTubeMetadata();
         showToast(doneScenes + ' scène' + (doneScenes > 1 ? 's' : '') + ' prête' + (doneScenes > 1 ? 's' : ''), 'success');
@@ -2009,6 +1973,77 @@ function stopGeneration() {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// DIAGNOSTIC DES CLÉS
+// ══════════════════════════════════════════════════════════════════
+async function runDiagnostic() {
+    const out = document.getElementById('diag-output');
+    out.style.display = 'block';
+    out.textContent = '⏳ Diagnostic en cours...\n\n';
+    const logLine = (msg) => { out.textContent += msg + '\n'; };
+
+    // ═══ TEST GEMINI ═══
+    logLine('═══ TEST GEMINI ═══');
+    const geminiKey = getGeminiKey();
+    logLine('Clé : ' + (geminiKey ? geminiKey.slice(0, 15) + '…' + geminiKey.slice(-6) : '(vide)'));
+    logLine('Format : ' + (geminiKey.startsWith('AIza') ? 'AIza (standard)' : geminiKey.startsWith('AQ.') ? 'AQ. (auth key, nouveau format)' : '❌ inconnu'));
+
+    if (!geminiKey) {
+        logLine('❌ Aucune clé Gemini');
+    } else {
+        for (const modelName of GEMINI_IMAGE_MODELS) {
+            logLine('\n▶ Test modèle : ' + modelName);
+            try {
+                const res = await fetch(
+                    'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': geminiKey
+                        },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: 'a simple red circle on white background' }] }],
+                            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+                        })
+                    }
+                );
+                logLine('   HTTP ' + res.status);
+                const data = await res.json();
+                if (res.ok) {
+                    const parts = data.candidates?.[0]?.content?.parts || [];
+                    const hasImage = parts.some(p => p.inlineData);
+                    logLine(hasImage ? '   ✅ Image reçue !' : '   ⚠️ Réponse sans image');
+                } else {
+                    logLine('   ❌ ' + (data.error?.message || JSON.stringify(data).slice(0, 150)));
+                }
+            } catch (e) {
+                logLine('   ❌ Réseau : ' + e.message);
+            }
+        }
+    }
+
+    // ═══ TEST AGNES ═══
+    logLine('\n═══ TEST AGNES ═══');
+    const agnesKey = getAgnesKey();
+    logLine('Clé : ' + (agnesKey ? agnesKey.slice(0, 12) + '…' + agnesKey.slice(-6) : '(vide)'));
+    try {
+        const res = await fetch('https://apihub.agnes-ai.com/v1/models', {
+            headers: { 'Authorization': 'Bearer ' + agnesKey }
+        });
+        logLine('HTTP ' + res.status);
+        if (res.ok) logLine('✅ Agnes OK');
+        else {
+            const t = await res.text();
+            logLine('❌ ' + t.slice(0, 200));
+        }
+    } catch (e) {
+        logLine('❌ Réseau : ' + e.message);
+    }
+
+    logLine('\n═══ FIN ═══');
+}
+
+// ══════════════════════════════════════════════════════════════════
 // INITIALISATION
 // ══════════════════════════════════════════════════════════════════
 (function init() {
@@ -2017,6 +2052,7 @@ function stopGeneration() {
     document.getElementById('stop-btn')?.addEventListener('click', stopGeneration);
     document.getElementById('assemble-btn')?.addEventListener('click', assembleFinalFilm);
     document.getElementById('download-btn')?.addEventListener('click', downloadFinalFilm);
+    document.getElementById('diag-btn')?.addEventListener('click', runDiagnostic);
 
     document.querySelectorAll('[data-toggle]').forEach(header => {
         header.addEventListener('click', () => {
@@ -2033,7 +2069,6 @@ function stopGeneration() {
         state.characters = e.target.value;
     });
 
-    // Audio
     const audioZone = document.getElementById('audio-zone');
     const audioInput = document.getElementById('audio-input');
     if (audioZone && audioInput) {
