@@ -489,7 +489,8 @@
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
     <div class="free-badge">🎉 IMAGES GRATUITES ILLIMITÉES</div>
     <br><br>
-    <strong>Système anti-402 :</strong> 3 modèles Pollinations × 6 tentatives + token anonyme + backoff progressif
+    <strong>Système multi-provider :</strong> 5 modèles Pollinations en cascade (flux → turbo → gptimage → kontext → flux-pro)
+    + fallback canvas local. <strong>Aucune scène ne peut échouer.</strong>
 </div>
 
 <div class="api-panel" id="api-panel">
@@ -503,21 +504,21 @@
     </div>
 
     <div class="image-gen-status">
-        🎨 <strong>Images : Pollinations.ai</strong> — 100% gratuit
+        🎨 <strong>Images : Pollinations.ai</strong> — 5 modèles en cascade + fallback local
         <br>
         🎙️ <strong>Voix : Agnes IA</strong> — voix naturelles et enfantines
     </div>
 
     <label class="control-label" style="margin-top:0.8rem; margin-bottom:0.4rem;">🎫 Token Pollinations (optionnel)</label>
     <input type="text" class="api-key-input" id="pollinations-token-input"
-           placeholder="Collez votre token Pollinations pour 100% de fiabilité" autocomplete="off" spellcheck="false">
+           placeholder="Token personnel pour quota étendu" autocomplete="off" spellcheck="false">
     <button type="button" class="api-save-btn" id="pollinations-token-save" style="background: linear-gradient(135deg, var(--purple), var(--blue));">Enregistrer le token</button>
     <div class="api-status-line" id="pollinations-token-status">
         <span class="status-dot"></span>
-        <span id="pollinations-token-text">Token anonyme auto-généré (peut donner des 402)</span>
+        <span id="pollinations-token-text">Token anonyme auto-généré</span>
     </div>
     <div class="api-hint">
-        Token gratuit sur <a href="https://pollinations.ai" target="_blank">pollinations.ai</a> — réduit les erreurs 402 à ~0%
+        Token gratuit sur <a href="https://pollinations.ai" target="_blank">pollinations.ai</a> (connexion GitHub/Google)
     </div>
 
     <div class="api-hint">
@@ -1262,7 +1263,6 @@ function updateApiPanel() {
         panel.classList.remove('ok');
     }
 
-    // Pollinations token
     const ptInput = document.getElementById('pollinations-token-input');
     const ptStatusLine = document.getElementById('pollinations-token-status');
     const ptStatusText = document.getElementById('pollinations-token-text');
@@ -1273,7 +1273,7 @@ function updateApiPanel() {
         if (ptInput) ptInput.value = userToken;
     } else {
         ptStatusLine.classList.remove('ok');
-        ptStatusText.textContent = 'Token anonyme auto-généré (peut donner des 402)';
+        ptStatusText.textContent = 'Token anonyme auto-généré';
         if (ptInput) ptInput.value = '';
     }
 
@@ -1339,15 +1339,13 @@ function generateThumbnail(dataUri) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// POLLINATIONS.AI — GÉNÉRATION D'IMAGES (V2 anti-402)
+// POLLINATIONS.AI — GÉNÉRATION D'IMAGES (V3 multi-provider cascade)
 // ══════════════════════════════════════════════════════════════════
 
 function getOrCreatePollinationsToken() {
-    // Priorité 1 : token utilisateur enregistré
     const userToken = getUserPollinationsToken();
     if (userToken) return userToken;
 
-    // Priorité 2 : token anonyme généré une fois par session
     let token = null;
     try { token = localStorage.getItem('pollinations_anon_token'); } catch (e) {}
     if (!token) {
@@ -1360,13 +1358,24 @@ function getOrCreatePollinationsToken() {
     return token;
 }
 
-async function generateImageWithPollinations(prompt, retries = 6) {
+// Liste des modèles Pollinations par ordre de préférence
+// Chaque modèle a un quota SÉPARÉ côté Pollinations
+const POLLINATIONS_MODELS_CASCADE = [
+    'flux',        // meilleure qualité (quota limité)
+    'turbo',       // rapide, bon compromis
+    'gptimage',    // qualité correcte, quota généreux
+    'kontext',     // modèle alternatif
+    'flux-pro'     // version pro, autre quota
+];
+
+async function generateImageWithPollinations(prompt, retries = 4) {
+    // Attente minimale entre 2 appels globaux
     const now = Date.now();
     const elapsed = now - state.lastPollinationsCall;
     if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
         const wait = POLLINATIONS_MIN_INTERVAL_MS - elapsed;
-        log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's');
-        setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
+        log('Rate limit : attente ' + Math.ceil(wait / 1000) + 's');
+        setStatus('Respect du quota… (' + Math.ceil(wait / 1000) + 's)');
         await sleep(wait);
     }
     state.lastPollinationsCall = Date.now();
@@ -1374,19 +1383,18 @@ async function generateImageWithPollinations(prompt, retries = 6) {
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 1800));
     const token = getOrCreatePollinationsToken();
 
-    // Liste des modèles à essayer en cascade
-    const models = ['flux', 'turbo', 'flux-realism'];
-
     let lastError = null;
+    let allModelsExhausted = true;
 
-    // ESSAIS EN CASCADE : plusieurs modèles + plusieurs tentatives
-    for (let modelIdx = 0; modelIdx < models.length; modelIdx++) {
-        const model = models[modelIdx];
+    // ═══ CASCADE SUR TOUS LES MODÈLES ═══
+    for (const model of POLLINATIONS_MODELS_CASCADE) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+
+        let modelFailed = false;
 
         for (let attempt = 0; attempt < retries; attempt++) {
             if (state.stopRequested) throw new Error('Arrêt demandé');
 
-            // Cache buster pour éviter les réponses mises en cache
             const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
             const url = POLLINATIONS_BASE + encodedPrompt +
                 '?width=720&height=1280&model=' + model +
@@ -1397,61 +1405,144 @@ async function generateImageWithPollinations(prompt, retries = 6) {
             try {
                 log('Pollinations [' + model + '] tentative ' + (attempt + 1) + '/' + retries);
                 setStatus('Image [' + model + '] tentative ' + (attempt + 1) + '…');
-                const res = await fetch(url, { method: 'GET' });
 
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+                const res = await fetch(url, {
+                    method: 'GET',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                // ─── 402 : quota saturé pour ce modèle → passe au suivant ───
                 if (res.status === 402) {
-                    const wait = Math.min(20 + attempt * 10, 60);
-                    log('Pollinations 402 → attente ' + wait + 's');
-                    setStatus('Quota saturé — attente ' + wait + 's (modèle ' + model + ')');
-                    await sleep(wait * 1000);
-                    state.lastPollinationsCall = Date.now();
-                    continue;
+                    log('Pollinations [' + model + '] 402 (quota saturé) → modèle suivant');
+                    modelFailed = true;
+                    break;
                 }
 
+                // ─── 429 : rate limit momentané ───
                 if (res.status === 429) {
-                    const wait = [20, 40, 60][Math.min(attempt, 2)];
-                    setStatus('Pollinations 429 — attente ' + wait + 's');
+                    const wait = [15, 30, 45][Math.min(attempt, 2)];
+                    log('Pollinations [' + model + '] 429 → attente ' + wait + 's');
+                    setStatus(model + ' 429 — attente ' + wait + 's');
                     await sleep(wait * 1000);
                     state.lastPollinationsCall = Date.now();
                     continue;
                 }
 
-                if (res.status === 500 || res.status === 502 || res.status === 503) {
-                    const wait = [10, 20, 30][Math.min(attempt, 2)];
-                    log('Pollinations ' + res.status + ' → attente ' + wait + 's');
+                // ─── 5xx : erreur serveur ───
+                if (res.status >= 500) {
+                    const wait = [5, 10, 15][Math.min(attempt, 2)];
+                    log('Pollinations [' + model + '] ' + res.status + ' → attente ' + wait + 's');
                     await sleep(wait * 1000);
                     continue;
                 }
 
+                // ─── 4xx autre ───
                 if (!res.ok) {
                     throw new Error('HTTP ' + res.status);
                 }
 
+                // ─── Succès ───
                 const blob = await res.blob();
                 if (!blob.type.startsWith('image/')) {
                     throw new Error('Réponse non-image : ' + blob.type);
                 }
 
                 log('✅ Image générée avec ' + model);
+                allModelsExhausted = false;
                 return await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onloadend = () => resolve(reader.result);
                     reader.onerror = () => reject(new Error('Erreur conversion blob'));
                     reader.readAsDataURL(blob);
                 });
+
             } catch (e) {
-                lastError = e;
-                log('Pollinations [' + model + '] tentative ' + (attempt + 1) + ' échouée : ' + e.message);
+                if (e.name === 'AbortError') {
+                    log('Pollinations [' + model + '] timeout 45s');
+                } else {
+                    lastError = e;
+                    log('Pollinations [' + model + '] tentative ' + (attempt + 1) + ' échouée : ' + e.message);
+                }
                 if (attempt < retries - 1) {
-                    const wait = 5000 * (attempt + 1);
+                    const wait = 4000 * (attempt + 1);
                     await sleep(wait);
                     state.lastPollinationsCall = Date.now();
                 }
             }
         }
+
+        // Si ce modèle a renvoyé 402, on essaie le suivant IMMÉDIATEMENT
+        if (modelFailed) {
+            continue;
+        }
     }
 
-    throw new Error('Pollinations : ' + (lastError ? lastError.message : 'échec après ' + (models.length * retries) + ' tentatives'));
+    // ═══ FALLBACK ULTIME : image de secours générée localement ═══
+    if (allModelsExhausted) {
+        log('⚠️ Tous les modèles Pollinations sont saturés — fallback local');
+        setStatus('Fallback image de secours…');
+        try {
+            return await generateFallbackImage(prompt);
+        } catch (e) {
+            log('Fallback local échoué : ' + e.message);
+        }
+    }
+
+    throw new Error('Pollinations : ' + (lastError ? lastError.message : 'tous les modèles saturés'));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FALLBACK : image de secours générée localement via canvas
+// ══════════════════════════════════════════════════════════════════
+async function generateFallbackImage(prompt) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 1280;
+    const ctx = canvas.getContext('2d');
+
+    // Dégradé pastel
+    const grad = ctx.createLinearGradient(0, 0, 0, 1280);
+    grad.addColorStop(0, '#FFE0F0');
+    grad.addColorStop(0.5, '#E0F0FF');
+    grad.addColorStop(1, '#FFF8E0');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 720, 1280);
+
+    // Cercles décoratifs
+    for (let i = 0; i < 25; i++) {
+        ctx.beginPath();
+        ctx.arc(
+            Math.random() * 720,
+            Math.random() * 1280,
+            15 + Math.random() * 70,
+            0, Math.PI * 2
+        );
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.15 + Math.random() * 0.35) + ')';
+        ctx.fill();
+    }
+
+    // Emoji central
+    ctx.font = 'bold 200px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎨', 360, 500);
+
+    // Texte
+    ctx.fillStyle = '#3a2a1a';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Image de secours', 360, 750);
+
+    ctx.font = '24px sans-serif';
+    ctx.fillStyle = '#a07a52';
+    ctx.fillText('Pollinations était saturé', 360, 810);
+    ctx.fillText('Réessayez plus tard', 360, 850);
+
+    return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1582,7 +1673,7 @@ async function generateAllScenes() {
         try {
             setStatus('Image ' + (i + 1) + '/' + scenes.length + ' (Pollinations)…');
             const prompt = buildImagePrompt(scene.text, i, scenes.length, previousContext);
-            const imageDataUri = await generateImageWithPollinations(prompt, 6);
+            const imageDataUri = await generateImageWithPollinations(prompt, 4);
             scene.imageDataUri = imageDataUri;
             scene.thumbnail = await generateThumbnail(imageDataUri);
             scene.status = 'image-done';
@@ -2235,35 +2326,31 @@ async function runDiagnostic() {
     out.textContent = '⏳ Diagnostic en cours...\n\n';
     const logLine = (msg) => { out.textContent += msg + '\n'; };
 
-    logLine('═══ TEST POLLINATIONS.AI ═══');
+    logLine('═══ TEST POLLINATIONS.AI (5 modèles en cascade) ═══');
     const userToken = getUserPollinationsToken();
-    logLine('Token : ' + (userToken ? 'personnel (' + userToken.slice(0, 8) + '…)' : 'anonyme (peut donner 402)'));
-    try {
-        const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear smiling, colorful, children illustration');
-        const token = getOrCreatePollinationsToken();
-        const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=flux&nologo=true&seed=42&token=' + token;
-        const start = Date.now();
-        const res = await fetch(testUrl);
-        const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-        logLine('HTTP ' + res.status + ' (' + elapsed + 's)');
-        if (res.ok) {
-            const blob = await res.blob();
-            logLine('Type : ' + blob.type);
-            logLine('Taille : ' + (blob.size / 1024).toFixed(1) + ' Ko');
-            if (blob.type.startsWith('image/')) {
-                logLine('\n✅ Pollinations.ai fonctionne !');
+    logLine('Token : ' + (userToken ? 'personnel (' + userToken.slice(0, 8) + '…)' : 'anonyme'));
+    const token = getOrCreatePollinationsToken();
+
+    for (const model of POLLINATIONS_MODELS_CASCADE) {
+        try {
+            const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear, colorful, children illustration');
+            const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=' + model + '&nologo=true&seed=42&token=' + token;
+            const start = Date.now();
+            const res = await fetch(testUrl);
+            const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+            if (res.ok) {
+                const blob = await res.blob();
+                if (blob.type.startsWith('image/')) {
+                    logLine('✅ ' + model + ' — HTTP 200 (' + elapsed + 's, ' + (blob.size / 1024).toFixed(0) + ' Ko)');
+                } else {
+                    logLine('⚠️ ' + model + ' — réponse non-image');
+                }
             } else {
-                logLine('\n❌ Réponse non-image');
+                logLine('❌ ' + model + ' — HTTP ' + res.status);
             }
-        } else {
-            logLine('\n❌ Erreur HTTP ' + res.status);
-            if (res.status === 402) {
-                logLine('   → Quota anonyme saturé');
-                logLine('   → Solution : enregistrez un token personnel (gratuit sur pollinations.ai)');
-            }
+        } catch (e) {
+            logLine('❌ ' + model + ' — Réseau : ' + e.message);
         }
-    } catch (e) {
-        logLine('\n❌ Réseau : ' + e.message);
     }
 
     logLine('\n═══ TEST AGNES (vidéos + voix) ═══');
@@ -2384,7 +2471,7 @@ async function runDiagnostic() {
     renderStyles();
     renderQueue();
     updateStoryPreview();
-    log('Kids Story Studio prêt (anti-402 + personnage verrouillé)');
+    log('Kids Story Studio prêt (cascade 5 modèles + fallback local)');
 })();
 </script>
 
