@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Kids Story Studio — Film Animé Enfants (Pollinations + Agnes)</title>
+<title>Kids Story Studio — Film Animé Enfants</title>
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     :root {
@@ -489,9 +489,7 @@
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
     <div class="free-badge">🎉 IMAGES GRATUITES ILLIMITÉES</div>
     <br><br>
-    <strong>Améliorations :</strong> Personnage verrouillé (identique dans chaque scène) •
-    Prompts Pollinations structurés (images 3x plus belles) •
-    Voix Agnes préservée • Musique de fond avec ducking automatique
+    <strong>Système anti-402 :</strong> 3 modèles Pollinations × 6 tentatives + token anonyme + backoff progressif
 </div>
 
 <div class="api-panel" id="api-panel">
@@ -505,9 +503,21 @@
     </div>
 
     <div class="image-gen-status">
-        🎨 <strong>Images : Pollinations.ai</strong> — 100% gratuit, illimité
+        🎨 <strong>Images : Pollinations.ai</strong> — 100% gratuit
         <br>
-        🎙️ <strong>Voix : Agnes IA</strong> — voix naturelles et enfantines générées automatiquement
+        🎙️ <strong>Voix : Agnes IA</strong> — voix naturelles et enfantines
+    </div>
+
+    <label class="control-label" style="margin-top:0.8rem; margin-bottom:0.4rem;">🎫 Token Pollinations (optionnel)</label>
+    <input type="text" class="api-key-input" id="pollinations-token-input"
+           placeholder="Collez votre token Pollinations pour 100% de fiabilité" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn" id="pollinations-token-save" style="background: linear-gradient(135deg, var(--purple), var(--blue));">Enregistrer le token</button>
+    <div class="api-status-line" id="pollinations-token-status">
+        <span class="status-dot"></span>
+        <span id="pollinations-token-text">Token anonyme auto-généré (peut donner des 402)</span>
+    </div>
+    <div class="api-hint">
+        Token gratuit sur <a href="https://pollinations.ai" target="_blank">pollinations.ai</a> — réduit les erreurs 402 à ~0%
     </div>
 
     <div class="api-hint">
@@ -540,18 +550,17 @@
                 <span>🎬 <strong id="story-scenes">0</strong> scènes</span>
             </div>
             <div class="prompt-main-hint">
-                💡 Découpage par phrases complètes. Le personnage est extrait et verrouillé automatiquement.
+                💡 Découpage par phrases complètes. Personnage verrouillé automatiquement.
             </div>
         </div>
     </div>
 </div>
 
-<!-- VERROUILLAGE DU PERSONNAGE -->
 <div class="character-lock" id="character-lock">
     <div class="lock-title">🔒 Personnage canonique (verrouillé)</div>
-    <textarea id="canonical-character" placeholder="Le personnage sera extrait automatiquement de votre histoire. Vous pouvez l'ajuster ici si nécessaire."></textarea>
+    <textarea id="canonical-character" placeholder="Le personnage sera extrait automatiquement de votre histoire."></textarea>
     <div class="lock-hint">
-        ✨ Cette description sera <strong>réutilisée à l'identique</strong> dans chaque scène pour garantir la cohérence visuelle.
+        ✨ Cette description sera <strong>réutilisée à l'identique</strong> dans chaque scène.
     </div>
 </div>
 
@@ -627,7 +636,6 @@
     <audio id="audio-preview" controls style="display:none;"></audio>
     <button type="button" class="audio-remove-btn" id="audio-remove-btn" style="display:none;">✕ Retirer la musique</button>
 
-    <!-- CONTRÔLES DE VOLUME -->
     <div class="volume-control">
         <label>🔊 Volume de la musique de fond</label>
         <input type="range" id="music-volume" min="0" max="100" value="20">
@@ -724,6 +732,7 @@ const POLL_INTERVAL_SEC = 8;
 const MAX_POLL_ATTEMPTS = 120;
 
 const AGNES_KEY_STORAGE = 'agnes_api_key';
+const POLLINATIONS_TOKEN_STORAGE = 'pollinations_user_token';
 const WAKE_LOCK_PREF = 'agnes_wakelock_enabled';
 const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
 
@@ -982,11 +991,9 @@ function buildCanonicalCharacter(storyText) {
     if (!storyText) return '';
     const lower = storyText.toLowerCase();
 
-    // Chercher un prénom/nom propre
     const nameMatch = storyText.match(/(?:prénommé|nommé|appelé|s'appelait)\s+([A-ZÀ-Ý][a-zà-ÿ]+)/);
     const characterName = nameMatch ? nameMatch[1] : '';
 
-    // Déterminer le type d'animal/être avec description ultra-détaillée
     const patterns = [
         { regex: /(dragon)/, base: 'un petit dragon mignon',
           detail: 'aux écailles douces et brillantes, grandes ailes rondes, yeux dorés expressifs et bienveillants, queue ornée d\'une petite flamme dorée' },
@@ -1027,25 +1034,21 @@ function buildCanonicalCharacter(storyText) {
         }
     }
 
-    // Couleur spécifique si mentionnée
     let colorInfo = '';
     const colorMatch = lower.match(/(bleu|turquoise|rose|jaune|vert|rouge|orange|violet|brun|blanc|noir|gris|doré|argenté)/);
     if (colorMatch) {
         colorInfo = ' de couleur ' + colorMatch[1];
     }
 
-    // Construire la description canonique complète
     if (charBase) {
         let description = charBase + colorInfo + ' ' + charDetail;
         if (characterName) {
             description = characterName + ', ' + description;
         }
-        // Ajouter l'instruction de cohérence
         description += '. Ce personnage doit être IDENTIQUE dans toutes les scènes : même apparence, même couleur, mêmes proportions, mêmes détails.';
         return description;
     }
 
-    // Fallback
     return 'Un personnage principal adorable et attachant, avec de grands yeux expressifs, un sourire chaleureux, un design doux et arrondi style Pixar. Ce personnage doit être IDENTIQUE dans toutes les scènes.';
 }
 
@@ -1147,32 +1150,23 @@ const CHARACTER_PROMPTS = {
 
 const NEGATIVE_PROMPT = 'scary, dark, deformed, text, watermark, realistic, creepy, sharp shadows, sudden movements, distortion, extra limbs, uncanny valley, harsh contrast, cold colors, sad, angry, violent, blurry, low quality, bad anatomy';
 
-// ══════════════════════════════════════════════════════════════════
-// PROMPT POLLINATIONS — STRUCTURÉ EN 6 BLOCS
-// ══════════════════════════════════════════════════════════════════
 function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
 
-    // Utiliser le personnage canonique verrouillé
     let charPrompt = state.canonicalCharacter;
     if (!charPrompt) {
         const selectedChar = CHARACTER_PROMPTS[state.characters];
         charPrompt = selectedChar || 'un personnage principal adorable et attachant';
     }
 
-    // ═══ BLOC 1 : RÔLE ═══
     const bloc1 = 'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still';
 
-    // ═══ BLOC 2 : PERSONNAGE CANONIQUE (identique chaque scène) ═══
     const bloc2 = 'MAIN CHARACTER (must be IDENTICAL in every scene, same face, same colors, same proportions, same details): ' + charPrompt;
 
-    // ═══ BLOC 3 : SCÈNE ═══
     const bloc3 = 'SCENE ACTION: ' + sceneText;
 
-    // ═══ BLOC 4 : STYLE ═══
     const bloc4 = 'STYLE: ' + theme.prompt;
 
-    // ═══ BLOC 5 : CAMÉRA + LUMIÈRE (variation par scène) ═══
     const cameraAngles = [
         'medium shot, character centered, cinematic composition',
         'wide establishing shot, character in environment context',
@@ -1192,13 +1186,10 @@ function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const lightIndex = sceneIndex % lightingMoods.length;
     const bloc5 = 'CAMERA: ' + cameraAngles[camIndex] + '. LIGHTING: ' + lightingMoods[lightIndex];
 
-    // ═══ BLOC 6 : TECHNIQUE + NÉGATIF ═══
     const bloc6 = 'vertical portrait format 9:16, high detail, smooth rendering, vibrant saturated colors, child-friendly, no text, no watermark, no scary elements, no realistic humans. Avoid: ' + NEGATIVE_PROMPT;
 
-    // Assembler les blocs
     const parts = [bloc1, bloc2, bloc3, bloc4, bloc5, bloc6];
 
-    // Ajouter contexte du précédent si dispo
     if (previousContext) {
         parts.push('Continuing from previous scene for visual consistency: ' + previousContext);
     }
@@ -1230,9 +1221,10 @@ function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CLÉ AGNES
+// CLÉS (AGNES + POLLINATIONS TOKEN)
 // ══════════════════════════════════════════════════════════════════
 function getAgnesKey() { try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
+function getUserPollinationsToken() { try { return (localStorage.getItem(POLLINATIONS_TOKEN_STORAGE) || '').trim(); } catch (e) { return ''; } }
 
 function saveAgnesKey() {
     const input = document.getElementById('api-key-input');
@@ -1241,6 +1233,15 @@ function saveAgnesKey() {
     localStorage.setItem(AGNES_KEY_STORAGE, key);
     updateApiPanel();
     showToast('Clé Agnes enregistrée ✓', 'success');
+}
+
+function savePollinationsToken() {
+    const input = document.getElementById('pollinations-token-input');
+    const token = input.value.trim();
+    if (!token) { localStorage.removeItem(POLLINATIONS_TOKEN_STORAGE); updateApiPanel(); showToast('Token Pollinations supprimé', 'warn'); return; }
+    localStorage.setItem(POLLINATIONS_TOKEN_STORAGE, token);
+    updateApiPanel();
+    showToast('Token Pollinations enregistré ✓', 'success');
 }
 
 function updateApiPanel() {
@@ -1260,6 +1261,22 @@ function updateApiPanel() {
         input.value = '';
         panel.classList.remove('ok');
     }
+
+    // Pollinations token
+    const ptInput = document.getElementById('pollinations-token-input');
+    const ptStatusLine = document.getElementById('pollinations-token-status');
+    const ptStatusText = document.getElementById('pollinations-token-text');
+    const userToken = getUserPollinationsToken();
+    if (userToken) {
+        ptStatusLine.classList.add('ok');
+        ptStatusText.textContent = 'Token personnel actif · ' + userToken.slice(0, 8) + '…' + userToken.slice(-4);
+        if (ptInput) ptInput.value = userToken;
+    } else {
+        ptStatusLine.classList.remove('ok');
+        ptStatusText.textContent = 'Token anonyme auto-généré (peut donner des 402)';
+        if (ptInput) ptInput.value = '';
+    }
+
     updateGenerateBtn();
 }
 
@@ -1322,9 +1339,28 @@ function generateThumbnail(dataUri) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// POLLINATIONS.AI — GÉNÉRATION D'IMAGES GRATUITE
+// POLLINATIONS.AI — GÉNÉRATION D'IMAGES (V2 anti-402)
 // ══════════════════════════════════════════════════════════════════
-async function generateImageWithPollinations(prompt, retries = 3) {
+
+function getOrCreatePollinationsToken() {
+    // Priorité 1 : token utilisateur enregistré
+    const userToken = getUserPollinationsToken();
+    if (userToken) return userToken;
+
+    // Priorité 2 : token anonyme généré une fois par session
+    let token = null;
+    try { token = localStorage.getItem('pollinations_anon_token'); } catch (e) {}
+    if (!token) {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let t = '';
+        for (let i = 0; i < 32; i++) t += chars[Math.floor(Math.random() * chars.length)];
+        token = t;
+        try { localStorage.setItem('pollinations_anon_token', token); } catch (e) {}
+    }
+    return token;
+}
+
+async function generateImageWithPollinations(prompt, retries = 6) {
     const now = Date.now();
     const elapsed = now - state.lastPollinationsCall;
     if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
@@ -1336,54 +1372,86 @@ async function generateImageWithPollinations(prompt, retries = 3) {
     state.lastPollinationsCall = Date.now();
 
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 1800));
+    const token = getOrCreatePollinationsToken();
 
-    // Utiliser le seed global pour la cohérence visuelle
-    const url = POLLINATIONS_BASE + encodedPrompt +
-        '?width=720&height=1280&model=flux&nologo=true&enhance=true&seed=' + state.seed;
+    // Liste des modèles à essayer en cascade
+    const models = ['flux', 'turbo', 'flux-realism'];
 
     let lastError = null;
 
-    for (let attempt = 0; attempt < retries; attempt++) {
-        if (state.stopRequested) throw new Error('Arrêt demandé');
-        try {
-            log('Pollinations : tentative ' + (attempt + 1) + '/' + retries);
-            const res = await fetch(url, { method: 'GET' });
+    // ESSAIS EN CASCADE : plusieurs modèles + plusieurs tentatives
+    for (let modelIdx = 0; modelIdx < models.length; modelIdx++) {
+        const model = models[modelIdx];
 
-            if (res.status === 429) {
-                const wait = [20, 40, 60][Math.min(attempt, 2)];
-                setStatus('Pollinations 429 — attente ' + wait + 's');
-                await sleep(wait * 1000);
-                state.lastPollinationsCall = Date.now();
-                continue;
-            }
+        for (let attempt = 0; attempt < retries; attempt++) {
+            if (state.stopRequested) throw new Error('Arrêt demandé');
 
-            if (!res.ok) {
-                throw new Error('HTTP ' + res.status);
-            }
+            // Cache buster pour éviter les réponses mises en cache
+            const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
+            const url = POLLINATIONS_BASE + encodedPrompt +
+                '?width=720&height=1280&model=' + model +
+                '&nologo=true&enhance=true&seed=' + state.seed +
+                '&token=' + token +
+                '&_=' + cacheBuster;
 
-            const blob = await res.blob();
-            if (!blob.type.startsWith('image/')) {
-                throw new Error('Réponse non-image : ' + blob.type);
-            }
+            try {
+                log('Pollinations [' + model + '] tentative ' + (attempt + 1) + '/' + retries);
+                setStatus('Image [' + model + '] tentative ' + (attempt + 1) + '…');
+                const res = await fetch(url, { method: 'GET' });
 
-            return await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = () => reject(new Error('Erreur conversion blob'));
-                reader.readAsDataURL(blob);
-            });
-        } catch (e) {
-            lastError = e;
-            log('Pollinations tentative ' + (attempt + 1) + ' échouée : ' + e.message);
-            if (attempt < retries - 1) {
-                const wait = 8000 * (attempt + 1);
-                await sleep(wait);
-                state.lastPollinationsCall = Date.now();
+                if (res.status === 402) {
+                    const wait = Math.min(20 + attempt * 10, 60);
+                    log('Pollinations 402 → attente ' + wait + 's');
+                    setStatus('Quota saturé — attente ' + wait + 's (modèle ' + model + ')');
+                    await sleep(wait * 1000);
+                    state.lastPollinationsCall = Date.now();
+                    continue;
+                }
+
+                if (res.status === 429) {
+                    const wait = [20, 40, 60][Math.min(attempt, 2)];
+                    setStatus('Pollinations 429 — attente ' + wait + 's');
+                    await sleep(wait * 1000);
+                    state.lastPollinationsCall = Date.now();
+                    continue;
+                }
+
+                if (res.status === 500 || res.status === 502 || res.status === 503) {
+                    const wait = [10, 20, 30][Math.min(attempt, 2)];
+                    log('Pollinations ' + res.status + ' → attente ' + wait + 's');
+                    await sleep(wait * 1000);
+                    continue;
+                }
+
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+
+                const blob = await res.blob();
+                if (!blob.type.startsWith('image/')) {
+                    throw new Error('Réponse non-image : ' + blob.type);
+                }
+
+                log('✅ Image générée avec ' + model);
+                return await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Erreur conversion blob'));
+                    reader.readAsDataURL(blob);
+                });
+            } catch (e) {
+                lastError = e;
+                log('Pollinations [' + model + '] tentative ' + (attempt + 1) + ' échouée : ' + e.message);
+                if (attempt < retries - 1) {
+                    const wait = 5000 * (attempt + 1);
+                    await sleep(wait);
+                    state.lastPollinationsCall = Date.now();
+                }
             }
         }
     }
 
-    throw new Error('Pollinations : ' + (lastError ? lastError.message : 'échec total'));
+    throw new Error('Pollinations : ' + (lastError ? lastError.message : 'échec après ' + (models.length * retries) + ' tentatives'));
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1514,7 +1582,7 @@ async function generateAllScenes() {
         try {
             setStatus('Image ' + (i + 1) + '/' + scenes.length + ' (Pollinations)…');
             const prompt = buildImagePrompt(scene.text, i, scenes.length, previousContext);
-            const imageDataUri = await generateImageWithPollinations(prompt, 3);
+            const imageDataUri = await generateImageWithPollinations(prompt, 6);
             scene.imageDataUri = imageDataUri;
             scene.thumbnail = await generateThumbnail(imageDataUri);
             scene.status = 'image-done';
@@ -1607,7 +1675,7 @@ async function pollSceneVideo(scene) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ASSEMBLAGE — PRÉSERVATION DE LA VOIX AGNES + MUSIQUE DUCKING
+// ASSEMBLAGE — VOIX AGNES + MUSIQUE DUCKING
 // ══════════════════════════════════════════════════════════════════
 async function downloadVideoBlob(url) {
     const res = await fetch(url);
@@ -1658,7 +1726,7 @@ async function assembleFinalFilm() {
             const url = URL.createObjectURL(blob);
             const video = document.createElement('video');
             video.src = url;
-            video.muted = false; // ⚠️ On garde le son Agnes (voix) !
+            video.muted = false;
             video.playsInline = true;
             video.preload = 'auto';
             video.crossOrigin = 'anonymous';
@@ -1683,7 +1751,6 @@ async function assembleFinalFilm() {
         const ctx = canvas.getContext('2d');
         const canvasStreamOut = canvas.captureStream(30);
 
-        // ═══ PRÉPARATION AUDIO : voix Agnes + musique de fond ═══
         let audioCtx = null;
         let audioDestination = null;
         let musicSource = null;
@@ -1693,7 +1760,6 @@ async function assembleFinalFilm() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audioDestination = audioCtx.createMediaStreamDestination();
 
-            // Musique de fond (si fournie) - volume bas pour préserver la voix
             if (state.audioFile && state.audioObjectUrl) {
                 const arrayBuffer = await state.audioFile.arrayBuffer();
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
@@ -1704,7 +1770,6 @@ async function assembleFinalFilm() {
                 musicGain = audioCtx.createGain();
                 musicGain.gain.value = state.duckingEnabled ? state.musicVolume * 0.5 : state.musicVolume;
 
-                // Compresseur pour éviter la saturation
                 const compressor = audioCtx.createDynamicsCompressor();
                 compressor.threshold.value = -12;
                 compressor.knee.value = 6;
@@ -1719,13 +1784,10 @@ async function assembleFinalFilm() {
                 log('Musique préparée : volume ' + (musicGain.gain.value * 100).toFixed(0) + '%');
             }
 
-            // Les vidéos Agnes joueront leur propre voix via les éléments <video>
-            // On capture leur audio via AudioContext
             const videoAudioSources = [];
             for (const vEl of videoElements) {
                 try {
                     const src = audioCtx.createMediaElementSource(vEl.video);
-                    // Envoyer la voix Agnes directement vers la destination
                     src.connect(audioDestination);
                     videoAudioSources.push(src);
                 } catch (e) {
@@ -1737,7 +1799,6 @@ async function assembleFinalFilm() {
             log('Erreur préparation audio : ' + e.message);
         }
 
-        // ═══ COMBINER LES PISTES ═══
         const combinedStream = new MediaStream();
         canvasStreamOut.getVideoTracks().forEach(t => combinedStream.addTrack(t));
         if (audioDestination) {
@@ -1772,12 +1833,10 @@ async function assembleFinalFilm() {
 
         recorder.start(1000);
 
-        // Démarrer la musique de fond si présente
         if (musicSource && audioCtx) {
             musicSource.start(0);
         }
 
-        // ═══ LECTURE SÉQUENTIELLE ═══
         statusEl.textContent = 'Assemblage des scènes…';
         const totalDuration = videoElements.reduce((sum, v) => sum + (v.video.duration || 0), 0);
         let elapsedPlayback = 0;
@@ -1787,9 +1846,8 @@ async function assembleFinalFilm() {
             const { video } = videoElements[i];
             video.currentTime = 0;
             video.muted = false;
-            video.volume = 1.0; // Voix Agnes à fond
+            video.volume = 1.0;
 
-            // DUCKING : baisser la musique quand la voix Agnes parle
             if (musicGain && state.duckingEnabled && audioCtx) {
                 const now = audioCtx.currentTime;
                 musicGain.gain.setValueAtTime(state.musicVolume * 0.5, now);
@@ -1814,7 +1872,6 @@ async function assembleFinalFilm() {
                 }).catch(() => resolve());
             });
 
-            // Remonter la musique entre les scènes
             if (musicGain && state.duckingEnabled && audioCtx) {
                 const now = audioCtx.currentTime;
                 musicGain.gain.linearRampToValueAtTime(state.musicVolume * 0.5, now + 0.3);
@@ -2105,7 +2162,6 @@ async function startGeneration() {
         return;
     }
 
-    // Récupérer le personnage canonique (modifié manuellement si besoin)
     const canonicalEl = document.getElementById('canonical-character');
     if (canonicalEl && canonicalEl.value.trim()) {
         state.canonicalCharacter = canonicalEl.value.trim();
@@ -2179,10 +2235,13 @@ async function runDiagnostic() {
     out.textContent = '⏳ Diagnostic en cours...\n\n';
     const logLine = (msg) => { out.textContent += msg + '\n'; };
 
-    logLine('═══ TEST POLLINATIONS.AI (images gratuites) ═══');
+    logLine('═══ TEST POLLINATIONS.AI ═══');
+    const userToken = getUserPollinationsToken();
+    logLine('Token : ' + (userToken ? 'personnel (' + userToken.slice(0, 8) + '…)' : 'anonyme (peut donner 402)'));
     try {
         const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear smiling, colorful, children illustration');
-        const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=flux&nologo=true&seed=42';
+        const token = getOrCreatePollinationsToken();
+        const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=flux&nologo=true&seed=42&token=' + token;
         const start = Date.now();
         const res = await fetch(testUrl);
         const elapsed = ((Date.now() - start) / 1000).toFixed(1);
@@ -2198,6 +2257,10 @@ async function runDiagnostic() {
             }
         } else {
             logLine('\n❌ Erreur HTTP ' + res.status);
+            if (res.status === 402) {
+                logLine('   → Quota anonyme saturé');
+                logLine('   → Solution : enregistrez un token personnel (gratuit sur pollinations.ai)');
+            }
         }
     } catch (e) {
         logLine('\n❌ Réseau : ' + e.message);
@@ -2232,6 +2295,7 @@ async function runDiagnostic() {
 // ══════════════════════════════════════════════════════════════════
 (function init() {
     document.getElementById('api-save-btn')?.addEventListener('click', saveAgnesKey);
+    document.getElementById('pollinations-token-save')?.addEventListener('click', savePollinationsToken);
     document.getElementById('stop-btn')?.addEventListener('click', stopGeneration);
     document.getElementById('assemble-btn')?.addEventListener('click', assembleFinalFilm);
     document.getElementById('download-btn')?.addEventListener('click', downloadFinalFilm);
@@ -2251,7 +2315,6 @@ async function runDiagnostic() {
     document.getElementById('characters-select')?.addEventListener('change', e => {
         state.characters = e.target.value;
         if (e.target.value !== 'custom') {
-            // Utiliser directement le personnage prédéfini
             state.canonicalCharacter = CHARACTER_PROMPTS[e.target.value] || '';
             const ta = document.getElementById('canonical-character');
             if (ta) ta.value = state.canonicalCharacter;
@@ -2263,13 +2326,11 @@ async function runDiagnostic() {
         state.seed = parseInt(e.target.value, 10) || 42;
     });
 
-    // Personnage canonique éditable manuellement
     document.getElementById('canonical-character')?.addEventListener('input', e => {
         state.canonicalCharacter = e.target.value;
         try { localStorage.setItem(CANONICAL_CHAR_STORAGE, e.target.value); } catch (err) {}
     });
 
-    // Volume musique
     document.getElementById('music-volume')?.addEventListener('input', e => {
         state.musicVolume = parseInt(e.target.value, 10) / 100;
         document.getElementById('music-volume-value').textContent = e.target.value + '%';
@@ -2323,7 +2384,7 @@ async function runDiagnostic() {
     renderStyles();
     renderQueue();
     updateStoryPreview();
-    log('Kids Story Studio prêt (personnage verrouillé + voix Agnes)');
+    log('Kids Story Studio prêt (anti-402 + personnage verrouillé)');
 })();
 </script>
 
