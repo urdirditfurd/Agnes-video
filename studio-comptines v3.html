@@ -626,9 +626,9 @@ const AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 // ✅ Modèle image Gemini — modifiable si Google change le nom
 const GEMINI_IMAGE_MODELS = [
-    'gemini-2.5-flash-image-preview',
-    'gemini-2.0-flash-exp-image-generation',
-    'gemini-2.0-flash-preview-image-generation'
+    'gemini-3.1-flash-image',
+    'gemini-2.5-flash-image',
+    'gemini-3-pro-image'
 ];
 let currentGeminiModelIndex = 0;
 const MODEL_VIDEO = 'agnes-video-v2.0';
@@ -2002,9 +2002,9 @@ async function runDiagnostic() {
                             'x-goog-api-key': geminiKey
                         },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: 'a simple red circle on white background' }] }],
-                            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-                        })
+    contents: [{ parts: [{ text: 'a simple red circle on white background' }] }],
+    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+})
                     }
                 );
                 logLine('   HTTP ' + res.status);
