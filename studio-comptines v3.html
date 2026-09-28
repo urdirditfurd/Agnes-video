@@ -1158,7 +1158,11 @@ async function generateImageWithGemini(prompt, retries = 3) {
     const apiKey = getGeminiKey();
     if (!apiKey) throw new Error('Clé Gemini manquante');
 
-    const url = GEMINI_API_BASE + '/models/' + GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(apiKey);
+   async function generateImageWithGemini(prompt, retries = 3) {
+    const apiKey = getGeminiKey();
+    if (!apiKey) throw new Error('Clé Gemini manquante');
+
+    const url = GEMINI_API_BASE + '/models/' + GEMINI_MODEL + ':generateContent';
     const body = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
@@ -1166,6 +1170,55 @@ async function generateImageWithGemini(prompt, retries = 3) {
             temperature: 0.9
         }
     };
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        try {
+            // ✅ NOUVEAU : clé dans l'en-tête HTTP (compatible AQ. et AIza)
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (res.status === 429) {
+                const wait = [10, 20, 40][Math.min(attempt, 2)];
+                setStatus('Gemini 429 — attente ' + wait + 's');
+                await sleep(wait * 1000);
+                continue;
+            }
+
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error('Gemini HTTP ' + res.status + ' — ' + err.slice(0, 300));
+            }
+
+            const data = await res.json();
+            const candidates = data.candidates || [];
+            if (!candidates.length) {
+                // Log la réponse complète pour debug
+                log('Gemini réponse vide : ' + JSON.stringify(data).slice(0, 500));
+                throw new Error('Gemini : aucune réponse');
+            }
+
+            const parts = candidates[0].content?.parts || [];
+            for (const part of parts) {
+                if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/')) {
+                    return 'data:' + part.inlineData.mimeType + ';base64,' + part.inlineData.data;
+                }
+            }
+            throw new Error('Gemini : aucune image dans la réponse');
+        } catch (e) {
+            log('Gemini tentative ' + (attempt + 1) + ' échouée : ' + e.message);
+            if (attempt === retries - 1) throw e;
+            await sleep(3000 * (attempt + 1));
+        }
+    }
+    throw new Error('Gemini : échec après ' + retries + ' tentatives');
+}
 
     for (let attempt = 0; attempt < retries; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
