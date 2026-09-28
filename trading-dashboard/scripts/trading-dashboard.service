@@ -1,0 +1,28 @@
+[Unit]
+Description=Trading Dashboard (Docker Compose)
+Documentation=file://__PROJECT_DIR__/docs/ARCHITECTURE.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=__PROJECT_DIR__
+EnvironmentFile=-__PROJECT_DIR__/.env
+
+# Démarrage
+ExecStart=/usr/bin/docker compose -f __PROJECT_DIR__/docker-compose.yml up -d --remove-orphans
+
+# Arrêt gracieux
+ExecStop=/usr/bin/docker compose -f __PROJECT_DIR__/docker-compose.yml stop
+
+# Reload / recreate soft
+ExecReload=/usr/bin/docker compose -f __PROJECT_DIR__/docker-compose.yml up -d --remove-orphans
+
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
