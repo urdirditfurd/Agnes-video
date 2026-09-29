@@ -57,20 +57,13 @@
     }
     .info-banner strong { color: var(--pink); }
 
-    .coppa-badge {
+    .coppa-badge, .free-badge {
         display: inline-flex; align-items: center; gap: 0.4rem;
-        background: var(--green); color: #fff;
-        padding: 0.3rem 0.8rem; border-radius: 20px;
-        font-size: 0.72rem; font-weight: 700;
-        margin-bottom: 0.6rem;
+        color: #fff; padding: 0.3rem 0.8rem; border-radius: 20px;
+        font-size: 0.72rem; font-weight: 700; margin-bottom: 0.6rem;
     }
-    .free-badge {
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        background: var(--purple); color: #fff;
-        padding: 0.3rem 0.8rem; border-radius: 20px;
-        font-size: 0.72rem; font-weight: 700;
-        margin-bottom: 0.6rem; margin-left: 0.4rem;
-    }
+    .coppa-badge { background: var(--green); }
+    .free-badge { background: var(--purple); margin-left: 0.4rem; }
 
     .section {
         background: var(--panel); border: 2px solid var(--border);
@@ -121,12 +114,12 @@
         width: 100%; padding: 0.85rem 1.2rem;
         border-radius: 10px; border: none;
         background: linear-gradient(135deg, var(--pink), var(--orange));
-        color: #fff;
-        font-size: 0.9rem; font-weight: 700; font-family: inherit;
+        color: #fff; font-size: 0.9rem; font-weight: 700; font-family: inherit;
         cursor: pointer; transition: opacity 0.2s, transform 0.1s;
         margin-bottom: 0.6rem;
     }
     .api-save-btn:active { transform: scale(0.98); }
+    .api-save-btn.hf { background: linear-gradient(135deg, var(--yellow), var(--orange)); }
 
     .api-status-line {
         font-size: 0.78rem; padding: 0.6rem 0.9rem;
@@ -135,16 +128,12 @@
         background: var(--panel-2); color: var(--ink-dim);
         transition: all 0.3s;
     }
-    .api-status-line.ok {
-        background: #e8f8e8; color: var(--success); font-weight: 700;
-    }
+    .api-status-line.ok { background: #e8f8e8; color: var(--success); font-weight: 700; }
     .api-status-line .status-dot {
         width: 8px; height: 8px; border-radius: 50%;
-        background: var(--ink-faint); flex-shrink: 0;
-        transition: background 0.3s;
+        background: var(--ink-faint); flex-shrink: 0; transition: background 0.3s;
     }
     .api-status-line.ok .status-dot { background: var(--success); }
-
     .api-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.4rem; }
     .api-hint a { color: var(--pink); text-decoration: underline; }
 
@@ -152,15 +141,14 @@
         background: #e8f8e8; border: 2px solid var(--green);
         border-radius: 10px; padding: 0.7rem 0.9rem;
         font-size: 0.78rem; color: var(--success); font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.5rem; margin-top: 0.5rem;
     }
 
     .wake-status {
         font-size: 0.75rem; padding: 0.55rem 0.8rem;
         border-radius: 8px; margin-top: 0.4rem;
         display: flex; justify-content: space-between; align-items: center;
-        background: #e8f4ff; color: var(--blue);
-        flex-wrap: wrap; gap: 0.4rem;
+        background: #e8f4ff; color: var(--blue); flex-wrap: wrap; gap: 0.4rem;
     }
     .wake-status.active { background: #e8f8e8; color: var(--success); }
     .wake-status.warn { background: #fff4e6; color: var(--warn); }
@@ -186,9 +174,7 @@
         font-size: 0.75rem; color: var(--success); font-weight: 700;
         margin-top: 0.4rem; word-break: break-all;
     }
-    .audio-zone audio {
-        width: 100%; margin-top: 0.6rem; border-radius: 8px;
-    }
+    .audio-zone audio { width: 100%; margin-top: 0.6rem; border-radius: 8px; }
     .audio-remove-btn {
         margin-top: 0.5rem; background: transparent;
         border: 1.5px solid var(--error); color: var(--error);
@@ -197,10 +183,8 @@
     }
     .bpm-display {
         margin-top: 0.6rem; padding: 0.6rem 0.9rem;
-        border-radius: 10px; background: #fff;
-        border: 2px solid var(--border);
-        font-size: 0.8rem; font-weight: 600;
-        display: none;
+        border-radius: 10px; background: #fff; border: 2px solid var(--border);
+        font-size: 0.8rem; font-weight: 600; display: none;
     }
     .bpm-display.visible { display: block; }
     .bpm-display.ok { border-color: var(--green); background: #e8f8e8; color: var(--success); }
@@ -209,31 +193,17 @@
 
     .volume-control {
         margin-top: 0.7rem; padding: 0.7rem 0.9rem;
-        background: #fff; border: 2px solid var(--border);
-        border-radius: 10px;
+        background: #fff; border: 2px solid var(--border); border-radius: 10px;
     }
     .volume-control label {
         display: block; font-size: 0.72rem; color: var(--ink-dim);
         font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;
     }
-    .volume-control input[type="range"] {
-        width: 100%; accent-color: var(--pink);
-    }
-    .volume-control .vol-value {
-        font-size: 0.75rem; color: var(--pink); font-weight: 700;
-        text-align: right; margin-top: 0.2rem;
-    }
-    .volume-control .duck-toggle {
-        display: flex; align-items: center; gap: 0.5rem;
-        margin-top: 0.6rem;
-    }
-    .volume-control .duck-toggle input {
-        width: 18px; height: 18px; accent-color: var(--green);
-    }
-    .volume-control .duck-toggle label {
-        font-size: 0.75rem; text-transform: none; margin: 0;
-        color: var(--ink); font-weight: 600;
-    }
+    .volume-control input[type="range"] { width: 100%; accent-color: var(--pink); }
+    .volume-control .vol-value { font-size: 0.75rem; color: var(--pink); font-weight: 700; text-align: right; margin-top: 0.2rem; }
+    .volume-control .duck-toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+    .volume-control .duck-toggle input { width: 18px; height: 18px; accent-color: var(--green); }
+    .volume-control .duck-toggle label { font-size: 0.75rem; text-transform: none; margin: 0; color: var(--ink); font-weight: 600; }
 
     .prompt-main {
         width: 100%; padding: 0.9rem 1rem;
@@ -243,20 +213,13 @@
         min-height: 180px; resize: vertical; line-height: 1.6;
     }
     .prompt-main:focus { outline: none; border-color: var(--pink); }
-    .prompt-main-hint {
-        font-size: 0.75rem; color: var(--ink-dim);
-        margin-top: 0.5rem; line-height: 1.45;
-    }
+    .prompt-main-hint { font-size: 0.75rem; color: var(--ink-dim); margin-top: 0.5rem; line-height: 1.45; }
     .story-counter {
         font-size: 0.75rem; color: var(--ink-dim);
         margin-top: 0.4rem; display: flex; justify-content: space-between;
     }
     .story-counter strong { color: var(--pink); }
-
-    .prompt-presets {
-        display: flex; flex-wrap: wrap; gap: 0.5rem;
-        margin-top: 0.7rem;
-    }
+    .prompt-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
     .prompt-preset {
         padding: 0.45rem 0.85rem; border-radius: 20px;
         border: 2px solid var(--border); background: #fff;
@@ -266,10 +229,7 @@
     .prompt-preset:active { transform: scale(0.95); }
     .prompt-preset:hover { border-color: var(--pink); background: var(--panel-2); }
 
-    .styles-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-        gap: 0.55rem;
-    }
+    .styles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 0.55rem; }
     .style-card {
         padding: 0.8rem 0.9rem; border-radius: 12px;
         border: 2px solid var(--border); background: #fff;
@@ -288,31 +248,21 @@
 
     .character-lock {
         background: linear-gradient(135deg, #f0e8ff, #e8f4ff);
-        border: 2px solid var(--purple);
-        border-radius: var(--radius); padding: 0.9rem 1rem;
-        margin-bottom: 1rem;
+        border: 2px solid var(--purple); border-radius: var(--radius); padding: 0.9rem 1rem; margin-bottom: 1rem;
     }
-    .character-lock .lock-title {
-        font-size: 0.78rem; color: var(--purple); font-weight: 700;
-        text-transform: uppercase; margin-bottom: 0.5rem;
-    }
+    .character-lock .lock-title { font-size: 0.78rem; color: var(--purple); font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem; }
     .character-lock textarea {
         width: 100%; padding: 0.7rem 0.9rem; border-radius: 8px;
         border: 2px solid var(--border); background: #fff;
-        font-family: inherit; font-size: 0.82rem;
-        min-height: 90px; resize: vertical; line-height: 1.5;
+        font-family: inherit; font-size: 0.82rem; min-height: 90px; resize: vertical; line-height: 1.5;
     }
-    .character-lock .lock-hint {
-        font-size: 0.72rem; color: var(--ink-dim);
-        margin-top: 0.4rem; font-style: italic;
-    }
+    .character-lock .lock-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.4rem; font-style: italic; }
 
     .control-row { margin-bottom: 1rem; }
     .control-row:last-child { margin-bottom: 0; }
     .control-label {
         display: block; font-size: 0.75rem; color: var(--ink-dim);
-        margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em;
-        font-weight: 700;
+        margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
     }
     select, input[type="number"], input[type="text"] {
         width: 100%; padding: 0.75rem 0.9rem; border-radius: 10px;
@@ -320,52 +270,36 @@
         color: var(--ink); font-family: inherit; font-size: 0.9rem; font-weight: 600;
         -webkit-appearance: none; appearance: none;
     }
-    select:focus, input[type="number"]:focus, input[type="text"]:focus {
-        outline: none; border-color: var(--pink);
-    }
+    select:focus, input[type="number"]:focus, input[type="text"]:focus { outline: none; border-color: var(--pink); }
     select {
         background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23ff6b9d' d='M0 0l5 6 5-6z'/></svg>");
-        background-repeat: no-repeat;
-        background-position: right 0.9rem center;
-        background-size: 10px;
+        background-repeat: no-repeat; background-position: right 0.9rem center; background-size: 10px;
     }
 
     .btn-primary {
-        width: 100%; padding: 1.15rem; border-radius: var(--radius);
-        border: none;
+        width: 100%; padding: 1.15rem; border-radius: var(--radius); border: none;
         background: linear-gradient(135deg, var(--pink), var(--orange), var(--yellow));
-        color: #fff;
-        font-size: 1.05rem; font-weight: 700; font-family: inherit;
-        cursor: pointer; transition: all 0.2s, transform 0.1s;
-        margin-bottom: 1rem;
-        box-shadow: 0 6px 20px rgba(255,107,157,0.35);
-        text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+        color: #fff; font-size: 1.05rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; transition: all 0.2s, transform 0.1s; margin-bottom: 1rem;
+        box-shadow: 0 6px 20px rgba(255,107,157,0.35); text-shadow: 0 1px 2px rgba(0,0,0,0.15);
     }
     .btn-primary:active:not(:disabled) { transform: scale(0.98); }
-    .btn-primary:disabled {
-        opacity: 0.4; cursor: not-allowed;
-        background: #ccc; box-shadow: none;
-    }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; background: #ccc; box-shadow: none; }
 
     .btn-assemble {
         width: 100%; padding: 1.15rem; border-radius: var(--radius);
-        border: 3px solid var(--green); background: #fff;
-        color: var(--green);
+        border: 3px solid var(--green); background: #fff; color: var(--green);
         font-size: 1rem; font-weight: 700; font-family: inherit;
-        cursor: pointer; margin-bottom: 1rem;
-        display: none;
+        cursor: pointer; margin-bottom: 1rem; display: none;
     }
     .btn-assemble.visible { display: block; }
     .btn-assemble:active { background: #e8f8e8; }
 
     .btn-download {
-        width: 100%; padding: 1.15rem; border-radius: var(--radius);
-        border: none;
-        background: linear-gradient(135deg, var(--green), var(--blue));
-        color: #fff;
+        width: 100%; padding: 1.15rem; border-radius: var(--radius); border: none;
+        background: linear-gradient(135deg, var(--green), var(--blue)); color: #fff;
         font-size: 1rem; font-weight: 700; font-family: inherit;
-        cursor: pointer; margin-bottom: 1rem;
-        display: none;
+        cursor: pointer; margin-bottom: 1rem; display: none;
         box-shadow: 0 6px 20px rgba(76,175,80,0.3);
     }
     .btn-download.visible { display: block; }
@@ -373,10 +307,9 @@
 
     .btn-stop {
         width: 100%; padding: 0.85rem; border-radius: var(--radius);
-        border: 2px solid var(--error); background: #fff;
-        color: var(--error); font-size: 0.88rem; font-weight: 700;
-        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
-        display: none;
+        border: 2px solid var(--error); background: #fff; color: var(--error);
+        font-size: 0.88rem; font-weight: 700; font-family: inherit;
+        cursor: pointer; margin-bottom: 1rem; display: none;
     }
     .btn-stop.visible { display: block; }
 
@@ -394,8 +327,7 @@
         display: flex; align-items: center; gap: 0.8rem;
         padding: 0.75rem 0.85rem; border-radius: 10px;
         border: 2px solid var(--border); margin-bottom: 0.4rem;
-        background: var(--panel); transition: border-color 0.3s, opacity 0.3s;
-        font-size: 0.85rem;
+        background: var(--panel); transition: border-color 0.3s, opacity 0.3s; font-size: 0.85rem;
     }
     .queue-item.pending { opacity: 0.55; }
     .queue-item.creating { border-color: var(--yellow); }
@@ -408,54 +340,33 @@
     .queue-item .q-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .queue-item .q-excerpt { font-size: 0.72rem; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.1rem; }
     .queue-item .q-status { font-size: 0.72rem; color: var(--ink-dim); text-align: right; flex-shrink: 0; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .queue-item .q-thumb {
-        width: 36px; height: 64px; border-radius: 6px; overflow: hidden;
-        background: #eee; flex-shrink: 0;
-    }
+    .queue-item .q-thumb { width: 36px; height: 64px; border-radius: 6px; overflow: hidden; background: #eee; flex-shrink: 0; }
     .queue-item .q-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
     .gallery { margin-top: 1.5rem; }
-    .gallery-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 0.9rem;
-    }
+    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.9rem; }
     .gallery-item {
         border-radius: var(--radius); overflow: hidden;
         border: 3px solid var(--border); background: #000;
-        animation: fadeIn 0.4s ease;
-        box-shadow: 0 4px 12px rgba(255,107,157,0.15);
+        animation: fadeIn 0.4s ease; box-shadow: 0 4px 12px rgba(255,107,157,0.15);
     }
     .gallery-item video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
-    .gallery-item .g-caption {
-        padding: 0.5rem 0.7rem; background: var(--panel);
-        font-size: 0.72rem; color: var(--ink-dim); font-weight: 600;
-    }
+    .gallery-item .g-caption { padding: 0.5rem 0.7rem; background: var(--panel); font-size: 0.72rem; color: var(--ink-dim); font-weight: 600; }
 
     .final-film {
         margin-top: 1.5rem; padding: 1rem;
         background: linear-gradient(135deg, #e8f8e8, #e8f4ff);
-        border: 3px solid var(--green); border-radius: var(--radius);
-        display: none;
+        border: 3px solid var(--green); border-radius: var(--radius); display: none;
     }
     .final-film.visible { display: block; }
-    .final-film h3 {
-        font-size: 1rem; color: var(--green); margin-bottom: 0.7rem;
-        font-weight: 700;
-    }
-    .final-film video {
-        width: 100%; border-radius: 10px; background: #000;
-        aspect-ratio: 9/16; object-fit: cover;
-    }
+    .final-film h3 { font-size: 1rem; color: var(--green); margin-bottom: 0.7rem; font-weight: 700; }
+    .final-film video { width: 100%; border-radius: 10px; background: #000; aspect-ratio: 9/16; object-fit: cover; }
 
     .progress-bar-container {
         width: 100%; height: 12px; background: var(--panel-2);
-        border-radius: 6px; overflow: hidden; margin: 0.5rem 0;
-        border: 1px solid var(--border);
+        border-radius: 6px; overflow: hidden; margin: 0.5rem 0; border: 1px solid var(--border);
     }
-    .progress-bar-fill {
-        height: 100%; background: linear-gradient(90deg, var(--pink), var(--orange));
-        width: 0%; transition: width 0.3s;
-    }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--pink), var(--orange)); width: 0%; transition: width 0.3s; }
 
     .status-bar {
         position: fixed; bottom: 0; left: 0; right: 0;
@@ -487,30 +398,29 @@
 
 <div class="info-banner">
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
-    <div class="free-badge">🎉 IMAGES GRATUITES ILLIMITÉES</div>
+    <div class="free-badge">🎉 SYSTÈME MULTI-FALLBACK</div>
     <br><br>
-    <strong>Accès direct anonyme :</strong> Modèles gratuits optimisés.
-    Attente 20s entre les images pour respecter le rate limit.
+    <strong>Génération d'images :</strong> Pollinations → HuggingFace → Canvas procédural (garanti)
 </div>
 
 <div class="api-panel" id="api-panel">
     <label class="control-label" style="margin-bottom:0.4rem;">🔑 Clé API Agnes (vidéos + voix)</label>
-    <input type="password" class="api-key-input" id="api-key-input"
-           placeholder="Collez votre clé API Agnes (sk-...)" autocomplete="off" spellcheck="false">
+    <input type="password" class="api-key-input" id="api-key-input" placeholder="Collez votre clé API Agnes (sk-...)" autocomplete="off" spellcheck="false">
     <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé Agnes</button>
+    
+    <label class="control-label" style="margin-top:0.8rem; margin-bottom:0.4rem;">🎨 Token HuggingFace (optionnel, améliore les images)</label>
+    <input type="password" class="api-key-input" id="hf-key-input" placeholder="hf_... (gratuit sur huggingface.co)" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn hf" id="hf-save-btn">Enregistrer le token HuggingFace</button>
+    <div class="api-hint">Obtenez un token gratuit sur <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a></div>
+
     <div class="api-status-line" id="api-status-line">
         <span class="status-dot"></span>
         <span id="api-status-text">Aucune clé API enregistrée</span>
     </div>
 
     <div class="image-gen-status">
-        🎨 <strong>Images : Pollinations.ai</strong> — accès anonyme direct (modèles gratuits)
-        <br>
-        🎙️ <strong>Voix : Agnes IA</strong> — voix naturelles et enfantines
-    </div>
-
-    <div class="api-hint">
-        Agnes (vidéos + voix) : <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a>
+        🎨 <strong>Images :</strong> Pollinations → HuggingFace → Canvas procédural
+        <br>🎙️ <strong>Voix :</strong> Agnes IA — voix naturelles et enfantines
     </div>
 
     <button type="button" id="diag-btn" style="width:100%; padding:0.7rem; border-radius:10px; border:2px solid var(--warn); background:#fff8e8; color:var(--warn); font-weight:700; cursor:pointer; margin-top:0.5rem; font-family:inherit; font-size:0.82rem;">
@@ -531,16 +441,13 @@
     </div>
     <div class="section-body">
         <div class="section-content">
-            <textarea class="prompt-main" id="main-prompt"
-                placeholder="Écrivez votre histoire pour enfants. L'IA la découpera en scènes cohérentes."></textarea>
+            <textarea class="prompt-main" id="main-prompt" placeholder="Écrivez votre histoire pour enfants. L'IA la découpera en scènes cohérentes."></textarea>
             <div class="prompt-presets" id="prompt-presets"></div>
             <div class="story-counter">
                 <span>📝 <strong id="story-words">0</strong> mots</span>
                 <span>🎬 <strong id="story-scenes">0</strong> scènes</span>
             </div>
-            <div class="prompt-main-hint">
-                💡 Découpage par phrases complètes. Personnage et arrière-plan verrouillés automatiquement.
-            </div>
+            <div class="prompt-main-hint">💡 Découpage par phrases complètes. Personnage et arrière-plan verrouillés automatiquement.</div>
         </div>
     </div>
 </div>
@@ -548,9 +455,7 @@
 <div class="character-lock" id="character-lock">
     <div class="lock-title">🔒 Personnage canonique (verrouillé)</div>
     <textarea id="canonical-character" placeholder="Le personnage sera extrait automatiquement de votre histoire."></textarea>
-    <div class="lock-hint">
-        ✨ Cette description sera <strong>réutilisée à l'identique</strong> dans chaque scène.
-    </div>
+    <div class="lock-hint">✨ Cette description sera <strong>réutilisée à l'identique</strong> dans chaque scène.</div>
 </div>
 
 <div class="section" id="section-tech">
@@ -592,9 +497,7 @@
             <div class="control-row">
                 <label class="control-label">🌱 Seed (cohérence visuelle)</label>
                 <input type="number" id="seed-input" value="42" min="0" max="999999">
-                <div style="font-size:0.72rem; color:var(--ink-dim); margin-top:0.3rem;">
-                    Même seed = même style visuel entre les scènes
-                </div>
+                <div style="font-size:0.72rem; color:var(--ink-dim); margin-top:0.3rem;">Même seed = même style visuel entre les scènes</div>
             </div>
         </div>
     </div>
@@ -636,21 +539,10 @@
     </div>
 </div>
 
-<button type="button" class="btn-primary" id="generate-btn" disabled>
-    🌟 Créer les scènes du film
-</button>
-
-<button type="button" class="btn-assemble" id="assemble-btn">
-    🎬 Assembler le film final (toutes les scènes)
-</button>
-
-<button type="button" class="btn-download" id="download-btn">
-    ⬇️ Télécharger le film (WebM)
-</button>
-
-<button type="button" class="btn-stop" id="stop-btn">
-    ⏹ Arrêter la génération
-</button>
+<button type="button" class="btn-primary" id="generate-btn" disabled>🌟 Créer les scènes du film</button>
+<button type="button" class="btn-assemble" id="assemble-btn">🎬 Assembler le film final (toutes les scènes)</button>
+<button type="button" class="btn-download" id="download-btn">⬇️ Télécharger le film (WebM)</button>
+<button type="button" class="btn-stop" id="stop-btn">⏹ Arrêter la génération</button>
 
 <div class="queue" id="queue" style="display:none;"></div>
 
@@ -709,17 +601,18 @@
 const AGNES_API_BASE = 'https://apihub.agnes-ai.com/v1';
 const AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
 const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/';
+const HUGGINGFACE_BASE = 'https://api-inference.huggingface.co/models/';
 
 const MODEL_VIDEO = 'agnes-video-v2.0';
 const FRAME_RATE = 24;
 
 let createIntervalMs = 62000;
 const CREATE_INTERVAL_MIN = 62000;
-const CREATE_INTERVAL_MAX = 90000;
 const POLL_INTERVAL_SEC = 8;
 const MAX_POLL_ATTEMPTS = 120;
 
 const AGNES_KEY_STORAGE = 'agnes_api_key';
+const HF_KEY_STORAGE = 'huggingface_api_key';
 const WAKE_LOCK_PREF = 'agnes_wakelock_enabled';
 const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
 
@@ -731,33 +624,16 @@ const POLLINATIONS_MIN_INTERVAL_MS = 20000;
 // 2. ÉTAT GLOBAL
 // ══════════════════════════════════════════════════════════════════
 const state = {
-    story: '',
-    storySegments: [],
-    scenes: [],
-    isRunning: false,
-    stopRequested: false,
-    completed: 0,
-    failed: 0,
-    selectedTheme: 'pixar-3d',
-    characters: 'custom',
-    durationFrames: 153,
-    targetScenes: 'auto',
-    audioFile: null,
-    audioObjectUrl: null,
-    audioBpm: null,
-    audioDuration: 0,
-    finalFilmBlob: null,
-    isAssembling: false,
-    lastPollinationsCall: 0,
-    canonicalCharacter: '',
-    globalSetting: '',
-    seed: 42,
-    musicVolume: 0.20,
-    duckingEnabled: true
+    story: '', storySegments: [], scenes: [], isRunning: false, stopRequested: false,
+    completed: 0, failed: 0, selectedTheme: 'pixar-3d', characters: 'custom',
+    durationFrames: 153, targetScenes: 'auto', audioFile: null, audioObjectUrl: null,
+    audioBpm: null, audioDuration: 0, finalFilmBlob: null, isAssembling: false,
+    lastPollinationsCall: 0, canonicalCharacter: '', globalSetting: '',
+    seed: 42, musicVolume: 0.20, duckingEnabled: true
 };
 
 // ══════════════════════════════════════════════════════════════════
-// 3. TOAST & UTILITAIRES
+// 3. UTILITAIRES
 // ══════════════════════════════════════════════════════════════════
 let toastTimeout = null;
 function showToast(message, type = 'success', duration = 2500) {
@@ -767,8 +643,7 @@ function showToast(message, type = 'success', duration = 2500) {
     if (!toast) return;
     toast.classList.remove('visible', 'success', 'error', 'warn');
     void toast.offsetWidth;
-    const icons = { success: '✓', error: '✕', warn: '⚠' };
-    icon.textContent = icons[type] || '✓';
+    icon.textContent = { success: '✓', error: '✕', warn: '⚠' }[type] || '✓';
     text.textContent = message;
     toast.classList.add(type);
     requestAnimationFrame(() => toast.classList.add('visible'));
@@ -786,18 +661,13 @@ function setStatus(text) {
     else bar.classList.remove('visible');
 }
 function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // ══════════════════════════════════════════════════════════════════
 // 4. ANTI-VEILLE
 // ══════════════════════════════════════════════════════════════════
-let wakeLockSentinel = null;
-let wakeLockEnabled = false;
-let canvasStream = null;
-let canvasInterval = null;
+let wakeLockSentinel = null, wakeLockEnabled = false, canvasStream = null, canvasInterval = null;
 
 function isWakeLockSupported() { return 'wakeLock' in navigator && typeof navigator.wakeLock.request === 'function'; }
 async function requestWakeLockAPI() {
@@ -808,9 +678,7 @@ async function requestWakeLockAPI() {
         return true;
     } catch (e) { return false; }
 }
-async function releaseWakeLockAPI() {
-    if (wakeLockSentinel) { try { await wakeLockSentinel.release(); } catch (e) {} wakeLockSentinel = null; }
-}
+async function releaseWakeLockAPI() { if (wakeLockSentinel) { try { await wakeLockSentinel.release(); } catch (e) {} wakeLockSentinel = null; } }
 function startCanvasStream() {
     if (canvasStream) return true;
     try {
@@ -818,22 +686,15 @@ function startCanvasStream() {
         const video = document.getElementById('noSleepVideo');
         if (!canvas || !video) return false;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return false;
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        if (typeof canvas.captureStream !== 'function') return false;
+        ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         canvasStream = canvas.captureStream(1);
         let toggle = false;
         canvasInterval = setInterval(() => {
-            toggle = !toggle;
-            ctx.fillStyle = toggle ? '#000000' : '#010101';
+            toggle = !toggle; ctx.fillStyle = toggle ? '#000000' : '#010101';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }, 1000);
-        video.srcObject = canvasStream;
-        video.muted = true;
-        video.playsInline = true;
-        const playPromise = video.play();
-        if (playPromise && playPromise.catch) playPromise.catch(e => {});
+        video.srcObject = canvasStream; video.muted = true; video.playsInline = true;
+        video.play().catch(() => {});
         return true;
     } catch (e) { return false; }
 }
@@ -843,21 +704,15 @@ function stopCanvasStream() {
     if (video) { try { video.pause(); video.srcObject = null; } catch (e) {} }
     if (canvasStream) { try { canvasStream.getTracks().forEach(t => t.stop()); } catch (e) {} canvasStream = null; }
 }
-async function activateWakeLock() {
-    let success = false;
-    if (isWakeLockSupported()) success = await requestWakeLockAPI();
-    if (!success) success = startCanvasStream();
-    return success;
-}
+async function activateWakeLock() { return (isWakeLockSupported() ? await requestWakeLockAPI() : false) || startCanvasStream(); }
 async function deactivateWakeLock() { await releaseWakeLockAPI(); stopCanvasStream(); }
 function updateWakeStatus() {
-    const el = document.getElementById('wake-status');
-    const txt = document.getElementById('wake-status-text');
-    const btn = document.getElementById('wake-toggle-btn');
+    const el = document.getElementById('wake-status'), txt = document.getElementById('wake-status-text'), btn = document.getElementById('wake-toggle-btn');
     if (!el || !txt || !btn) return;
     el.classList.remove('active', 'warn');
-    const hasAny = isWakeLockSupported() || (document.getElementById('noSleepCanvas')?.captureStream);
-    if (!hasAny) { el.classList.add('warn'); txt.textContent = '⚠️ Non supporté'; btn.style.display = 'none'; return; }
+    if (!isWakeLockSupported() && !document.getElementById('noSleepCanvas')?.captureStream) {
+        el.classList.add('warn'); txt.textContent = '⚠️ Non supporté'; btn.style.display = 'none'; return;
+    }
     btn.style.display = 'inline-block';
     const isActive = wakeLockSentinel !== null || canvasStream !== null;
     if (wakeLockEnabled && isActive) { el.classList.add('active'); txt.textContent = '✅ Écran allumé'; btn.textContent = 'Désactiver'; }
@@ -891,43 +746,31 @@ function segmentStory(text, targetScenes) {
     if (!text || !text.trim()) return [];
     let normalized = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
     const sentences = normalized.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(s => s.length > 0);
-    const MIN_LEN = 40;
-    const merged = [];
-    let buffer = '';
+    const merged = []; let buffer = '';
     for (const s of sentences) {
         buffer = buffer ? buffer + ' ' + s : s;
-        if (buffer.length >= MIN_LEN) { merged.push(buffer); buffer = ''; }
+        if (buffer.length >= 40) { merged.push(buffer); buffer = ''; }
     }
-    if (buffer) {
-        if (merged.length > 0) merged[merged.length - 1] += ' ' + buffer;
-        else merged.push(buffer);
-    }
-    const MAX_LEN = 250;
+    if (buffer) { if (merged.length > 0) merged[merged.length - 1] += ' ' + buffer; else merged.push(buffer); }
     const finalSegments = [];
     for (const seg of merged) {
-        if (seg.length <= MAX_LEN) { finalSegments.push(seg); }
+        if (seg.length <= 250) { finalSegments.push(seg); }
         else {
             const parts = seg.split(/[,;]\s+|\s+(?:et|puis|alors|donc|mais|car)\s+/i);
             let sub = '';
             for (const p of parts) {
                 sub = sub ? sub + ', ' + p : p;
-                if (sub.length >= MAX_LEN * 0.6) { finalSegments.push(sub); sub = ''; }
+                if (sub.length >= 150) { finalSegments.push(sub); sub = ''; }
             }
-            if (sub) {
-                if (finalSegments.length > 0) finalSegments[finalSegments.length - 1] += ', ' + sub;
-                else finalSegments.push(sub);
-            }
+            if (sub) { if (finalSegments.length > 0) finalSegments[finalSegments.length - 1] += ', ' + sub; else finalSegments.push(sub); }
         }
     }
     if (targetScenes === 'auto' || !targetScenes) return finalSegments;
     const target = parseInt(targetScenes, 10);
     if (isNaN(target) || target <= 0 || finalSegments.length <= target) return finalSegments;
-    const result = [];
-    const groupSize = finalSegments.length / target;
+    const result = []; const groupSize = finalSegments.length / target;
     for (let i = 0; i < target; i++) {
-        const start = Math.round(i * groupSize);
-        const end = Math.round((i + 1) * groupSize);
-        const group = finalSegments.slice(start, end).join(' ');
+        const group = finalSegments.slice(Math.round(i * groupSize), Math.round((i + 1) * groupSize)).join(' ');
         if (group.trim()) result.push(group.trim());
     }
     return result;
@@ -939,30 +782,26 @@ function buildCanonicalCharacter(storyText) {
     const nameMatch = storyText.match(/(?:prénommé|nommé|appelé|s'appelait)\s+([A-ZÀ-Ý][a-zà-ÿ]+)/);
     const characterName = nameMatch ? nameMatch[1] : '';
     const patterns = [
-        { regex: /(dragon)/, base: 'un petit dragon mignon', detail: 'aux écailles douces et brillantes, grandes ailes rondes, yeux dorés expressifs et bienveillants, queue ornée d\'une petite flamme dorée' },
-        { regex: /(ourson|ours)/, base: 'un adorable ourson en peluche', detail: 'avec un pelage duveteux et doux, de grands yeux ronds et brillants, des oreilles rondes, un sourire chaleureux' },
-        { regex: /(lapin|lapine|lièvre)/, base: 'une petite lapine adorable', detail: 'avec de longues oreilles tombantes toutes douces, un pelage soyeux, de grands yeux pétillants, une petite queue ronde' },
-        { regex: /(poussin|poule)/, base: 'un petit poussin tout jaune', detail: 'avec un duvet soyeux jaune doré, de grands yeux noirs brillants, un petit bec orange, un chapeau de paille' },
-        { regex: /(renard)/, base: 'un petit renard espiègle', detail: 'avec une fourrure orange rousse douce, une grande queue touffue, de grands yeux malicieux, des oreilles pointues' },
-        { regex: /(licorne)/, base: 'une petite licorne magique', detail: 'avec une corne arc-en-ciel scintillante, une crinière multicolore soyeuse, un pelage doux et brillant, des sabots dorés' },
-        { regex: /(chaton|chat)/, base: 'un petit chaton mignon', detail: 'avec une fourrure soyeuse, de grands yeux ronds expressifs, un petit nez rose, des moustaches fines' },
-        { regex: /(chiot|chien)/, base: 'un petit chiot joyeux', detail: 'avec un pelage duveteux, de grands yeux brillants, un petit nez humide, une queue remuante' },
-        { regex: /(garçon|petit garçon)/, base: 'un petit garçon joyeux', detail: 'avec des cheveux doux, des yeux pétillants, un grand sourire, des vêtements colorés et simples' },
-        { regex: /(fille|petite fille)/, base: 'une petite fille joyeuse', detail: 'avec des cheveux soyeux, des yeux pétillants, un grand sourire, une robe colorée et simple' }
+        { regex: /(dragon)/, base: 'un petit dragon mignon', detail: 'aux écailles douces et brillantes, grandes ailes rondes, yeux dorés expressifs' },
+        { regex: /(ourson|ours)/, base: 'un adorable ourson en peluche', detail: 'avec un pelage duveteux et doux, de grands yeux ronds et brillants' },
+        { regex: /(lapin|lapine|lièvre)/, base: 'une petite lapine adorable', detail: 'avec de longues oreilles tombantes toutes douces, un pelage soyeux' },
+        { regex: /(poussin|poule)/, base: 'un petit poussin tout jaune', detail: 'avec un duvet soyeux jaune doré, de grands yeux noirs brillants' },
+        { regex: /(renard)/, base: 'un petit renard espiègle', detail: 'avec une fourrure orange rousse douce, une grande queue touffue' },
+        { regex: /(licorne)/, base: 'une petite licorne magique', detail: 'avec une corne arc-en-ciel scintillante, une crinière multicolore soyeuse' },
+        { regex: /(chaton|chat)/, base: 'un petit chaton mignon', detail: 'avec une fourrure soyeuse, de grands yeux ronds expressifs' },
+        { regex: /(chiot|chien)/, base: 'un petit chiot joyeux', detail: 'avec un pelage duveteux, de grands yeux brillants' },
+        { regex: /(garçon|petit garçon)/, base: 'un petit garçon joyeux', detail: 'avec des cheveux doux, des yeux pétillants, des vêtements colorés' },
+        { regex: /(fille|petite fille)/, base: 'une petite fille joyeuse', detail: 'avec des cheveux soyeux, des yeux pétillants, une robe colorée' }
     ];
     let charBase = '', charDetail = '';
-    for (const p of patterns) {
-        if (p.regex.test(lower)) { charBase = p.base; charDetail = p.detail; break; }
-    }
+    for (const p of patterns) { if (p.regex.test(lower)) { charBase = p.base; charDetail = p.detail; break; } }
     let colorInfo = '';
     const colorMatch = lower.match(/(bleu|turquoise|rose|jaune|vert|rouge|orange|violet|brun|blanc|noir|gris|doré|argenté)/);
     if (colorMatch) colorInfo = ' de couleur ' + colorMatch[1];
-    
     if (charBase) {
         let description = charBase + colorInfo + ' ' + charDetail;
         if (characterName) description = characterName + ', ' + description;
-        description += '. Ce personnage doit être IDENTIQUE dans toutes les scènes : même apparence, même couleur, mêmes proportions, mêmes détails.';
-        return description;
+        return description + '. Ce personnage doit être IDENTIQUE dans toutes les scènes : même apparence, même couleur, mêmes proportions.';
     }
     return 'Un personnage principal adorable et attachant, avec de grands yeux expressifs, un sourire chaleureux, un design doux et arrondi style Pixar. Ce personnage doit être IDENTIQUE dans toutes les scènes.';
 }
@@ -995,10 +834,8 @@ function updateStoryPreview() {
     const storyEl = document.getElementById('main-prompt');
     const story = storyEl.value.trim();
     state.story = story;
-    const words = story ? story.split(/\s+/).filter(w => w.length > 0).length : 0;
-    document.getElementById('story-words').textContent = words;
-    const targetScenes = document.getElementById('scenes-count-select').value;
-    const segments = segmentStory(story, targetScenes);
+    document.getElementById('story-words').textContent = story ? story.split(/\s+/).filter(w => w.length > 0).length : 0;
+    const segments = segmentStory(story, document.getElementById('scenes-count-select').value);
     state.storySegments = segments;
     document.getElementById('story-scenes').textContent = segments.length;
     updateCanonicalCharacter();
@@ -1006,7 +843,7 @@ function updateStoryPreview() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 6. PROMPTS
+// 6. PROMPTS & DONNÉES STATIQUES
 // ══════════════════════════════════════════════════════════════════
 const CHARACTER_PROMPTS = {
     'custom': null,
@@ -1016,56 +853,42 @@ const CHARACTER_PROMPTS = {
     'dragon': 'cute small friendly dragon with soft rounded scales, big expressive eyes, warm smile, small wings',
     'mixed': 'cute fluffy animals together, all smiling and friendly, rounded soft shapes'
 };
-
 const NEGATIVE_PROMPT = 'scary, dark, deformed, text, watermark, realistic, creepy, sharp shadows, sudden movements, distortion, extra limbs, uncanny valley, harsh contrast, cold colors, sad, angry, violent, blurry, low quality, bad anatomy, cut off, abrupt ending';
 
 function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
-    let charPrompt = state.canonicalCharacter;
-    if (!charPrompt) {
-        const selectedChar = CHARACTER_PROMPTS[state.characters];
-        charPrompt = selectedChar || 'un personnage principal adorable et attachant';
-    }
-
-    const bloc1 = 'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still';
-    const bloc2 = 'MAIN CHARACTER (MUST BE IDENTICAL in every scene, same face, same colors, same proportions): ' + charPrompt;
-    const blocEnv = 'GLOBAL ENVIRONMENT LOCK (MUST REMAIN CONSISTENT ACROSS ALL SCENES): ' + state.globalSetting;
-    const bloc3 = 'SCENE ACTION: ' + sceneText;
-    const bloc4 = 'STYLE: ' + theme.prompt;
-    const cameraAngles = ['medium shot, character centered, cinematic composition', 'wide establishing shot, character in environment context', 'close-up portrait, character face and expression detailed', 'three-quarter view, character slightly turned, dynamic angle'];
-    const camIndex = sceneIndex % cameraAngles.length;
-    const bloc5 = 'CAMERA: ' + cameraAngles[camIndex] + '. LIGHTING: warm golden hour lighting, soft shadows, magical glow';
-    const bloc6 = 'vertical portrait format 9:16, high detail, smooth rendering, vibrant saturated colors, child-friendly, no text, no watermark. Avoid: ' + NEGATIVE_PROMPT;
-
-    const parts = [bloc1, bloc2, blocEnv, bloc3, bloc4, bloc5, bloc6];
+    let charPrompt = state.canonicalCharacter || CHARACTER_PROMPTS[state.characters] || 'un personnage principal adorable';
+    const parts = [
+        'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still',
+        'MAIN CHARACTER (MUST BE IDENTICAL in every scene, same face, same colors, same proportions): ' + charPrompt,
+        'GLOBAL ENVIRONMENT LOCK (MUST REMAIN CONSISTENT ACROSS ALL SCENES): ' + state.globalSetting,
+        'SCENE ACTION: ' + sceneText,
+        'STYLE: ' + theme.prompt,
+        'CAMERA: ' + ['medium shot, character centered', 'wide establishing shot', 'close-up portrait', 'three-quarter view'][sceneIndex % 4] + '. LIGHTING: warm golden hour lighting, soft shadows, magical glow',
+        'vertical portrait format 9:16, high detail, smooth rendering, vibrant saturated colors, child-friendly, no text, no watermark. Avoid: ' + NEGATIVE_PROMPT
+    ];
     if (previousContext) parts.push('Continuing from previous scene for visual consistency: ' + previousContext);
-
     return parts.join('. ');
 }
 
 function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
-    let charPrompt = state.canonicalCharacter;
-    if (!charPrompt) charPrompt = CHARACTER_PROMPTS[state.characters] || 'le personnage principal';
-
-    const parts = [];
-    parts.push('Animate this exact image as the starting frame. The character and environment MUST remain IDENTICAL.');
-    parts.push('GLOBAL ENVIRONMENT: ' + state.globalSetting);
-    parts.push('SCENE: ' + sceneText);
-    parts.push('CHARACTER: ' + charPrompt);
-    parts.push('STYLE: ' + theme.prompt);
-    parts.push('Simple rhythmic joyful animation — gentle movements, breathing, blinking, subtle sway.');
-    parts.push('CRITICAL AUDIO RULE: If the character speaks or sings, the voiceover must be complete, natural, and in French. DO NOT cut the audio mid-word or mid-sentence. Pace the animation to allow the full sentence to be spoken smoothly within the duration.');
-    parts.push('Soft glowing sparkles or music notes floating gently if appropriate.');
-    parts.push('Bright saturated but soft colors, high quality 3D render, smooth 24fps, vertical 9:16.');
-    parts.push('The final 1.0 seconds must smoothly fade out — the character gradually slows down, the light softens, natural peaceful ending. NO abrupt cut.');
-    parts.push('NEGATIVE PROMPT: ' + NEGATIVE_PROMPT);
-    return parts.join('. ');
+    let charPrompt = state.canonicalCharacter || CHARACTER_PROMPTS[state.characters] || 'le personnage principal';
+    return [
+        'Animate this exact image as the starting frame. The character and environment MUST remain IDENTICAL.',
+        'GLOBAL ENVIRONMENT: ' + state.globalSetting,
+        'SCENE: ' + sceneText,
+        'CHARACTER: ' + charPrompt,
+        'STYLE: ' + theme.prompt,
+        'Simple rhythmic joyful animation — gentle movements, breathing, blinking, subtle sway.',
+        'CRITICAL AUDIO RULE: If the character speaks or sings, the voiceover must be complete, natural, and in French. DO NOT cut the audio mid-word or mid-sentence. Pace the animation to allow the full sentence to be spoken smoothly within the duration.',
+        'Soft glowing sparkles or music notes floating gently if appropriate.',
+        'Bright saturated but soft colors, high quality 3D render, smooth 24fps, vertical 9:16.',
+        'The final 1.0 seconds must smoothly fade out — natural peaceful ending. NO abrupt cut.',
+        'NEGATIVE PROMPT: ' + NEGATIVE_PROMPT
+    ].join('. ');
 }
 
-// ══════════════════════════════════════════════════════════════════
-// 7. DONNÉES STATIQUES
-// ══════════════════════════════════════════════════════════════════
 const STORY_PRESETS = [
     { label: '🐻 L\'ourson et la fête', text: 'Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie. Un matin, il décida d\'organiser une grande fête avec tous ses amis. Il invita la petite lapine rose et le poussin jaune. Ensemble, ils préparèrent des gâteaux et décorèrent la prairie avec des ballons colorés. Quand le soleil se coucha, ils dansèrent et chantèrent toute la nuit sous les étoiles. L\'ourson était le plus heureux des oursons.' },
     { label: '🐲 Le dragon aux bulles', text: 'Il était une fois un petit dragon prénommé Barnabé. Contrairement à tous les autres dragons, Barnabé ne crachait pas de feu. Quand il essayait, il ne sortait que des bulles de savon colorées. Ses frères se moquaient de lui. Un après-midi, un grand nuage noir cacha le soleil et la forêt devint sombre. Barnabé souffla une gigantesque bulle qui captura les rayons du soleil. Elles illuminèrent toute la forêt. Depuis ce jour, Barnabé est le dragon le plus populaire du royaume.' },
@@ -1092,82 +915,68 @@ const JOYFUL_THEMES = [
 ];
 
 // ══════════════════════════════════════════════════════════════════
-// 8. CLÉ AGNES & UTILITAIRES
+// 7. CLÉS API & UTILITAIRES
 // ══════════════════════════════════════════════════════════════════
 function getAgnesKey() { try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
+function getHfKey() { try { return (localStorage.getItem(HF_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
+
 function saveAgnesKey() {
-    const input = document.getElementById('api-key-input');
-    const key = input.value.trim();
+    const key = document.getElementById('api-key-input').value.trim();
     if (!key) { localStorage.removeItem(AGNES_KEY_STORAGE); updateApiPanel(); showToast('Clé Agnes supprimée', 'warn'); return; }
-    localStorage.setItem(AGNES_KEY_STORAGE, key);
-    updateApiPanel();
-    showToast('Clé Agnes enregistrée ✓', 'success');
+    localStorage.setItem(AGNES_KEY_STORAGE, key); updateApiPanel(); showToast('Clé Agnes enregistrée ✓', 'success');
 }
+function saveHfKey() {
+    const key = document.getElementById('hf-key-input').value.trim();
+    if (!key) { localStorage.removeItem(HF_KEY_STORAGE); showToast('Token HuggingFace supprimé', 'warn'); return; }
+    localStorage.setItem(HF_KEY_STORAGE, key); showToast('Token HuggingFace enregistré ✓', 'success');
+}
+
 function updateApiPanel() {
-    const panel = document.getElementById('api-panel');
-    const input = document.getElementById('api-key-input');
-    const statusLine = document.getElementById('api-status-line');
-    const statusText = document.getElementById('api-status-text');
+    const panel = document.getElementById('api-panel'), input = document.getElementById('api-key-input');
+    const statusLine = document.getElementById('api-status-line'), statusText = document.getElementById('api-status-text');
     const agnesKey = getAgnesKey();
     if (agnesKey) {
-        statusLine.classList.add('ok');
-        statusText.textContent = 'Clé Agnes active · ' + agnesKey.slice(0, 8) + '…' + agnesKey.slice(-4);
-        input.value = agnesKey;
-        panel.classList.add('ok');
+        statusLine.classList.add('ok'); statusText.textContent = 'Clé Agnes active · ' + agnesKey.slice(0, 8) + '…' + agnesKey.slice(-4);
+        input.value = agnesKey; panel.classList.add('ok');
     } else {
-        statusLine.classList.remove('ok');
-        statusText.textContent = 'Aucune clé Agnes enregistrée (nécessaire pour les vidéos)';
-        input.value = '';
-        panel.classList.remove('ok');
+        statusLine.classList.remove('ok'); statusText.textContent = 'Aucune clé Agnes enregistrée (nécessaire pour les vidéos)';
+        input.value = ''; panel.classList.remove('ok');
     }
     updateGenerateBtn();
 }
+
 function updateGenerateBtn() {
     const btn = document.getElementById('generate-btn');
     if (!btn) return;
-    const hasStory = state.storySegments.length > 0;
-    const hasAgnes = !!getAgnesKey();
+    const hasStory = state.storySegments.length > 0, hasAgnes = !!getAgnesKey();
     btn.disabled = !hasStory || !hasAgnes || state.isRunning;
-    if (state.isRunning) {
-        const total = state.scenes.length;
-        const done = state.completed + state.failed;
-        btn.textContent = '🎬 Création… (' + done + '/' + total + ')';
-    } else if (!hasAgnes) {
-        btn.textContent = '🔑 Ajoutez votre clé Agnes';
-    } else if (!hasStory) {
-        btn.textContent = '📖 Écrivez votre histoire';
-    } else {
-        btn.textContent = '🌟 Créer les ' + state.storySegments.length + ' scènes';
-    }
+    if (state.isRunning) btn.textContent = '🎬 Création… (' + (state.completed + state.failed) + '/' + state.scenes.length + ')';
+    else if (!hasAgnes) btn.textContent = '🔑 Ajoutez votre clé Agnes';
+    else if (!hasStory) btn.textContent = '📖 Écrivez votre histoire';
+    else btn.textContent = '🌟 Créer les ' + state.storySegments.length + ' scènes';
 }
 
 function generateThumbnail(dataUri) {
     return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
+        const img = new Image(); img.crossOrigin = 'anonymous';
         img.onload = () => {
             try {
                 const canvas = document.createElement('canvas');
-                const ratio = img.height / img.width;
-                canvas.width = THUMBNAIL_MAX_WIDTH;
-                canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * ratio);
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.width = THUMBNAIL_MAX_WIDTH; canvas.height = Math.round(THUMBNAIL_MAX_WIDTH * (img.height / img.width));
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
                 resolve(canvas.toDataURL('image/jpeg', 0.7));
             } catch (e) { resolve(dataUri); }
         };
-        img.onerror = () => resolve(dataUri);
-        img.src = dataUri;
+        img.onerror = () => resolve(dataUri); img.src = dataUri;
     });
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 9. POLLINATIONS.AI (CORRIGÉ POUR ÉVITER LE 402)
+// 8. GÉNÉRATION D'IMAGES - SYSTÈME MULTI-FALLBACK
 // ══════════════════════════════════════════════════════════════════
-// Modèles gratuits et stables en 2024/2026. 'turbo' et 'kolors' sont les plus fiables sans token.
 const POLLINATIONS_ANONYMOUS_MODELS = ['turbo', 'kolors', 'dreamshaper', 'flux'];
 
-async function generateImageWithPollinations(prompt, retries = 5) {
+async function generateImageWithPollinations(prompt, retries = 3) {
     const now = Date.now();
     const elapsed = now - state.lastPollinationsCall;
     if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
@@ -1177,16 +986,13 @@ async function generateImageWithPollinations(prompt, retries = 5) {
         await sleep(wait);
     }
     state.lastPollinationsCall = Date.now();
-    
-    // Résolution optimisée pour le niveau gratuit de Pollinations (768x1365 est mieux supporté que 720x1280)
-    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1500)); // Légèrement réduit pour éviter les URL trop longues
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1500));
     let lastError = null;
 
     for (let attempt = 0; attempt < retries; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
         const model = POLLINATIONS_ANONYMOUS_MODELS[attempt % POLLINATIONS_ANONYMOUS_MODELS.length];
-        const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
-        const url = POLLINATIONS_BASE + encodedPrompt + '?width=768&height=1365&model=' + model + '&nologo=true&seed=' + state.seed + '&_=' + cacheBuster;
+        const url = POLLINATIONS_BASE + encodedPrompt + '?width=768&height=1365&model=' + model + '&nologo=true&seed=' + state.seed + '&_=' + (Date.now() + Math.floor(Math.random() * 10000));
 
         try {
             log('Pollinations [' + model + '] tentative ' + (attempt + 1));
@@ -1196,20 +1002,13 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             const res = await fetch(url, { method: 'GET', signal: controller.signal });
             clearTimeout(timeoutId);
 
-            // GESTION SPÉCIFIQUE DU 402 : Passage immédiat au modèle suivant sans attendre
-            if (res.status === 402) {
-                log('Pollinations [' + model + '] 402 (Premium/Quota) → modèle suivant');
-                continue;
-            }
-            if (res.status === 429 || res.status >= 500) {
-                await sleep([15, 30, 45][Math.min(attempt, 2)] * 1000);
+            if (res.status === 402 || res.status === 429 || res.status >= 500) {
+                log('Pollinations [' + model + '] ' + res.status + ' → modèle suivant');
                 continue;
             }
             if (!res.ok) throw new Error('HTTP ' + res.status);
-
             const blob = await res.blob();
             if (!blob.type.startsWith('image/')) throw new Error('Réponse non-image');
-            
             return await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onloadend = () => resolve(reader.result);
@@ -1218,55 +1017,111 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             });
         } catch (e) {
             lastError = e;
-            if (attempt < retries - 1) { await sleep(3000); state.lastPollinationsCall = Date.now(); }
+            if (attempt < retries - 1) { await sleep(2000); state.lastPollinationsCall = Date.now(); }
         }
     }
-    
-    // Fallback local si tous les modèles échouent
-    log('⚠️ Tous les modèles ont échoué — génération d\'une image de secours locale');
-    return await generateFallbackImage(prompt);
+    throw new Error('Pollinations échoué : ' + (lastError ? lastError.message : 'tous les modèles ont échoué'));
 }
 
-async function generateFallbackImage(prompt) {
+async function generateImageWithHuggingFace(prompt) {
+    const hfKey = getHfKey();
+    if (!hfKey) throw new Error('Pas de token HuggingFace');
+    log('HuggingFace : tentative de génération');
+    setStatus('Image HuggingFace…');
+
+    for (const model of ['stabilityai/stable-diffusion-xl-base-1.0', 'runwayml/stable-diffusion-v1-5']) {
+        try {
+            const response = await fetch(HUGGINGFACE_BASE + model, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + hfKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inputs: prompt, parameters: { negative_prompt: NEGATIVE_PROMPT, num_inference_steps: 20, guidance_scale: 7.5, width: 768, height: 1365 } })
+            });
+            if (!response.ok) { log('HuggingFace [' + model + '] HTTP ' + response.status); continue; }
+            const blob = await response.blob();
+            if (!blob.type.startsWith('image/')) continue;
+            return await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Erreur conversion blob'));
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) { log('HuggingFace [' + model + '] erreur : ' + e.message); }
+    }
+    throw new Error('HuggingFace échoué');
+}
+
+async function generateProceduralImage(sceneText, sceneIndex) {
+    log('Canvas procédural : génération locale');
+    setStatus('Image locale (fallback)…');
     const canvas = document.createElement('canvas');
-    canvas.width = 768;
-    canvas.height = 1365;
+    canvas.width = 768; canvas.height = 1365;
     const ctx = canvas.getContext('2d');
+    const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
+    
     const grad = ctx.createLinearGradient(0, 0, 0, 1365);
-    grad.addColorStop(0, '#FFE0F0');
-    grad.addColorStop(0.5, '#E0F0FF');
-    grad.addColorStop(1, '#FFF8E0');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 768, 1365);
-    
-    ctx.font = 'bold 180px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#ff6b9d';
-    ctx.fillText('🎨', 384, 600);
-    
-    ctx.fillStyle = '#3a2a1a';
-    ctx.font = 'bold 32px sans-serif';
-    ctx.fillText('Image de secours générée', 384, 800);
-    ctx.font = '24px sans-serif';
-    ctx.fillStyle = '#a07a52';
-    ctx.fillText('Le service d\'image était saturé', 384, 850);
-    
-    return canvas.toDataURL('image/jpeg', 0.85);
+    if (theme.id.includes('forest') || theme.id.includes('enchanted')) { grad.addColorStop(0, '#2d5016'); grad.addColorStop(0.5, '#4a7c2f'); grad.addColorStop(1, '#6b9b3e'); }
+    else if (theme.id.includes('beach') || theme.id.includes('sunny')) { grad.addColorStop(0, '#87CEEB'); grad.addColorStop(0.6, '#FFD700'); grad.addColorStop(1, '#F4A460'); }
+    else if (theme.id.includes('space')) { grad.addColorStop(0, '#0a0a2e'); grad.addColorStop(0.5, '#1a1a4e'); grad.addColorStop(1, '#2a2a6e'); }
+    else { grad.addColorStop(0, '#FFE0F0'); grad.addColorStop(0.5, '#E0F0FF'); grad.addColorStop(1, '#FFF8E0'); }
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 768, 1365);
+
+    const seed = state.seed + sceneIndex;
+    const random = (min, max) => { const x = Math.sin(seed + min * max) * 10000; return min + (x - Math.floor(x)) * (max - min); };
+
+    if (theme.id.includes('forest')) {
+        for (let i = 0; i < 8; i++) {
+            const x = random(50, 700), y = random(800, 1200);
+            ctx.fillStyle = '#3d2817'; ctx.fillRect(x - 15, y, 30, 150);
+            ctx.fillStyle = '#4a7c2f'; ctx.beginPath(); ctx.arc(x, y - 20, 60, 0, Math.PI * 2); ctx.fill();
+        }
+    } else if (theme.id.includes('space')) {
+        for (let i = 0; i < 100; i++) {
+            ctx.fillStyle = 'rgba(255, 255, 255, ' + random(0.3, 1) + ')';
+            ctx.fillRect(random(0, 768), random(0, 1365), random(1, 4), random(1, 4));
+        }
+    }
+    for (let i = 0; i < 15; i++) {
+        ctx.beginPath(); ctx.arc(random(0, 768), random(0, 1365), random(20, 80), 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + random(0.05, 0.2) + ')'; ctx.fill();
+    }
+
+    const centerX = 384, centerY = 700;
+    ctx.fillStyle = '#FFB6C1'; ctx.beginPath(); ctx.ellipse(centerX, centerY, 100, 140, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(centerX - 30, centerY - 40, 12, 0, Math.PI * 2); ctx.arc(centerX + 30, centerY - 40, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(centerX, centerY + 10, 40, 0.2, Math.PI - 0.2); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 1100, 768, 265);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const words = sceneText.split(' '); let lines = [], currentLine = '';
+    for (const word of words) {
+        if (ctx.measureText(currentLine + word).width > 700) { lines.push(currentLine); currentLine = word + ' '; }
+        else { currentLine += word + ' '; }
+    }
+    if (currentLine) lines.push(currentLine);
+    lines.slice(0, 6).forEach((line, i) => { ctx.fillText(line, 384, 1150 + i * 35); });
+
+    return canvas.toDataURL('image/jpeg', 0.9);
+}
+
+async function generateImage(prompt, sceneIndex) {
+    try { return await generateImageWithPollinations(prompt, 3); } catch (e) { log('⚠️ Pollinations échoué : ' + e.message); }
+    if (getHfKey()) {
+        try { return await generateImageWithHuggingFace(prompt); } catch (e) { log('⚠️ HuggingFace échoué : ' + e.message); }
+    }
+    log('🎨 Utilisation du fallback Canvas procédural');
+    return await generateProceduralImage(state.storySegments[sceneIndex] || '', sceneIndex);
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 10. AGNES — VIDÉOS
+// 9. AGNES — VIDÉOS & PIPELINE
 // ══════════════════════════════════════════════════════════════════
-async function apiFetch(url, options = {}, label = 'API') {
+async function apiFetch(url, options = {}) {
     for (let attempt = 0; attempt < 7; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
         try {
             const res = await fetch(url, options);
             if (res.status === 429 || res.status === 503) {
-                const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
-                setStatus('L\'IA se prépare… (' + wait + 's)');
-                await sleep(wait * 1000);
+                await sleep([15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)] * 1000);
                 continue;
             }
             return res;
@@ -1279,12 +1134,11 @@ async function apiFetch(url, options = {}, label = 'API') {
 }
 
 async function createVideoTask(imageDataUri, prompt) {
-    const body = { model: MODEL_VIDEO, prompt: prompt, image: imageDataUri, num_frames: state.durationFrames, frame_rate: FRAME_RATE };
     const res = await apiFetch(AGNES_API_BASE + '/videos', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + getAgnesKey(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    }, 'Création');
+        body: JSON.stringify({ model: MODEL_VIDEO, prompt: prompt, image: imageDataUri, num_frames: state.durationFrames, frame_rate: FRAME_RATE })
+    });
     if (!res.ok) throw new Error('HTTP ' + res.status + ' — ' + (await res.text()).slice(0, 200));
     const data = await res.json();
     const videoId = data.video_id || data.id || data.task_id;
@@ -1293,13 +1147,11 @@ async function createVideoTask(imageDataUri, prompt) {
 }
 
 async function pollVideo(videoId, onProgress) {
-    const estimatedMs = 30000 + state.durationFrames * 500;
-    let remaining = Math.max(20, Math.floor((estimatedMs / 1000) * 0.8));
+    let remaining = Math.max(20, Math.floor((30000 + state.durationFrames * 500) / 1000 * 0.8));
     while (remaining > 0) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
         onProgress('Préparation… — ' + remaining + 's');
-        await sleep(1000);
-        remaining--;
+        await sleep(1000); remaining--;
     }
     for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
@@ -1308,16 +1160,15 @@ async function pollVideo(videoId, onProgress) {
             while (r > 0) {
                 if (state.stopRequested) throw new Error('Arrêt demandé');
                 onProgress('L\'image prend vie… — ' + r + 's');
-                await sleep(1000);
-                r--;
+                await sleep(1000); r--;
             }
         }
-        const url = AGNES_POLL_BASE + '?video_id=' + encodeURIComponent(videoId) + '&model_name=' + encodeURIComponent(MODEL_VIDEO);
-        const res = await apiFetch(url, { method: 'GET', headers: { 'Authorization': 'Bearer ' + getAgnesKey() } }, 'Polling');
+        const res = await apiFetch(AGNES_POLL_BASE + '?video_id=' + encodeURIComponent(videoId) + '&model_name=' + encodeURIComponent(MODEL_VIDEO), {
+            method: 'GET', headers: { 'Authorization': 'Bearer ' + getAgnesKey() }
+        });
         const d = await res.json();
         const status = d.status || 'unknown';
-        const progress = d.progress || 0;
-        onProgress('Création en cours… — ' + progress + '%');
+        onProgress('Création en cours… — ' + (d.progress || 0) + '%');
         if (status === 'completed' || status === 'succeeded' || status === 'done') {
             const videoUrl = (d.metadata && d.metadata.url) || d.url || (d.output && d.output.url);
             if (!videoUrl) throw new Error('Terminé mais pas d\'URL');
@@ -1328,112 +1179,67 @@ async function pollVideo(videoId, onProgress) {
     throw new Error('Délai maximal dépassé');
 }
 
-// ══════════════════════════════════════════════════════════════════
-// 11. PIPELINE PRINCIPAL
-// ══════════════════════════════════════════════════════════════════
 async function generateAllScenes() {
-    const scenes = state.storySegments.map((text, i) => ({
-        index: i, text: text, imageDataUri: null, thumbnail: null, videoUrl: null, status: 'pending', error: null
-    }));
-    state.scenes = scenes;
-    renderQueue();
-
-    log('═══ ÉTAPE 1 : Images Pollinations anonyme ═══');
+    const scenes = state.storySegments.map((text, i) => ({ index: i, text: text, imageDataUri: null, thumbnail: null, videoUrl: null, status: 'pending', error: null }));
+    state.scenes = scenes; renderQueue();
+    log('═══ ÉTAPE 1 : Images (système multi-fallback) ═══');
     setStatus('Étape 1/2 : génération des images…');
     let previousContext = '';
     
     for (let i = 0; i < scenes.length; i++) {
         if (state.stopRequested) break;
-        const scene = scenes[i];
-        scene.status = 'generating-image';
-        renderQueue();
+        const scene = scenes[i]; scene.status = 'generating-image'; renderQueue();
         try {
             setStatus('Image ' + (i + 1) + '/' + scenes.length + '…');
-            const prompt = buildImagePrompt(scene.text, i, scenes.length, previousContext);
-            const imageDataUri = await generateImageWithPollinations(prompt, 5);
-            scene.imageDataUri = imageDataUri;
-            scene.thumbnail = await generateThumbnail(imageDataUri);
-            scene.status = 'image-done';
-            previousContext = scene.text.slice(0, 150);
-        } catch (e) {
-            scene.status = 'failed';
-            scene.error = 'Image: ' + e.message;
-            state.failed++;
-        }
-        renderQueue();
-        updateGenerateBtn();
+            const imageDataUri = await generateImage(buildImagePrompt(scene.text, i, scenes.length, previousContext), i);
+            scene.imageDataUri = imageDataUri; scene.thumbnail = await generateThumbnail(imageDataUri);
+            scene.status = 'image-done'; previousContext = scene.text.slice(0, 150);
+        } catch (e) { scene.status = 'failed'; scene.error = 'Image: ' + e.message; state.failed++; }
+        renderQueue(); updateGenerateBtn();
     }
-
     if (state.stopRequested) return;
 
     const validScenes = scenes.filter(s => s.imageDataUri && s.status === 'image-done');
     log('═══ ÉTAPE 2 : Vidéos Agnes ═══');
     setStatus('Étape 2/2 : génération des vidéos…');
-
     const pollingTasks = [];
+    
     for (let i = 0; i < validScenes.length; i++) {
         if (state.stopRequested) break;
-        const scene = validScenes[i];
-        scene.status = 'creating';
-        renderQueue();
-
+        const scene = validScenes[i]; scene.status = 'creating'; renderQueue();
         try {
             setStatus('Vidéo ' + (i + 1) + '/' + validScenes.length + ' (Agnes)…');
-            const prompt = buildVideoPrompt(scene.text, scene.index, scenes.length);
-            const videoId = await createVideoTask(scene.imageDataUri, prompt);
-            scene.videoId = videoId;
-            scene.status = 'processing';
-            renderQueue();
+            scene.videoId = await createVideoTask(scene.imageDataUri, buildVideoPrompt(scene.text, scene.index, scenes.length));
+            scene.status = 'processing'; renderQueue();
             pollingTasks.push(pollSceneVideo(scene));
         } catch (e) {
             if (e.message === 'Arrêt demandé') break;
-            scene.status = 'failed';
-            scene.error = 'Vidéo: ' + e.message;
-            state.failed++;
-            renderQueue();
+            scene.status = 'failed'; scene.error = 'Vidéo: ' + e.message; state.failed++; renderQueue();
         }
-
         if (i < validScenes.length - 1 && !state.stopRequested) {
-            const waitSec = Math.ceil(createIntervalMs / 1000);
-            for (let r = waitSec; r > 0; r--) {
+            for (let r = Math.ceil(createIntervalMs / 1000); r > 0; r--) {
                 if (state.stopRequested) break;
                 setStatus('Pause… — vidéo ' + (i + 2) + '/' + validScenes.length + ' dans ' + r + 's');
                 await sleep(1000);
             }
         }
     }
-
-    if (pollingTasks.length > 0) {
-        setStatus('Finalisation des vidéos…');
-        await Promise.allSettled(pollingTasks);
-    }
+    if (pollingTasks.length > 0) { setStatus('Finalisation des vidéos…'); await Promise.allSettled(pollingTasks); }
 }
 
 async function pollSceneVideo(scene) {
     try {
-        const videoUrl = await pollVideo(scene.videoId, (prog) => {
-            scene.progress = prog;
-            renderQueue();
-        });
-        scene.status = 'done';
-        scene.videoUrl = videoUrl;
-        scene.progress = 'Terminé';
-        state.completed++;
-        renderQueue();
-        updateGenerateBtn();
-        addToGallery(videoUrl, scene.index + 1);
+        scene.videoUrl = await pollVideo(scene.videoId, (prog) => { scene.progress = prog; renderQueue(); });
+        scene.status = 'done'; scene.progress = 'Terminé'; state.completed++;
+        renderQueue(); updateGenerateBtn(); addToGallery(scene.videoUrl, scene.index + 1);
     } catch (e) {
-        scene.status = 'failed';
-        scene.progress = 'Échec';
-        scene.error = 'Vidéo: ' + e.message;
-        state.failed++;
-        renderQueue();
-        updateGenerateBtn();
+        scene.status = 'failed'; scene.progress = 'Échec'; scene.error = 'Vidéo: ' + e.message; state.failed++;
+        renderQueue(); updateGenerateBtn();
     }
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 12. ASSEMBLAGE
+// 10. ASSEMBLAGE FINAL ROBUSTE
 // ══════════════════════════════════════════════════════════════════
 async function downloadVideoBlob(url) {
     const res = await fetch(url);
@@ -1453,18 +1259,14 @@ function waitForVideoReady(video) {
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
     const doneScenes = state.scenes.filter(s => s.status === 'done' && s.videoUrl).sort((a, b) => a.index - b.index);
-    if (doneScenes.length === 0) {
-        showToast('Aucune scène vidéo à assembler', 'error');
-        return;
-    }
+    if (doneScenes.length === 0) { showToast('Aucune scène vidéo à assembler', 'error'); return; }
 
     state.isAssembling = true;
     const finalFilmEl = document.getElementById('final-film');
     const progressContainer = document.getElementById('assembly-progress');
     const progressFill = document.getElementById('assembly-progress-fill');
     const statusEl = document.getElementById('assembly-status');
-    finalFilmEl.classList.add('visible');
-    progressContainer.style.display = 'block';
+    finalFilmEl.classList.add('visible'); progressContainer.style.display = 'block';
     setStatus('Assemblage du film final…');
 
     try {
@@ -1476,23 +1278,15 @@ async function assembleFinalFilm() {
             const scene = doneScenes[i];
             progressFill.style.width = ((i / doneScenes.length) * 50) + '%';
             statusEl.textContent = 'Préparation scène ' + (i + 1) + '/' + doneScenes.length + '…';
-            
             try {
                 const blob = await downloadVideoBlob(scene.videoUrl);
                 const url = URL.createObjectURL(blob);
                 const video = document.createElement('video');
-                
-                video.crossOrigin = 'anonymous';
-                video.src = url;
-                video.muted = false;
-                video.playsInline = true;
-                video.preload = 'auto';
-                
+                video.crossOrigin = 'anonymous'; video.src = url; video.muted = false;
+                video.playsInline = true; video.preload = 'auto';
                 await waitForVideoReady(video);
                 videoElements.push({ index: scene.index, video, url });
-            } catch (e) {
-                log('Scène ' + (scene.index + 1) + ' ignorée : ' + e.message);
-            }
+            } catch (e) { log('Scène ' + (scene.index + 1) + ' ignorée : ' + e.message); }
         }
 
         if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
@@ -1500,43 +1294,26 @@ async function assembleFinalFilm() {
         const firstVideo = videoElements[0].video;
         const width = firstVideo.videoWidth || 768;
         const height = firstVideo.videoHeight || 1365;
-        log('Dimensions du film : ' + width + 'x' + height);
-
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         const canvasStreamOut = canvas.captureStream(30);
 
-        let audioCtx = null;
-        let audioDestination = null;
-        let musicSource = null;
-        let musicGain = null;
+        let audioCtx = null, audioDestination = null, musicSource = null, musicGain = null;
 
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audioDestination = audioCtx.createMediaStreamDestination();
 
             if (state.audioFile && state.audioObjectUrl) {
-                const arrayBuffer = await state.audioFile.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                musicSource = audioCtx.createBufferSource();
-                musicSource.buffer = audioBuffer;
-                musicSource.loop = true;
-
+                const audioBuffer = await audioCtx.decodeAudioData(await state.audioFile.arrayBuffer());
+                musicSource = audioCtx.createBufferSource(); musicSource.buffer = audioBuffer; musicSource.loop = true;
                 musicGain = audioCtx.createGain();
                 musicGain.gain.value = state.duckingEnabled ? state.musicVolume * 0.5 : state.musicVolume;
-
                 const compressor = audioCtx.createDynamicsCompressor();
-                compressor.threshold.value = -12;
-                compressor.knee.value = 6;
-                compressor.ratio.value = 4;
-                compressor.attack.value = 0.003;
-                compressor.release.value = 0.25;
-
-                musicSource.connect(musicGain);
-                musicGain.connect(compressor);
-                compressor.connect(audioDestination);
+                compressor.threshold.value = -12; compressor.knee.value = 6; compressor.ratio.value = 4;
+                compressor.attack.value = 0.003; compressor.release.value = 0.25;
+                musicSource.connect(musicGain); musicGain.connect(compressor); compressor.connect(audioDestination);
             }
 
             for (const vEl of videoElements) {
@@ -1546,25 +1323,18 @@ async function assembleFinalFilm() {
                 } catch (e) {
                     log('Fallback audio CORS pour scène ' + (vEl.index + 1));
                     if (vEl.video.captureStream) {
-                        const vStream = vEl.video.captureStream();
-                        vStream.getAudioTracks().forEach(t => audioDestination.stream.addTrack(t));
+                        vEl.video.captureStream().getAudioTracks().forEach(t => audioDestination.stream.addTrack(t));
                     }
                 }
             }
-        } catch (e) {
-            log('Erreur préparation audio : ' + e.message);
-        }
+        } catch (e) { log('Erreur préparation audio : ' + e.message); }
 
         const combinedStream = new MediaStream();
         canvasStreamOut.getVideoTracks().forEach(t => combinedStream.addTrack(t));
-        if (audioDestination) {
-            audioDestination.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
-        }
+        if (audioDestination) audioDestination.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
 
         const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
-        let mimeType = mimeTypes.find(mt => MediaRecorder.isTypeSupported(mt)) || 'video/webm';
-        log('Codec utilisé : ' + mimeType);
-
+        const mimeType = mimeTypes.find(mt => MediaRecorder.isTypeSupported(mt)) || 'video/webm';
         const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 4000000, audioBitsPerSecond: 128000 });
         const chunks = [];
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
@@ -1580,8 +1350,7 @@ async function assembleFinalFilm() {
         for (let i = 0; i < videoElements.length; i++) {
             if (state.stopRequested) break;
             const { video } = videoElements[i];
-            video.currentTime = 0;
-            video.volume = 1.0;
+            video.currentTime = 0; video.volume = 1.0;
 
             if (musicGain && state.duckingEnabled && audioCtx) {
                 const now = audioCtx.currentTime;
@@ -1596,19 +1365,12 @@ async function assembleFinalFilm() {
                     if (video.paused || video.ended) { resolve(); return; }
                     ctx.drawImage(video, 0, 0, width, height);
                     const t = video.currentTime;
-                    elapsedPlayback += (t - lastTime);
-                    lastTime = t;
-                    const percent = 50 + (elapsedPlayback / totalDuration) * 50;
-                    progressFill.style.width = Math.min(percent, 100) + '%';
+                    elapsedPlayback += (t - lastTime); lastTime = t;
+                    progressFill.style.width = Math.min(50 + (elapsedPlayback / totalDuration) * 50, 100) + '%';
                     statusEl.textContent = 'Assemblage scène ' + (i + 1) + '/' + videoElements.length + '…';
                     requestAnimationFrame(renderFrame);
                 };
-                video.play().then(() => {
-                    requestAnimationFrame(renderFrame);
-                }).catch((e) => {
-                    log('Erreur play vidéo: ' + e.message);
-                    resolve();
-                });
+                video.play().then(() => requestAnimationFrame(renderFrame)).catch(() => resolve());
             });
 
             if (musicGain && state.duckingEnabled && audioCtx) {
@@ -1617,7 +1379,6 @@ async function assembleFinalFilm() {
                 musicGain.gain.setValueAtTime(musicGain.gain.value, now);
                 musicGain.gain.exponentialRampToValueAtTime(state.musicVolume * 0.5, now + 0.5);
             }
-
             await sleep(300);
         }
 
@@ -1625,58 +1386,40 @@ async function assembleFinalFilm() {
         if (audioCtx) { try { await audioCtx.close(); } catch (e) {} }
         recorder.stop();
 
-        statusEl.textContent = 'Finalisation du fichier…';
-        progressFill.style.width = '100%';
-
-        const finalBlob = await recordingDone;
-        state.finalFilmBlob = finalBlob;
+        statusEl.textContent = 'Finalisation du fichier…'; progressFill.style.width = '100%';
+        state.finalFilmBlob = await recordingDone;
 
         const finalVideo = document.getElementById('final-video');
-        const finalUrl = URL.createObjectURL(finalBlob);
-        finalVideo.src = finalUrl;
-
+        finalVideo.src = URL.createObjectURL(state.finalFilmBlob);
         document.getElementById('download-btn').classList.add('visible');
-        statusEl.textContent = '✅ Film prêt ! Taille : ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
-        setStatus(null);
-        showToast('Film assemblé avec voix + musique ✓', 'success');
-
+        statusEl.textContent = '✅ Film prêt ! Taille : ' + (state.finalFilmBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
+        setStatus(null); showToast('Film assemblé avec voix + musique ✓', 'success');
         videoElements.forEach(v => { try { URL.revokeObjectURL(v.url); } catch (e) {} });
     } catch (e) {
         log('Erreur assemblage : ' + e.message);
         statusEl.textContent = '❌ Erreur : ' + e.message;
         showToast('Erreur assemblage : ' + e.message, 'error', 5000);
-    } finally {
-        state.isAssembling = false;
-        setStatus(null);
-    }
+    } finally { state.isAssembling = false; setStatus(null); }
 }
 
 function downloadFinalFilm() {
     if (!state.finalFilmBlob) { showToast('Aucun film à télécharger', 'error'); return; }
     const url = URL.createObjectURL(state.finalFilmBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'kids-story-film-' + Date.now() + '.webm';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const a = document.createElement('a'); a.href = url; a.download = 'kids-story-film-' + Date.now() + '.webm';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 30000);
     showToast('Téléchargement lancé ✓', 'success');
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 13. AUDIO & RENDU
+// 11. AUDIO & RENDU
 // ══════════════════════════════════════════════════════════════════
 async function detectBPM(file) {
     try {
-        const arrayBuffer = await file.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        const audioBuffer = await audioCtx.decodeAudioData(await file.arrayBuffer());
         const channelData = audioBuffer.getChannelData(0);
-        const sampleRate = audioBuffer.sampleRate;
-        const peaks = [];
-        const threshold = 0.3;
-        const minPeakDistance = Math.floor(sampleRate * 0.1);
+        const peaks = []; const threshold = 0.3; const minPeakDistance = Math.floor(audioBuffer.sampleRate * 0.1);
         for (let i = 0; i < channelData.length; i++) {
             if (Math.abs(channelData[i]) > threshold) {
                 if (peaks.length === 0 || (i - peaks[peaks.length - 1]) > minPeakDistance) peaks.push(i);
@@ -1685,26 +1428,15 @@ async function detectBPM(file) {
         if (peaks.length < 2) { audioCtx.close(); return null; }
         let totalInterval = 0;
         for (let i = 1; i < peaks.length; i++) totalInterval += (peaks[i] - peaks[i - 1]);
-        const avgInterval = totalInterval / (peaks.length - 1);
-        const bpm = Math.round(60 / (avgInterval / sampleRate));
-        audioCtx.close();
-        return bpm > 0 && bpm < 300 ? bpm : null;
+        const bpm = Math.round(60 / ((totalInterval / (peaks.length - 1)) / audioBuffer.sampleRate));
+        audioCtx.close(); return bpm > 0 && bpm < 300 ? bpm : null;
     } catch (e) { return null; }
 }
 
 function displayBPM(bpm) {
-    const el = document.getElementById('bpm-display');
-    const valEl = document.getElementById('bpm-value');
-    const msgEl = document.getElementById('bpm-message');
-    if (!el) return;
-    el.classList.add('visible');
-    el.classList.remove('ok', 'warn');
-    if (bpm === null) {
-        valEl.textContent = '—';
-        msgEl.textContent = '⚠️ Analyse impossible';
-        el.classList.add('warn');
-        return;
-    }
+    const el = document.getElementById('bpm-display'), valEl = document.getElementById('bpm-value'), msgEl = document.getElementById('bpm-message');
+    if (!el) return; el.classList.add('visible'); el.classList.remove('ok', 'warn');
+    if (bpm === null) { valEl.textContent = '—'; msgEl.textContent = '⚠️ Analyse impossible'; el.classList.add('warn'); return; }
     valEl.textContent = bpm;
     if (bpm >= 90 && bpm <= 120) { el.classList.add('ok'); msgEl.textContent = '✅ Tempo idéal pour les tout-petits'; }
     else { el.classList.add('warn'); msgEl.textContent = '⚠️ Idéal : 100-110 BPM'; }
@@ -1713,39 +1445,27 @@ function displayBPM(bpm) {
 async function handleAudioFile(file) {
     if (!file || !file.type.startsWith('audio/')) { showToast('Fichier audio invalide', 'error'); return; }
     if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
-    state.audioFile = file;
-    state.audioObjectUrl = URL.createObjectURL(file);
-    const audioZone = document.getElementById('audio-zone');
-    const filenameEl = document.getElementById('audio-filename');
+    state.audioFile = file; state.audioObjectUrl = URL.createObjectURL(file);
+    document.getElementById('audio-zone').classList.add('has-file');
+    document.getElementById('audio-filename').textContent = '🎵 ' + file.name;
+    document.getElementById('audio-filename').style.display = 'block';
     const previewEl = document.getElementById('audio-preview');
-    const removeBtn = document.getElementById('audio-remove-btn');
-    audioZone.classList.add('has-file');
-    filenameEl.textContent = '🎵 ' + file.name;
-    filenameEl.style.display = 'block';
-    previewEl.src = state.audioObjectUrl;
-    previewEl.style.display = 'block';
-    removeBtn.style.display = 'inline-block';
+    previewEl.src = state.audioObjectUrl; previewEl.style.display = 'block';
+    document.getElementById('audio-remove-btn').style.display = 'inline-block';
     previewEl.onloadedmetadata = () => { state.audioDuration = previewEl.duration; };
     showToast('Analyse du tempo…', 'warn', 1500);
-    const bpm = await detectBPM(file);
-    state.audioBpm = bpm;
-    displayBPM(bpm);
+    state.audioBpm = await detectBPM(file); displayBPM(state.audioBpm);
     showToast('Musique ajoutée ✓', 'success');
 }
 
 function removeAudioFile() {
     if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
     state.audioFile = null; state.audioObjectUrl = null; state.audioBpm = null; state.audioDuration = 0;
-    const audioZone = document.getElementById('audio-zone');
-    const filenameEl = document.getElementById('audio-filename');
-    const previewEl = document.getElementById('audio-preview');
-    const removeBtn = document.getElementById('audio-remove-btn');
-    const bpmEl = document.getElementById('bpm-display');
-    audioZone.classList.remove('has-file');
-    filenameEl.style.display = 'none';
-    previewEl.src = ''; previewEl.style.display = 'none';
-    removeBtn.style.display = 'none';
-    if (bpmEl) bpmEl.classList.remove('visible');
+    document.getElementById('audio-zone').classList.remove('has-file');
+    document.getElementById('audio-filename').style.display = 'none';
+    const previewEl = document.getElementById('audio-preview'); previewEl.src = ''; previewEl.style.display = 'none';
+    document.getElementById('audio-remove-btn').style.display = 'none';
+    document.getElementById('bpm-display').classList.remove('visible');
     showToast('Musique retirée', 'warn');
 }
 
@@ -1757,8 +1477,7 @@ function renderStoryPresets() {
             const preset = STORY_PRESETS[parseInt(el.dataset.preset, 10)];
             if (!preset) return;
             document.getElementById('main-prompt').value = preset.text;
-            state.story = preset.text;
-            updateStoryPreview();
+            state.story = preset.text; updateStoryPreview();
             showToast('Histoire appliquée', 'success', 1200);
         });
     });
@@ -1766,10 +1485,10 @@ function renderStoryPresets() {
 
 function renderStyles() {
     const container = document.getElementById('styles-grid');
-    container.innerHTML = JOYFUL_THEMES.map(s => {
-        return '<div class="style-card ' + (state.selectedTheme === s.id ? 'selected' : '') + '" data-theme="' + s.id + '">' +
-            '<div class="style-emoji">' + s.emoji + '</div><div><div class="style-name">' + esc(s.name) + '</div><div class="style-desc">' + esc(s.desc) + '</div></div></div>';
-    }).join('');
+    container.innerHTML = JOYFUL_THEMES.map(s => 
+        '<div class="style-card ' + (state.selectedTheme === s.id ? 'selected' : '') + '" data-theme="' + s.id + '">' +
+        '<div class="style-emoji">' + s.emoji + '</div><div><div class="style-name">' + esc(s.name) + '</div><div class="style-desc">' + esc(s.desc) + '</div></div></div>'
+    ).join('');
     container.querySelectorAll('[data-theme]').forEach(el => {
         el.addEventListener('click', () => { state.selectedTheme = el.dataset.theme; renderStyles(); });
     });
@@ -1779,31 +1498,28 @@ function renderQueue() {
     const queueEl = document.getElementById('queue');
     if (!state.scenes.length) { queueEl.style.display = 'none'; return; }
     queueEl.style.display = 'block';
-    const total = state.scenes.length;
-    const done = state.scenes.filter(s => s.status === 'done').length;
-    const failed = state.scenes.filter(s => s.status === 'failed').length;
+    const total = state.scenes.length, done = state.scenes.filter(s => s.status === 'done').length, failed = state.scenes.filter(s => s.status === 'failed').length;
     let html = '<div class="queue-summary"><span class="progress-text">Progression : ' + done + '/' + total + ' scènes</span><span class="eta-text">' + (failed > 0 ? '⚠️ ' + failed + ' échec(s)' : '') + '</span></div>';
-    const visible = state.scenes.slice(0, MAX_VISIBLE_QUEUE);
-    html += visible.map(scene => {
+    html += state.scenes.slice(0, MAX_VISIBLE_QUEUE).map(scene => {
         let icon = '○', statusText = 'En attente', cls = 'pending';
-        if (scene.status === 'generating-image') { icon = '🎨'; statusText = 'Image gratuite…'; cls = 'generating-image'; }
+        if (scene.status === 'generating-image') { icon = '🎨'; statusText = 'Image (multi-fallback)…'; cls = 'generating-image'; }
         else if (scene.status === 'image-done') { icon = '✓'; statusText = 'Image prête'; cls = 'pending'; }
         else if (scene.status === 'creating') { icon = '◐'; statusText = 'Création vidéo…'; cls = 'creating'; }
         else if (scene.status === 'processing') { icon = '◐'; statusText = scene.progress || 'Vidéo…'; cls = 'processing'; }
         else if (scene.status === 'done') { icon = '🌟'; statusText = 'Terminé'; cls = 'done'; }
         else if (scene.status === 'failed') { icon = '✕'; statusText = 'Échec'; cls = 'failed'; }
-        const thumbHTML = scene.thumbnail ? '<div class="q-thumb"><img src="' + scene.thumbnail + '" alt=""></div>' : '<div class="q-thumb"></div>';
-        return '<div class="queue-item ' + cls + '"><div class="q-icon">' + icon + '</div>' + thumbHTML + '<div class="q-info"><div class="q-name">Scène ' + (scene.index + 1) + '</div><div class="q-excerpt">' + esc(scene.text.slice(0, 80)) + '…</div></div><div class="q-status">' + esc(statusText) + '</div></div>';
+        return '<div class="queue-item ' + cls + '"><div class="q-icon">' + icon + '</div>' +
+            (scene.thumbnail ? '<div class="q-thumb"><img src="' + scene.thumbnail + '" alt=""></div>' : '<div class="q-thumb"></div>') +
+            '<div class="q-info"><div class="q-name">Scène ' + (scene.index + 1) + '</div><div class="q-excerpt">' + esc(scene.text.slice(0, 80)) + '…</div></div>' +
+            '<div class="q-status">' + esc(statusText) + '</div></div>';
     }).join('');
     queueEl.innerHTML = html;
 }
 
 function addToGallery(videoUrl, sceneNumber) {
-    const galleryEl = document.getElementById('gallery');
-    const galleryGrid = document.getElementById('gallery-grid');
+    const galleryEl = document.getElementById('gallery'), galleryGrid = document.getElementById('gallery-grid');
     galleryEl.style.display = 'block';
-    const el = document.createElement('div');
-    el.className = 'gallery-item';
+    const el = document.createElement('div'); el.className = 'gallery-item';
     el.innerHTML = '<video controls preload="metadata" muted playsinline><source src="' + videoUrl + '" type="video/mp4"></video><div class="g-caption">🎬 Scène ' + sceneNumber + '</div>';
     galleryGrid.appendChild(el);
 }
@@ -1811,10 +1527,11 @@ function addToGallery(videoUrl, sceneNumber) {
 function generateYouTubeMetadata() {
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme);
     const themeEmoji = theme ? theme.emoji : '✨';
-    const title = themeEmoji + ' Histoire Animée pour Enfants | Conte 3D Joyeux pour Bébés';
-    const description = themeEmoji + ' Bienvenue dans un monde joyeux et coloré !\n\n' + state.story.slice(0, 400) + (state.story.length > 400 ? '…' : '') + '\n\n✨ Une histoire animée 3D Pixar, joyeuse et 100% sécurisée pour les enfants.\n✅ COPPA compliant — contenu pour enfants\n✅ Aucune violence, aucun contenu effrayant\n🎵 Musique libre de droit\n\n#Shorts #ShortsEnfants #VidéoEnfant #DessinAnimé #Conte #Histoire #Bébé #ToutPetit #Joyeux #COPPA';
-    const tags = 'shorts, shorts enfants, vidéo enfant, dessin animé, animation 3D, conte, histoire enfant, histoire du soir, comptine, chanson bébé, COPPA, YouTube Kids, tout-petit, bébé, enfant, pixar, kids video, children animation, kids story, bedtime story, safe for kids, toddler video, nursery rhymes';
-    return { title, description, tags };
+    return {
+        title: themeEmoji + ' Histoire Animée pour Enfants | Conte 3D Joyeux pour Bébés',
+        description: themeEmoji + ' Bienvenue dans un monde joyeux et coloré !\n\n' + state.story.slice(0, 400) + (state.story.length > 400 ? '…' : '') + '\n\n✨ Une histoire animée 3D Pixar, joyeuse et 100% sécurisée pour les enfants.\n✅ COPPA compliant — contenu pour enfants\n✅ Aucune violence, aucun contenu effrayant\n🎵 Musique libre de droit\n\n#Shorts #ShortsEnfants #VidéoEnfant #DessinAnimé #Conte #Histoire #Bébé #ToutPetit #Joyeux #COPPA',
+        tags: 'shorts, shorts enfants, vidéo enfant, dessin animé, animation 3D, conte, histoire enfant, histoire du soir, comptine, chanson bébé, COPPA, YouTube Kids, tout-petit, bébé, enfant, pixar, kids video, children animation, kids story, bedtime story, safe for kids, toddler video, nursery rhymes'
+    };
 }
 
 function displayYouTubeMetadata() {
@@ -1826,7 +1543,7 @@ function displayYouTubeMetadata() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 14. WORKFLOW PRINCIPAL
+// 12. WORKFLOW PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
 async function startGeneration() {
     if (state.isRunning || !state.storySegments.length) return;
@@ -1835,13 +1552,8 @@ async function startGeneration() {
     const canonicalEl = document.getElementById('canonical-character');
     if (canonicalEl && canonicalEl.value.trim()) state.canonicalCharacter = canonicalEl.value.trim();
 
-    state.isRunning = true;
-    state.stopRequested = false;
-    state.completed = 0;
-    state.failed = 0;
-    state.scenes = [];
-    state.finalFilmBlob = null;
-    state.lastPollinationsCall = 0;
+    state.isRunning = true; state.stopRequested = false; state.completed = 0; state.failed = 0;
+    state.scenes = []; state.finalFilmBlob = null; state.lastPollinationsCall = 0;
     state.seed = parseInt(document.getElementById('seed-input').value, 10) || 42;
     createIntervalMs = CREATE_INTERVAL_MIN;
 
@@ -1859,31 +1571,22 @@ async function startGeneration() {
     log('Personnage canonique : ' + state.canonicalCharacter.slice(0, 100) + '…');
     log('Décor global verrouillé : ' + state.globalSetting.slice(0, 100) + '…');
 
-    try {
-        await generateAllScenes();
-    } catch (e) {
-        log('Erreur : ' + e.message);
-    }
+    try { await generateAllScenes(); } catch (e) { log('Erreur : ' + e.message); }
 
     const doneScenes = state.scenes.filter(s => s.status === 'done').length;
     const failedScenes = state.scenes.filter(s => s.status === 'failed').length;
 
-    state.isRunning = false;
-    state.stopRequested = false;
+    state.isRunning = false; state.stopRequested = false;
     document.getElementById('stop-btn').classList.remove('visible');
     updateGenerateBtn();
 
-    const summary = doneScenes + '/' + state.scenes.length + ' scènes réussies' + (failedScenes > 0 ? ' (' + failedScenes + ' échec(s))' : '');
-    setStatus(summary);
-    await sleep(2000);
-    setStatus(null);
+    setStatus(doneScenes + '/' + state.scenes.length + ' scènes réussies' + (failedScenes > 0 ? ' (' + failedScenes + ' échec(s))' : ''));
+    await sleep(2000); setStatus(null);
 
     if (doneScenes > 0) {
         displayYouTubeMetadata();
         showToast(doneScenes + ' scène(s) prête(s). Assemblage automatique en cours...', 'success');
-        setTimeout(() => {
-            assembleFinalFilm();
-        }, 1500);
+        setTimeout(() => { assembleFinalFilm(); }, 1500);
     } else {
         showToast('Aucune scène générée', 'error');
     }
@@ -1891,39 +1594,37 @@ async function startGeneration() {
 
 function stopGeneration() {
     if (!state.isRunning && !state.isAssembling) return;
-    state.stopRequested = true;
-    setStatus('Arrêt en cours…');
+    state.stopRequested = true; setStatus('Arrêt en cours…');
 }
 
 async function runDiagnostic() {
     const out = document.getElementById('diag-output');
-    out.style.display = 'block';
-    out.textContent = '⏳ Diagnostic en cours...\n\n';
+    out.style.display = 'block'; out.textContent = '⏳ Diagnostic en cours...\n\n';
     const logLine = (msg) => { out.textContent += msg + '\n'; };
-    logLine('═══ TEST POLLINATIONS.AI (accès anonyme) ═══');
-    for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 4)) {
+    logLine('═══ TEST POLLINATIONS.AI ═══');
+    for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 3)) {
         try {
-            const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear');
-            const testUrl = POLLINATIONS_BASE + testPrompt + '?width=768&height=1365&model=' + model + '&nologo=true&seed=42';
             const start = Date.now();
-            const res = await fetch(testUrl);
-            const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+            const res = await fetch(POLLINATIONS_BASE + encodeURIComponent('a cute friendly cartoon teddy bear') + '?width=768&height=1365&model=' + model + '&nologo=true&seed=42');
             if (res.ok) {
                 const blob = await res.blob();
-                logLine('✅ ' + model + ' — HTTP 200 (' + elapsed + 's, ' + (blob.size / 1024).toFixed(0) + ' Ko)');
-            } else {
-                logLine('❌ ' + model + ' — HTTP ' + res.status);
-            }
+                logLine('✅ ' + model + ' — HTTP 200 (' + ((Date.now() - start) / 1000).toFixed(1) + 's, ' + (blob.size / 1024).toFixed(0) + ' Ko)');
+            } else { logLine('❌ ' + model + ' — HTTP ' + res.status); }
         } catch (e) { logLine('❌ ' + model + ' — Réseau : ' + e.message); }
     }
+    logLine('\n═══ TEST HUGGINGFACE ═══');
+    const hfKey = getHfKey();
+    if (hfKey) logLine('✅ Token HuggingFace présent (' + hfKey.slice(0, 8) + '...)');
+    else logLine('⚠️ Aucun token HuggingFace (le fallback Canvas sera utilisé si Pollinations échoue)');
     logLine('\n═══ FIN ═══');
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 15. INITIALISATION
+// 13. INITIALISATION
 // ══════════════════════════════════════════════════════════════════
 (function init() {
     document.getElementById('api-save-btn')?.addEventListener('click', saveAgnesKey);
+    document.getElementById('hf-save-btn')?.addEventListener('click', saveHfKey);
     document.getElementById('stop-btn')?.addEventListener('click', stopGeneration);
     document.getElementById('assemble-btn')?.addEventListener('click', assembleFinalFilm);
     document.getElementById('download-btn')?.addEventListener('click', downloadFinalFilm);
@@ -1940,8 +1641,7 @@ async function runDiagnostic() {
         state.characters = e.target.value;
         if (e.target.value !== 'custom') {
             state.canonicalCharacter = CHARACTER_PROMPTS[e.target.value] || '';
-            const ta = document.getElementById('canonical-character');
-            if (ta) ta.value = state.canonicalCharacter;
+            const ta = document.getElementById('canonical-character'); if (ta) ta.value = state.canonicalCharacter;
         } else { updateCanonicalCharacter(); }
     });
     document.getElementById('seed-input')?.addEventListener('change', e => { state.seed = parseInt(e.target.value, 10) || 42; });
@@ -1956,8 +1656,7 @@ async function runDiagnostic() {
     });
     document.getElementById('duck-toggle')?.addEventListener('change', e => { state.duckingEnabled = e.target.checked; });
 
-    const audioZone = document.getElementById('audio-zone');
-    const audioInput = document.getElementById('audio-input');
+    const audioZone = document.getElementById('audio-zone'), audioInput = document.getElementById('audio-input');
     if (audioZone && audioInput) {
         audioZone.addEventListener('click', (e) => {
             if (e.target.tagName === 'AUDIO' || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
@@ -1976,6 +1675,8 @@ async function runDiagnostic() {
         wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
         const savedChar = localStorage.getItem(CANONICAL_CHAR_STORAGE);
         if (savedChar) { state.canonicalCharacter = savedChar; const ta = document.getElementById('canonical-character'); if (ta) ta.value = savedChar; }
+        const savedHf = localStorage.getItem(HF_KEY_STORAGE);
+        if (savedHf) document.getElementById('hf-key-input').value = savedHf;
     } catch (e) {}
 
     if (wakeLockEnabled) activateWakeLock().then(updateWakeStatus);
@@ -1985,13 +1686,8 @@ async function runDiagnostic() {
         navigator.clipboard.writeText(text).then(() => showToast('Copié ✓', 'success'));
     });
 
-    updateApiPanel();
-    updateWakeStatus();
-    renderStoryPresets();
-    renderStyles();
-    renderQueue();
-    updateStoryPreview();
-    log('Kids Story Studio prêt (accès anonyme direct sans token)');
+    updateApiPanel(); updateWakeStatus(); renderStoryPresets(); renderStyles(); renderQueue(); updateStoryPreview();
+    log('Kids Story Studio prêt (système multi-fallback actif)');
 })();
 </script>
 </body>
