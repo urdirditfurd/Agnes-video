@@ -489,8 +489,8 @@
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
     <div class="free-badge">🎉 IMAGES GRATUITES ILLIMITÉES</div>
     <br><br>
-    <strong>Accès direct anonyme :</strong> 12 modèles disponibles sans token.
-    Attente 20s entre les images pour respecter le rate limit de 15s.
+    <strong>Accès direct anonyme :</strong> Modèles gratuits optimisés.
+    Attente 20s entre les images pour respecter le rate limit.
 </div>
 
 <div class="api-panel" id="api-panel">
@@ -504,7 +504,7 @@
     </div>
 
     <div class="image-gen-status">
-        🎨 <strong>Images : Pollinations.ai</strong> — accès anonyme direct (12 modèles)
+        🎨 <strong>Images : Pollinations.ai</strong> — accès anonyme direct (modèles gratuits)
         <br>
         🎙️ <strong>Voix : Agnes IA</strong> — voix naturelles et enfantines
     </div>
@@ -1064,7 +1064,7 @@ function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 7. DONNÉES STATIQUES (Déplacées AVANT init() pour éviter l'erreur ReferenceError)
+// 7. DONNÉES STATIQUES
 // ══════════════════════════════════════════════════════════════════
 const STORY_PRESETS = [
     { label: '🐻 L\'ourson et la fête', text: 'Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie. Un matin, il décida d\'organiser une grande fête avec tous ses amis. Il invita la petite lapine rose et le poussin jaune. Ensemble, ils préparèrent des gâteaux et décorèrent la prairie avec des ballons colorés. Quand le soleil se coucha, ils dansèrent et chantèrent toute la nuit sous les étoiles. L\'ourson était le plus heureux des oursons.' },
@@ -1162,9 +1162,10 @@ function generateThumbnail(dataUri) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 9. POLLINATIONS.AI
+// 9. POLLINATIONS.AI (CORRIGÉ POUR ÉVITER LE 402)
 // ══════════════════════════════════════════════════════════════════
-const POLLINATIONS_ANONYMOUS_MODELS = ['flux', 'turbo', 'gptimage', 'qwen-image', 'grok-imagine', 'zimage', 'wan-image', 'ideogram-v4-turbo', 'nova-canvas', 'klein', 'sana', 'p-image'];
+// Modèles gratuits et stables en 2024/2026. 'turbo' et 'kolors' sont les plus fiables sans token.
+const POLLINATIONS_ANONYMOUS_MODELS = ['turbo', 'kolors', 'dreamshaper', 'flux'];
 
 async function generateImageWithPollinations(prompt, retries = 5) {
     const now = Date.now();
@@ -1176,25 +1177,32 @@ async function generateImageWithPollinations(prompt, retries = 5) {
         await sleep(wait);
     }
     state.lastPollinationsCall = Date.now();
-    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1800));
+    
+    // Résolution optimisée pour le niveau gratuit de Pollinations (768x1365 est mieux supporté que 720x1280)
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1500)); // Légèrement réduit pour éviter les URL trop longues
     let lastError = null;
 
     for (let attempt = 0; attempt < retries; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
         const model = POLLINATIONS_ANONYMOUS_MODELS[attempt % POLLINATIONS_ANONYMOUS_MODELS.length];
         const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
-        const url = POLLINATIONS_BASE + encodedPrompt + '?width=720&height=1280&model=' + model + '&nologo=true&enhance=true&seed=' + state.seed + '&_=' + cacheBuster;
+        const url = POLLINATIONS_BASE + encodedPrompt + '?width=768&height=1365&model=' + model + '&nologo=true&seed=' + state.seed + '&_=' + cacheBuster;
 
         try {
             log('Pollinations [' + model + '] tentative ' + (attempt + 1));
             setStatus('Image [' + model + '] tentative ' + (attempt + 1) + '…');
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 50000);
+            const timeoutId = setTimeout(() => controller.abort(), 45000);
             const res = await fetch(url, { method: 'GET', signal: controller.signal });
             clearTimeout(timeoutId);
 
+            // GESTION SPÉCIFIQUE DU 402 : Passage immédiat au modèle suivant sans attendre
+            if (res.status === 402) {
+                log('Pollinations [' + model + '] 402 (Premium/Quota) → modèle suivant');
+                continue;
+            }
             if (res.status === 429 || res.status >= 500) {
-                await sleep([20, 40, 60][Math.min(attempt, 2)] * 1000);
+                await sleep([15, 30, 45][Math.min(attempt, 2)] * 1000);
                 continue;
             }
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -1210,10 +1218,41 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             });
         } catch (e) {
             lastError = e;
-            if (attempt < retries - 1) { await sleep(5000); state.lastPollinationsCall = Date.now(); }
+            if (attempt < retries - 1) { await sleep(3000); state.lastPollinationsCall = Date.now(); }
         }
     }
-    throw new Error('Pollinations : ' + (lastError ? lastError.message : 'échec total'));
+    
+    // Fallback local si tous les modèles échouent
+    log('⚠️ Tous les modèles ont échoué — génération d\'une image de secours locale');
+    return await generateFallbackImage(prompt);
+}
+
+async function generateFallbackImage(prompt) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 768;
+    canvas.height = 1365;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 1365);
+    grad.addColorStop(0, '#FFE0F0');
+    grad.addColorStop(0.5, '#E0F0FF');
+    grad.addColorStop(1, '#FFF8E0');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 768, 1365);
+    
+    ctx.font = 'bold 180px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ff6b9d';
+    ctx.fillText('🎨', 384, 600);
+    
+    ctx.fillStyle = '#3a2a1a';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('Image de secours générée', 384, 800);
+    ctx.font = '24px sans-serif';
+    ctx.fillStyle = '#a07a52';
+    ctx.fillText('Le service d\'image était saturé', 384, 850);
+    
+    return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1309,7 +1348,7 @@ async function generateAllScenes() {
         scene.status = 'generating-image';
         renderQueue();
         try {
-            setStatus('Image ' + (i + 1) + '/' + scenes.length + ' (Pollinations)…');
+            setStatus('Image ' + (i + 1) + '/' + scenes.length + '…');
             const prompt = buildImagePrompt(scene.text, i, scenes.length, previousContext);
             const imageDataUri = await generateImageWithPollinations(prompt, 5);
             scene.imageDataUri = imageDataUri;
@@ -1459,8 +1498,8 @@ async function assembleFinalFilm() {
         if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
 
         const firstVideo = videoElements[0].video;
-        const width = firstVideo.videoWidth || 720;
-        const height = firstVideo.videoHeight || 1280;
+        const width = firstVideo.videoWidth || 768;
+        const height = firstVideo.videoHeight || 1365;
         log('Dimensions du film : ' + width + 'x' + height);
 
         const canvas = document.createElement('canvas');
@@ -1865,7 +1904,7 @@ async function runDiagnostic() {
     for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 4)) {
         try {
             const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear');
-            const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=' + model + '&nologo=true&seed=42';
+            const testUrl = POLLINATIONS_BASE + testPrompt + '?width=768&height=1365&model=' + model + '&nologo=true&seed=42';
             const start = Date.now();
             const res = await fetch(testUrl);
             const elapsed = ((Date.now() - start) / 1000).toFixed(1);
