@@ -1,0 +1,359 @@
+// ══════════════════════════════════════════════════════════════════
+// 10. ASSEMBLAGE FINAL — VERSION CORRIGÉE (séquentielle robuste)
+// ══════════════════════════════════════════════════════════════════
+
+async function downloadVideoBlob(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Téléchargement échoué : HTTP ' + res.status);
+    return await res.blob();
+}
+
+// Attend que la vidéo soit prête à jouer
+function waitForVideoCanPlay(video) {
+    return new Promise((resolve, reject) => {
+        if (video.readyState >= 3) { resolve(); return; }
+        let resolved = false;
+        const onReady = () => {
+            if (resolved) return;
+            resolved = true;
+            video.removeEventListener('canplay', onReady);
+            video.removeEventListener('canplaythrough', onReady);
+            resolve();
+        };
+        video.addEventListener('canplay', onReady);
+        video.addEventListener('canplaythrough', onReady);
+        video.onerror = () => { if (!resolved) reject(new Error('Erreur chargement vidéo')); };
+        // Force le chargement
+        video.load();
+        setTimeout(() => { if (!resolved) reject(new Error('Timeout chargement vidéo')); }, 20000);
+    });
+}
+
+// Joue une vidéo en la dessinant sur le canvas jusqu'à sa fin
+function playVideoOnCanvas(video, ctx, width, height, onProgress) {
+    return new Promise((resolve, reject) => {
+        let rafId = null;
+        let finished = false;
+        let lastTime = 0;
+        let stalledFrames = 0;
+
+        const cleanup = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            video.removeEventListener('ended', onEnded);
+            video.removeEventListener('error', onError);
+        };
+
+        const onEnded = () => {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            // Dessine la dernière frame
+            try { ctx.drawImage(video, 0, 0, width, height); } catch (e) {}
+            resolve();
+        };
+
+        const onError = () => {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            reject(new Error('Erreur lecture vidéo'));
+        };
+
+        const render = () => {
+            if (finished) return;
+            
+            if (video.paused && !video.ended) {
+                // Vidéo en pause inattendue → tenter de reprendre
+                stalledFrames++;
+                if (stalledFrames > 60) {
+                    // 60 frames de stall = 2 secondes → on abandonne
+                    finished = true;
+                    cleanup();
+                    reject(new Error('Vidéo bloquée'));
+                    return;
+                }
+                video.play().catch(() => {});
+            } else {
+                stalledFrames = 0;
+            }
+
+            try {
+                ctx.drawImage(video, 0, 0, width, height);
+            } catch (e) {
+                // Frame pas encore prête
+            }
+            
+            if (onProgress) onProgress(video.currentTime, video.duration);
+            
+            rafId = requestAnimationFrame(render);
+        };
+
+        video.addEventListener('ended', onEnded);
+        video.addEventListener('error', onError);
+
+        // Démarrer la lecture
+        video.currentTime = 0;
+        video.muted = false; // Garder le son pour la capture audio
+        video.volume = 1.0;
+
+        const playPromise = video.play();
+        if (playPromise) {
+            playPromise.then(() => {
+                rafId = requestAnimationFrame(render);
+            }).catch((err) => {
+                cleanup();
+                reject(new Error('Lecture impossible : ' + err.message));
+            });
+        } else {
+            rafId = requestAnimationFrame(render);
+        }
+    });
+}
+
+async function assembleFinalFilm() {
+    if (state.isAssembling) return;
+    const doneScenes = state.scenes.filter(s => s.status === 'done' && s.videoUrl).sort((a, b) => a.index - b.index);
+    if (doneScenes.length === 0) {
+        showToast('Aucune scène vidéo à assembler', 'error');
+        return;
+    }
+
+    state.isAssembling = true;
+    const finalFilmEl = document.getElementById('final-film');
+    const progressContainer = document.getElementById('assembly-progress');
+    const progressFill = document.getElementById('assembly-progress-fill');
+    const statusEl = document.getElementById('assembly-status');
+    finalFilmEl.classList.add('visible');
+    progressContainer.style.display = 'block';
+    setStatus('Assemblage du film final…');
+
+    let audioCtx = null;
+    const createdUrls = [];
+
+    try {
+        // ═══ ÉTAPE 1 : Télécharger les vidéos ═══
+        statusEl.textContent = 'Étape 1/4 : Téléchargement des scènes…';
+        progressFill.style.width = '5%';
+        
+        const videoBlobs = [];
+        for (let i = 0; i < doneScenes.length; i++) {
+            if (state.stopRequested) throw new Error('Arrêt demandé');
+            const scene = doneScenes[i];
+            progressFill.style.width = (5 + (i / doneScenes.length) * 20) + '%';
+            statusEl.textContent = 'Téléchargement scène ' + (i + 1) + '/' + doneScenes.length + '…';
+            try {
+                const blob = await downloadVideoBlob(scene.videoUrl);
+                videoBlobs.push({ index: scene.index, blob });
+                log('✅ Scène ' + (scene.index + 1) + ' téléchargée (' + (blob.size / 1024).toFixed(0) + ' Ko)');
+            } catch (e) {
+                log('❌ Scène ' + (scene.index + 1) + ' téléchargement échoué : ' + e.message);
+            }
+        }
+
+        if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
+
+        // ═══ ÉTAPE 2 : Créer les éléments vidéo ═══
+        statusEl.textContent = 'Étape 2/4 : Préparation des vidéos…';
+        progressFill.style.width = '30%';
+        
+        const videoElements = [];
+        for (let i = 0; i < videoBlobs.length; i++) {
+            if (state.stopRequested) throw new Error('Arrêt demandé');
+            const blob = videoBlobs[i].blob;
+            const url = URL.createObjectURL(blob);
+            createdUrls.push(url);
+            
+            const video = document.createElement('video');
+            video.src = url;
+            video.crossOrigin = 'anonymous';
+            video.preload = 'auto';
+            video.playsInline = true;
+            video.muted = true; // Muted au chargement pour éviter les blocages
+            
+            await waitForVideoCanPlay(video);
+            
+            videoElements.push({
+                index: videoBlobs[i].index,
+                video,
+                url,
+                duration: video.duration,
+                width: video.videoWidth,
+                height: video.videoHeight
+            });
+            
+            log('✅ Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's ' + video.videoWidth + 'x' + video.videoHeight);
+            progressFill.style.width = (30 + (i / videoBlobs.length) * 15) + '%';
+        }
+
+        if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
+
+        const totalDuration = videoElements.reduce((sum, v) => sum + v.duration, 0);
+        log('🎬 Film : ' + videoElements.length + ' scènes, durée totale ' + totalDuration.toFixed(2) + 's');
+
+        // ═══ ÉTAPE 3 : Créer le canvas et le MediaRecorder ═══
+        statusEl.textContent = 'Étape 3/4 : Préparation de l\'enregistrement…';
+        progressFill.style.width = '50%';
+
+        const firstVideo = videoElements[0];
+        const width = firstVideo.width || 768;
+        const height = firstVideo.height || 1365;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // Remplir le canvas avec du noir au départ
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+
+        // Créer le flux vidéo depuis le canvas
+        const canvasStream = canvas.captureStream(30);
+        
+        // Préparer le flux audio (voix des vidéos)
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioDestination = audioCtx.createMediaStreamDestination();
+        
+        // Connecter chaque vidéo à l'audioContext
+        const mediaElementSources = [];
+        for (const vEl of videoElements) {
+            try {
+                const source = audioCtx.createMediaElementSource(vEl.video);
+                source.connect(audioDestination);
+                mediaElementSources.push(source);
+            } catch (e) {
+                log('⚠️ Impossible de capturer audio scène ' + (vEl.index + 1) + ' : ' + e.message);
+            }
+        }
+        
+        // Ajouter la musique de fond si présente
+        if (state.audioFile && state.audioObjectUrl) {
+            try {
+                const musicArrayBuffer = await state.audioFile.arrayBuffer();
+                const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer.slice(0));
+                const musicSource = audioCtx.createBufferSource();
+                musicSource.buffer = musicBuffer;
+                musicSource.loop = true;
+                
+                const musicGain = audioCtx.createGain();
+                musicGain.gain.value = state.duckingEnabled ? state.musicVolume * 0.15 : state.musicVolume * 0.4;
+                
+                musicSource.connect(musicGain);
+                musicGain.connect(audioDestination);
+                musicSource.start(0);
+                log('🎵 Musique de fond ajoutée au mixage (volume ' + (musicGain.gain.value * 100).toFixed(0) + '%)');
+            } catch (e) {
+                log('⚠️ Musique impossible à mixer : ' + e.message);
+            }
+        }
+
+        // Construire le flux combiné (vidéo canvas + audio destination)
+        const combinedStream = new MediaStream();
+        canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
+        audioDestination.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
+
+        // Choisir le codec
+        const mimeTypes = [
+            'video/webm;codecs=vp9,opus',
+            'video/webm;codecs=vp8,opus',
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm'
+        ];
+        let mimeType = '';
+        for (const mt of mimeTypes) {
+            if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+        }
+        if (!mimeType) throw new Error('Aucun codec supporté');
+        log('Codec : ' + mimeType);
+
+        const recorder = new MediaRecorder(combinedStream, {
+            mimeType: mimeType,
+            videoBitsPerSecond: 4000000,
+            audioBitsPerSecond: 128000
+        });
+
+        const chunks = [];
+        recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        const recordingDone = new Promise((resolve) => {
+            recorder.onstop = () => {
+                const finalBlob = new Blob(chunks, { type: mimeType });
+                resolve(finalBlob);
+            };
+        });
+
+        // Démarrer l'enregistrement AVANT de jouer les vidéos
+        recorder.start(500);
+        log('🎬 Enregistrement démarré');
+
+        // ═══ ÉTAPE 4 : Jouer chaque vidéo séquentiellement ═══
+        statusEl.textContent = 'Étape 4/4 : Enregistrement du film…';
+        
+        let elapsedTotal = 0;
+        
+        for (let i = 0; i < videoElements.length; i++) {
+            if (state.stopRequested) throw new Error('Arrêt demandé');
+            
+            const vEl = videoElements[i];
+            statusEl.textContent = 'Enregistrement scène ' + (i + 1) + '/' + videoElements.length + '…';
+            
+            // Remettre la vidéo au début
+            vEl.video.currentTime = 0;
+            
+            // Jouer la vidéo sur le canvas
+            await playVideoOnCanvas(vEl.video, ctx, width, height, (currentTime) => {
+                // Mettre à jour la progression globale
+                const sceneProgress = currentTime / vEl.duration;
+                const globalProgress = 65 + ((elapsedTotal + currentTime) / totalDuration) * 35;
+                progressFill.style.width = Math.min(globalProgress, 100) + '%';
+            });
+            
+            elapsedTotal += vEl.duration;
+            log('✅ Scène ' + (i + 1) + ' enregistrée (' + vEl.duration.toFixed(2) + 's)');
+            
+            // Petite pause pour stabiliser le flux entre les scènes
+            await sleep(150);
+        }
+
+        log('🎬 Toutes les scènes jouées, arrêt de l\'enregistrement');
+
+        // Attendre la fin de l'enregistrement
+        await sleep(500); // Laisse le temps au recorder de capturer la dernière frame
+        recorder.stop();
+        
+        const finalBlob = await recordingDone;
+        
+        if (!finalBlob || finalBlob.size === 0) {
+            throw new Error('Le fichier vidéo est vide');
+        }
+
+        state.finalFilmBlob = finalBlob;
+        log('✅ Film assemblé : ' + (finalBlob.size / 1024 / 1024).toFixed(2) + ' Mo');
+
+        // Afficher le résultat
+        const finalVideo = document.getElementById('final-video');
+        const finalUrl = URL.createObjectURL(finalBlob);
+        finalVideo.src = finalUrl;
+        finalVideo.load();
+
+        document.getElementById('download-btn').classList.add('visible');
+        progressFill.style.width = '100%';
+        statusEl.textContent = '✅ Film prêt ! Taille : ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
+        setStatus(null);
+        showToast('Film assemblé avec voix + musique ✓', 'success');
+
+    } catch (e) {
+        log('❌ Erreur assemblage : ' + e.message);
+        statusEl.textContent = '❌ Erreur : ' + e.message;
+        showToast('Erreur assemblage : ' + e.message, 'error', 5000);
+    } finally {
+        // Nettoyer les ressources
+        createdUrls.forEach(url => { try { URL.revokeObjectURL(url); } catch (e) {} });
+        if (audioCtx) { try { await audioCtx.close(); } catch (e) {} }
+        state.isAssembling = false;
+        setStatus(null);
+    }
+}
