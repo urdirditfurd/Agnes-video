@@ -392,7 +392,7 @@
 <body>
 
 <header>
-    <h1>🌈 Kids Story Studio</h1>
+    <h1> Kids Story Studio</h1>
     <p class="subtitle">Histoire → Images → Vidéos → Film animé</p>
 </header>
 
@@ -404,7 +404,7 @@
 </div>
 
 <div class="api-panel" id="api-panel">
-    <label class="control-label" style="margin-bottom:0.4rem;">🔑 Clé API Agnes (vidéos + voix)</label>
+    <label class="control-label" style="margin-bottom:0.4rem;"> Clé API Agnes (vidéos + voix)</label>
     <input type="password" class="api-key-input" id="api-key-input" placeholder="Collez votre clé API Agnes (sk-...)" autocomplete="off" spellcheck="false">
     <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé Agnes</button>
     
@@ -420,7 +420,7 @@
 
     <div class="image-gen-status">
         🎨 <strong>Images :</strong> Pollinations → HuggingFace → Canvas procédural
-        <br>🎙️ <strong>Voix :</strong> Agnes IA — voix naturelles et enfantines
+        <br>️ <strong>Voix :</strong> Agnes IA — voix naturelles et enfantines
     </div>
 
     <button type="button" id="diag-btn" style="width:100%; padding:0.7rem; border-radius:10px; border:2px solid var(--warn); background:#fff8e8; color:var(--warn); font-weight:700; cursor:pointer; margin-top:0.5rem; font-family:inherit; font-size:0.82rem;">
@@ -444,8 +444,8 @@
             <textarea class="prompt-main" id="main-prompt" placeholder="Écrivez votre histoire pour enfants. L'IA la découpera en scènes cohérentes."></textarea>
             <div class="prompt-presets" id="prompt-presets"></div>
             <div class="story-counter">
-                <span>📝 <strong id="story-words">0</strong> mots</span>
-                <span>🎬 <strong id="story-scenes">0</strong> scènes</span>
+                <span> <strong id="story-words">0</strong> mots</span>
+                <span> <strong id="story-scenes">0</strong> scènes</span>
             </div>
             <div class="prompt-main-hint">💡 Découpage par phrases complètes. Personnage et arrière-plan verrouillés automatiquement.</div>
         </div>
@@ -495,7 +495,7 @@
                 </select>
             </div>
             <div class="control-row">
-                <label class="control-label">🌱 Seed (cohérence visuelle)</label>
+                <label class="control-label"> Seed (cohérence visuelle)</label>
                 <input type="number" id="seed-input" value="42" min="0" max="999999">
                 <div style="font-size:0.72rem; color:var(--ink-dim); margin-top:0.3rem;">Même seed = même style visuel entre les scènes</div>
             </div>
@@ -505,7 +505,7 @@
 
 <div class="section open" id="section-style">
     <div class="section-header" data-toggle="section-style">
-        <span class="section-title">🌈 Thème joyeux <span class="badge">obligatoire</span></span>
+        <span class="section-title"> Thème joyeux <span class="badge">obligatoire</span></span>
         <span class="chevron">▼</span>
     </div>
     <div class="section-body">
@@ -622,7 +622,7 @@ const POLLINATIONS_MIN_INTERVAL_MS = 20000;
 
 // ══════════════════════════════════════════════════════════════════
 // 2. ÉTAT GLOBAL
-// ══════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════
 const state = {
     story: '', storySegments: [], scenes: [], isRunning: false, stopRequested: false,
     completed: 0, failed: 0, selectedTheme: 'pixar-3d', characters: 'custom',
@@ -634,7 +634,7 @@ const state = {
 
 // ══════════════════════════════════════════════════════════════════
 // 3. UTILITAIRES
-// ══════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════
 let toastTimeout = null;
 function showToast(message, type = 'success', duration = 2500) {
     const toast = document.getElementById('toast');
@@ -899,13 +899,13 @@ const STORY_PRESETS = [
 const JOYFUL_THEMES = [
     { id: 'pixar-3d', name: 'Pixar 3D', emoji: '✨', desc: 'Style 3D doux', prompt: 'high-quality 3D computer animation, Pixar-style rendering, soft subsurface scattering, cinematic warm lighting, rounded shapes, high detail, 8K quality' },
     { id: 'sunny-meadow', name: 'Prairie Ensoleillée', emoji: '🌻', desc: 'Herbe, soleil', prompt: 'lush green meadow with colorful wildflowers, clear azure blue sky, warm golden sunlight, soft fluffy clouds' },
-    { id: 'rainbow-sky', name: 'Ciel Arc-en-ciel', emoji: '🌈', desc: 'Arcs-en-ciel', prompt: 'vibrant rainbow sky with soft clouds, bright pastel colors, magical atmosphere' },
+    { id: 'rainbow-sky', name: 'Ciel Arc-en-ciel', emoji: '', desc: 'Arcs-en-ciel', prompt: 'vibrant rainbow sky with soft clouds, bright pastel colors, magical atmosphere' },
     { id: 'candy-meadow', name: 'Prairie Sucrée', emoji: '🍭', desc: 'Bonbons', prompt: 'magical meadow with giant colorful lollipops and candy, pastel colors, sweet joyful atmosphere' },
     { id: 'flower-field', name: 'Champ Fleuri', emoji: '🌺', desc: 'Fleurs géantes', prompt: 'beautiful flower field with giant colorful flowers, butterflies, warm sunny light, magical garden' },
     { id: 'enchanted-forest', name: 'Forêt Enchantée', emoji: '🌲', desc: 'Arbres magiques', prompt: 'enchanted magical forest with glowing trees, soft sparkles, fireflies, warm friendly atmosphere' },
     { id: 'sunny-beach', name: 'Plage Ensoleillée', emoji: '🏖️', desc: 'Sable, mer', prompt: 'sunny beach with golden sand, gentle blue waves, bright sun, tropical plants' },
     { id: 'farm-friends', name: 'Ferme Joyeuse', emoji: '🚜', desc: 'Animaux', prompt: 'cheerful farm with cute animals, green pastures, red barn, sunny day, colorful flowers' },
-    { id: 'jungle-fun', name: 'Jungle Amicale', emoji: '🌴', desc: 'Jungle colorée', prompt: 'friendly colorful jungle with cute animals, bright green leaves, exotic flowers, sunny atmosphere' },
+    { id: 'jungle-fun', name: 'Jungle Amicale', emoji: '', desc: 'Jungle colorée', prompt: 'friendly colorful jungle with cute animals, bright green leaves, exotic flowers, sunny atmosphere' },
     { id: 'space-kids', name: 'Espace Enfants', emoji: '🚀', desc: 'Étoiles, planètes', prompt: 'colorful kid-friendly outer space with smiling stars, cute planets, friendly rockets, magical' },
     { id: 'underwater-joy', name: 'Fonds Marin Joyeux', emoji: '🐠', desc: 'Poissons, coraux', prompt: 'colorful friendly underwater world with smiling fish, bright corals, gentle bubbles, magical light' },
     { id: 'snow-fun', name: 'Neige Joyeuse', emoji: '⛄', desc: 'Neige, bonhomme', prompt: 'bright snowy landscape with friendly snowman, gentle falling snowflakes, warm winter sun' },
@@ -953,7 +953,7 @@ function updateGenerateBtn() {
     if (state.isRunning) btn.textContent = '🎬 Création… (' + (state.completed + state.failed) + '/' + state.scenes.length + ')';
     else if (!hasAgnes) btn.textContent = '🔑 Ajoutez votre clé Agnes';
     else if (!hasStory) btn.textContent = '📖 Écrivez votre histoire';
-    else btn.textContent = '🌟 Créer les ' + state.storySegments.length + ' scènes';
+    else btn.textContent = ' Créer les ' + state.storySegments.length + ' scènes';
 }
 
 function generateThumbnail(dataUri) {
@@ -1104,7 +1104,7 @@ async function generateProceduralImage(sceneText, sceneIndex) {
 }
 
 async function generateImage(prompt, sceneIndex) {
-    try { return await generateImageWithPollinations(prompt, 3); } catch (e) { log('⚠️ Pollinations échoué : ' + e.message); }
+    try { return await generateImageWithPollinations(prompt, 3); } catch (e) { log('️ Pollinations échoué : ' + e.message); }
     if (getHfKey()) {
         try { return await generateImageWithHuggingFace(prompt); } catch (e) { log('⚠️ HuggingFace échoué : ' + e.message); }
     }
@@ -1112,7 +1112,7 @@ async function generateImage(prompt, sceneIndex) {
     return await generateProceduralImage(state.storySegments[sceneIndex] || '', sceneIndex);
 }
 
-// ══════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════
 // 9. AGNES — VIDÉOS & PIPELINE
 // ══════════════════════════════════════════════════════════════════
 async function apiFetch(url, options = {}) {
@@ -1200,7 +1200,7 @@ async function generateAllScenes() {
     if (state.stopRequested) return;
 
     const validScenes = scenes.filter(s => s.imageDataUri && s.status === 'image-done');
-    log('═══ ÉTAPE 2 : Vidéos Agnes ═══');
+    log('═══ ÉTAPE 2 : Vidéos Agnes ══');
     setStatus('Étape 2/2 : génération des vidéos…');
     const pollingTasks = [];
     
@@ -1239,8 +1239,16 @@ async function pollSceneVideo(scene) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 10. ASSEMBLAGE FINAL ROBUSTE
+// 10. ASSEMBLAGE FINAL - NOUVELLE APPROCHE ROBUSTE
 // ══════════════════════════════════════════════════════════════════
+// Cette nouvelle version contourne les problèmes CORS en :
+// 1. Téléchargeant toutes les vidéos
+// 2. Extrayant l'audio de chaque vidéo dans un AudioBuffer
+// 3. Concaténant tous les AudioBuffers + musique en un seul buffer
+// 4. Dessinant les vidéos séquentiellement sur un canvas
+// 5. Utilisant MediaRecorder sur le canvas + audio destination
+// Cela évite createMediaElementSource qui pose des problèmes CORS
+
 async function downloadVideoBlob(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('Téléchargement échoué : HTTP ' + res.status);
@@ -1256,6 +1264,36 @@ function waitForVideoReady(video) {
     });
 }
 
+// Extrait l'audio d'un blob vidéo et retourne un AudioBuffer
+async function extractAudioFromVideo(blob, audioCtx) {
+    try {
+        const arrayBuffer = await blob.arrayBuffer();
+        return await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    } catch (e) {
+        log('⚠️ Impossible d\'extraire l\'audio : ' + e.message);
+        return null;
+    }
+}
+
+// Concatène plusieurs AudioBuffers en un seul
+function concatAudioBuffers(buffers, audioCtx) {
+    if (buffers.length === 0) return null;
+    const totalLength = buffers.reduce((sum, buf) => sum + buf.length, 0);
+    const result = audioCtx.createBuffer(
+        buffers[0].numberOfChannels,
+        totalLength,
+        buffers[0].sampleRate
+    );
+    let offset = 0;
+    for (const buf of buffers) {
+        for (let channel = 0; channel < result.numberOfChannels; channel++) {
+            result.getChannelData(channel).set(buf.getChannelData(channel), offset);
+        }
+        offset += buf.length;
+    }
+    return result;
+}
+
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
     const doneScenes = state.scenes.filter(s => s.status === 'done' && s.videoUrl).sort((a, b) => a.index - b.index);
@@ -1269,69 +1307,161 @@ async function assembleFinalFilm() {
     finalFilmEl.classList.add('visible'); progressContainer.style.display = 'block';
     setStatus('Assemblage du film final…');
 
+    let audioCtx = null;
     try {
-        statusEl.textContent = 'Téléchargement et préparation des scènes…';
-        const videoElements = [];
-        
+        // ÉTAPE 1 : Télécharger toutes les vidéos
+        statusEl.textContent = 'Étape 1/4 : Téléchargement des scènes…';
+        const videoBlobs = [];
         for (let i = 0; i < doneScenes.length; i++) {
             if (state.stopRequested) break;
             const scene = doneScenes[i];
-            progressFill.style.width = ((i / doneScenes.length) * 50) + '%';
-            statusEl.textContent = 'Préparation scène ' + (i + 1) + '/' + doneScenes.length + '…';
+            progressFill.style.width = ((i / doneScenes.length) * 25) + '%';
+            statusEl.textContent = 'Téléchargement scène ' + (i + 1) + '/' + doneScenes.length + '…';
             try {
                 const blob = await downloadVideoBlob(scene.videoUrl);
-                const url = URL.createObjectURL(blob);
-                const video = document.createElement('video');
-                video.crossOrigin = 'anonymous'; video.src = url; video.muted = false;
-                video.playsInline = true; video.preload = 'auto';
-                await waitForVideoReady(video);
-                videoElements.push({ index: scene.index, video, url });
-            } catch (e) { log('Scène ' + (scene.index + 1) + ' ignorée : ' + e.message); }
+                videoBlobs.push({ index: scene.index, blob });
+            } catch (e) { log('Scène ' + (scene.index + 1) + ' téléchargement échoué : ' + e.message); }
+        }
+
+        if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
+
+        // ÉTAPE 2 : Créer les éléments vidéo et extraire l'audio
+        statusEl.textContent = 'Étape 2/4 : Préparation audio…';
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const videoElements = [];
+        const audioBuffers = [];
+
+        for (let i = 0; i < videoBlobs.length; i++) {
+            if (state.stopRequested) break;
+            progressFill.style.width = (25 + (i / videoBlobs.length) * 25) + '%';
+            statusEl.textContent = 'Préparation audio scène ' + (i + 1) + '/' + videoBlobs.length + '…';
+            
+            const blob = videoBlobs[i].blob;
+            const url = URL.createObjectURL(blob);
+            const video = document.createElement('video');
+            video.src = url;
+            video.muted = true; // Muted pour éviter les problèmes d'autoplay
+            video.playsInline = true;
+            video.preload = 'auto';
+            
+            await waitForVideoReady(video);
+            
+            // Extraire l'audio du blob directement (évite les problèmes CORS)
+            const audioBuffer = await extractAudioFromVideo(blob, audioCtx);
+            if (audioBuffer) {
+                audioBuffers.push(audioBuffer);
+                log('✅ Audio extrait scène ' + (i + 1) + ' : ' + audioBuffer.duration.toFixed(2) + 's');
+            } else {
+                log('⚠️ Pas d\'audio pour scène ' + (i + 1));
+            }
+            
+            videoElements.push({ index: videoBlobs[i].index, video, url, duration: video.duration });
         }
 
         if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
 
+        // ÉTAPE 3 : Mixer l'audio (vidéos + musique)
+        statusEl.textContent = 'Étape 3/4 : Mixage audio…';
+        progressFill.style.width = '60%';
+        
+        let finalAudioBuffer = null;
+        
+        if (audioBuffers.length > 0) {
+            // Concaténer tous les audios des vidéos
+            finalAudioBuffer = concatAudioBuffers(audioBuffers, audioCtx);
+            log('✅ Audio concaténé : ' + finalAudioBuffer.duration.toFixed(2) + 's');
+            
+            // Ajouter la musique de fond si présente
+            if (state.audioFile && state.audioObjectUrl) {
+                try {
+                    const musicArrayBuffer = await state.audioFile.arrayBuffer();
+                    const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer.slice(0));
+                    
+                    // Créer un buffer de la même durée que la vidéo
+                    const targetDuration = finalAudioBuffer.duration;
+                    const musicLength = Math.ceil(targetDuration * musicBuffer.sampleRate);
+                    const musicLoopBuffer = audioCtx.createBuffer(
+                        musicBuffer.numberOfChannels,
+                        musicLength,
+                        musicBuffer.sampleRate
+                    );
+                    
+                    // Loop la musique
+                    for (let channel = 0; channel < musicLoopBuffer.numberOfChannels; channel++) {
+                        const srcData = musicBuffer.getChannelData(channel % musicBuffer.numberOfChannels);
+                        const dstData = musicLoopBuffer.getChannelData(channel);
+                        for (let i = 0; i < musicLength; i++) {
+                            dstData[i] = srcData[i % srcData.length];
+                        }
+                    }
+                    
+                    // Appliquer le ducking : baisser la musique quand la voix parle
+                    if (state.duckingEnabled) {
+                        const musicGain = state.musicVolume * 0.15; // Volume bas pendant la voix
+                        for (let channel = 0; channel < musicLoopBuffer.numberOfChannels; channel++) {
+                            const data = musicLoopBuffer.getChannelData(channel);
+                            for (let i = 0; i < data.length; i++) {
+                                data[i] *= musicGain;
+                            }
+                        }
+                    } else {
+                        const musicGain = state.musicVolume * 0.5;
+                        for (let channel = 0; channel < musicLoopBuffer.numberOfChannels; channel++) {
+                            const data = musicLoopBuffer.getChannelData(channel);
+                            for (let i = 0; i < data.length; i++) {
+                                data[i] *= musicGain;
+                            }
+                        }
+                    }
+                    
+                    // Mixer musique + voix
+                    const mixedBuffer = audioCtx.createBuffer(
+                        finalAudioBuffer.numberOfChannels,
+                        finalAudioBuffer.length,
+                        finalAudioBuffer.sampleRate
+                    );
+                    for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
+                        const voiceData = finalAudioBuffer.getChannelData(channel % finalAudioBuffer.numberOfChannels);
+                        const musicData = musicLoopBuffer.getChannelData(channel % musicLoopBuffer.numberOfChannels);
+                        const mixedData = mixedBuffer.getChannelData(channel);
+                        for (let i = 0; i < mixedData.length; i++) {
+                            mixedData[i] = voiceData[i] + musicData[i];
+                            // Limiter pour éviter la saturation
+                            if (mixedData[i] > 1) mixedData[i] = 1;
+                            if (mixedData[i] < -1) mixedData[i] = -1;
+                        }
+                    }
+                    finalAudioBuffer = mixedBuffer;
+                    log('✅ Musique mixée avec la voix');
+                } catch (e) {
+                    log('⚠️ Erreur mixage musique : ' + e.message);
+                }
+            }
+        }
+
+        // ÉTAPE 4 : Enregistrer le canvas + audio
+        statusEl.textContent = 'Étape 4/4 : Enregistrement du film…';
+        
         const firstVideo = videoElements[0].video;
         const width = firstVideo.videoWidth || 768;
         const height = firstVideo.videoHeight || 1365;
         const canvas = document.createElement('canvas');
         canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
-        const canvasStreamOut = canvas.captureStream(30);
-
-        let audioCtx = null, audioDestination = null, musicSource = null, musicGain = null;
-
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            audioDestination = audioCtx.createMediaStreamDestination();
-
-            if (state.audioFile && state.audioObjectUrl) {
-                const audioBuffer = await audioCtx.decodeAudioData(await state.audioFile.arrayBuffer());
-                musicSource = audioCtx.createBufferSource(); musicSource.buffer = audioBuffer; musicSource.loop = true;
-                musicGain = audioCtx.createGain();
-                musicGain.gain.value = state.duckingEnabled ? state.musicVolume * 0.5 : state.musicVolume;
-                const compressor = audioCtx.createDynamicsCompressor();
-                compressor.threshold.value = -12; compressor.knee.value = 6; compressor.ratio.value = 4;
-                compressor.attack.value = 0.003; compressor.release.value = 0.25;
-                musicSource.connect(musicGain); musicGain.connect(compressor); compressor.connect(audioDestination);
-            }
-
-            for (const vEl of videoElements) {
-                try {
-                    const src = audioCtx.createMediaElementSource(vEl.video);
-                    src.connect(audioDestination);
-                } catch (e) {
-                    log('Fallback audio CORS pour scène ' + (vEl.index + 1));
-                    if (vEl.video.captureStream) {
-                        vEl.video.captureStream().getAudioTracks().forEach(t => audioDestination.stream.addTrack(t));
-                    }
-                }
-            }
-        } catch (e) { log('Erreur préparation audio : ' + e.message); }
+        const canvasStream = canvas.captureStream(30);
 
         const combinedStream = new MediaStream();
-        canvasStreamOut.getVideoTracks().forEach(t => combinedStream.addTrack(t));
-        if (audioDestination) audioDestination.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
+        canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
+        
+        // Ajouter l'audio si disponible
+        if (finalAudioBuffer) {
+            const audioSource = audioCtx.createBufferSource();
+            audioSource.buffer = finalAudioBuffer;
+            const audioDestination = audioCtx.createMediaStreamDestination();
+            audioSource.connect(audioDestination);
+            audioDestination.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
+            audioSource.start(0);
+        }
 
         const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
         const mimeType = mimeTypes.find(mt => MediaRecorder.isTypeSupported(mt)) || 'video/webm';
@@ -1340,53 +1470,51 @@ async function assembleFinalFilm() {
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
         const recordingDone = new Promise((resolve) => { recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType })); });
 
-        recorder.start(1000);
-        if (musicSource && audioCtx) musicSource.start(0);
+        recorder.start(100);
 
-        statusEl.textContent = 'Assemblage des scènes (ne quittez pas cet onglet)…';
-        const totalDuration = videoElements.reduce((sum, v) => sum + (v.video.duration || 0), 0);
+        // Dessiner les vidéos séquentiellement sur le canvas
+        const totalDuration = videoElements.reduce((sum, v) => sum + v.duration, 0);
         let elapsedPlayback = 0;
+        let currentVideoIndex = 0;
 
-        for (let i = 0; i < videoElements.length; i++) {
-            if (state.stopRequested) break;
-            const { video } = videoElements[i];
-            video.currentTime = 0; video.volume = 1.0;
+        log('🎬 Démarrage de l\'enregistrement : ' + videoElements.length + ' scènes, durée totale ' + totalDuration.toFixed(2) + 's');
 
-            if (musicGain && state.duckingEnabled && audioCtx) {
-                const now = audioCtx.currentTime;
-                musicGain.gain.cancelScheduledValues(now);
-                musicGain.gain.setValueAtTime(musicGain.gain.value, now);
-                musicGain.gain.exponentialRampToValueAtTime(Math.max(0.01, state.musicVolume * 0.15), now + 0.5);
+        const renderLoop = () => {
+            if (state.stopRequested || currentVideoIndex >= videoElements.length) {
+                recorder.stop();
+                if (audioCtx) { try { audioCtx.close(); } catch (e) {} }
+                return;
             }
 
-            await new Promise((resolve) => {
-                let lastTime = 0;
-                const renderFrame = () => {
-                    if (video.paused || video.ended) { resolve(); return; }
-                    ctx.drawImage(video, 0, 0, width, height);
-                    const t = video.currentTime;
-                    elapsedPlayback += (t - lastTime); lastTime = t;
-                    progressFill.style.width = Math.min(50 + (elapsedPlayback / totalDuration) * 50, 100) + '%';
-                    statusEl.textContent = 'Assemblage scène ' + (i + 1) + '/' + videoElements.length + '…';
-                    requestAnimationFrame(renderFrame);
-                };
-                video.play().then(() => requestAnimationFrame(renderFrame)).catch(() => resolve());
-            });
-
-            if (musicGain && state.duckingEnabled && audioCtx) {
-                const now = audioCtx.currentTime;
-                musicGain.gain.cancelScheduledValues(now);
-                musicGain.gain.setValueAtTime(musicGain.gain.value, now);
-                musicGain.gain.exponentialRampToValueAtTime(state.musicVolume * 0.5, now + 0.5);
+            const { video, duration } = videoElements[currentVideoIndex];
+            
+            // Dessiner la frame courante
+            if (video.readyState >= 2) {
+                ctx.drawImage(video, 0, 0, width, height);
             }
-            await sleep(300);
-        }
 
-        if (musicSource) { try { musicSource.stop(); } catch (e) {} }
-        if (audioCtx) { try { await audioCtx.close(); } catch (e) {} }
-        recorder.stop();
+            // Mettre à jour la progression
+            elapsedPlayback += 1/30; // ~30fps
+            progressFill.style.width = Math.min(60 + (elapsedPlayback / totalDuration) * 40, 100) + '%';
+            statusEl.textContent = 'Enregistrement scène ' + (currentVideoIndex + 1) + '/' + videoElements.length + '…';
 
-        statusEl.textContent = 'Finalisation du fichier…'; progressFill.style.width = '100%';
+            // Passer à la vidéo suivante si nécessaire
+            if (video.currentTime >= duration - 0.05) {
+                currentVideoIndex++;
+                if (currentVideoIndex < videoElements.length) {
+                    videoElements[currentVideoIndex].video.currentTime = 0;
+                }
+            }
+
+            requestAnimationFrame(renderLoop);
+        };
+
+        // Démarrer la première vidéo
+        videoElements[0].video.currentTime = 0;
+        await videoElements[0].video.play();
+        requestAnimationFrame(renderLoop);
+
+        // Attendre la fin de l'enregistrement
         state.finalFilmBlob = await recordingDone;
 
         const finalVideo = document.getElementById('final-video');
@@ -1394,11 +1522,13 @@ async function assembleFinalFilm() {
         document.getElementById('download-btn').classList.add('visible');
         statusEl.textContent = '✅ Film prêt ! Taille : ' + (state.finalFilmBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
         setStatus(null); showToast('Film assemblé avec voix + musique ✓', 'success');
+        
         videoElements.forEach(v => { try { URL.revokeObjectURL(v.url); } catch (e) {} });
     } catch (e) {
-        log('Erreur assemblage : ' + e.message);
+        log(' Erreur assemblage : ' + e.message);
         statusEl.textContent = '❌ Erreur : ' + e.message;
         showToast('Erreur assemblage : ' + e.message, 'error', 5000);
+        if (audioCtx) { try { audioCtx.close(); } catch (e) {} }
     } finally { state.isAssembling = false; setStatus(null); }
 }
 
@@ -1504,7 +1634,7 @@ function renderQueue() {
         let icon = '○', statusText = 'En attente', cls = 'pending';
         if (scene.status === 'generating-image') { icon = '🎨'; statusText = 'Image (multi-fallback)…'; cls = 'generating-image'; }
         else if (scene.status === 'image-done') { icon = '✓'; statusText = 'Image prête'; cls = 'pending'; }
-        else if (scene.status === 'creating') { icon = '◐'; statusText = 'Création vidéo…'; cls = 'creating'; }
+        else if (scene.status === 'creating') { icon = ''; statusText = 'Création vidéo…'; cls = 'creating'; }
         else if (scene.status === 'processing') { icon = '◐'; statusText = scene.progress || 'Vidéo…'; cls = 'processing'; }
         else if (scene.status === 'done') { icon = '🌟'; statusText = 'Terminé'; cls = 'done'; }
         else if (scene.status === 'failed') { icon = '✕'; statusText = 'Échec'; cls = 'failed'; }
@@ -1599,7 +1729,7 @@ function stopGeneration() {
 
 async function runDiagnostic() {
     const out = document.getElementById('diag-output');
-    out.style.display = 'block'; out.textContent = '⏳ Diagnostic en cours...\n\n';
+    out.style.display = 'block'; out.textContent = ' Diagnostic en cours...\n\n';
     const logLine = (msg) => { out.textContent += msg + '\n'; };
     logLine('═══ TEST POLLINATIONS.AI ═══');
     for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 3)) {
