@@ -704,7 +704,7 @@
 
 <script>
 // ══════════════════════════════════════════════════════════════════
-// CONFIGURATION
+// 1. CONFIGURATION
 // ══════════════════════════════════════════════════════════════════
 const AGNES_API_BASE = 'https://apihub.agnes-ai.com/v1';
 const AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
@@ -716,7 +716,6 @@ const FRAME_RATE = 24;
 let createIntervalMs = 62000;
 const CREATE_INTERVAL_MIN = 62000;
 const CREATE_INTERVAL_MAX = 90000;
-
 const POLL_INTERVAL_SEC = 8;
 const MAX_POLL_ATTEMPTS = 120;
 
@@ -726,11 +725,10 @@ const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
 
 const MAX_VISIBLE_QUEUE = 30;
 const THUMBNAIL_MAX_WIDTH = 200;
-
 const POLLINATIONS_MIN_INTERVAL_MS = 20000;
 
 // ══════════════════════════════════════════════════════════════════
-// ÉTAT GLOBAL
+// 2. ÉTAT GLOBAL
 // ══════════════════════════════════════════════════════════════════
 const state = {
     story: '',
@@ -752,14 +750,14 @@ const state = {
     isAssembling: false,
     lastPollinationsCall: 0,
     canonicalCharacter: '',
-    globalSetting: '', // NOUVEAU : Verrouillage de l'environnement
+    globalSetting: '',
     seed: 42,
     musicVolume: 0.20,
     duckingEnabled: true
 };
 
 // ══════════════════════════════════════════════════════════════════
-// TOAST & UTILITAIRES
+// 3. TOAST & UTILITAIRES
 // ══════════════════════════════════════════════════════════════════
 let toastTimeout = null;
 function showToast(message, type = 'success', duration = 2500) {
@@ -794,7 +792,7 @@ function esc(s) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ANTI-VEILLE (inchangé, fonctionnel)
+// 4. ANTI-VEILLE
 // ══════════════════════════════════════════════════════════════════
 let wakeLockSentinel = null;
 let wakeLockEnabled = false;
@@ -887,7 +885,7 @@ async function ensureWakeLockActive() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// DÉCOUPAGE & COHÉRENCE (AMÉLIORÉ)
+// 5. DÉCOUPAGE & COHÉRENCE
 // ══════════════════════════════════════════════════════════════════
 function segmentStory(text, targetScenes) {
     if (!text || !text.trim()) return [];
@@ -969,7 +967,6 @@ function buildCanonicalCharacter(storyText) {
     return 'Un personnage principal adorable et attachant, avec de grands yeux expressifs, un sourire chaleureux, un design doux et arrondi style Pixar. Ce personnage doit être IDENTIQUE dans toutes les scènes.';
 }
 
-// NOUVEAU : Extraction du décor global pour la cohérence des arrière-plans
 function extractGlobalSetting(storyText) {
     if (!storyText) return 'un décor joyeux, coloré et lumineux, style livre pour enfants';
     const lower = storyText.toLowerCase();
@@ -986,7 +983,7 @@ function updateCanonicalCharacter() {
     const story = state.story;
     if (!story) return;
     state.canonicalCharacter = buildCanonicalCharacter(story);
-    state.globalSetting = extractGlobalSetting(story); // Mise à jour du décor global
+    state.globalSetting = extractGlobalSetting(story);
     const textarea = document.getElementById('canonical-character');
     if (textarea) {
         textarea.value = state.canonicalCharacter;
@@ -1009,7 +1006,7 @@ function updateStoryPreview() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// PROMPTS (AMÉLIORÉS POUR LA COHÉRENCE ET LA PAROLE)
+// 6. PROMPTS
 // ══════════════════════════════════════════════════════════════════
 const CHARACTER_PROMPTS = {
     'custom': null,
@@ -1032,10 +1029,7 @@ function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
 
     const bloc1 = 'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still';
     const bloc2 = 'MAIN CHARACTER (MUST BE IDENTICAL in every scene, same face, same colors, same proportions): ' + charPrompt;
-    
-    // NOUVEAU : Verrouillage fort de l'environnement
     const blocEnv = 'GLOBAL ENVIRONMENT LOCK (MUST REMAIN CONSISTENT ACROSS ALL SCENES): ' + state.globalSetting;
-    
     const bloc3 = 'SCENE ACTION: ' + sceneText;
     const bloc4 = 'STYLE: ' + theme.prompt;
     const cameraAngles = ['medium shot, character centered, cinematic composition', 'wide establishing shot, character in environment context', 'close-up portrait, character face and expression detailed', 'three-quarter view, character slightly turned, dynamic angle'];
@@ -1061,10 +1055,7 @@ function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
     parts.push('CHARACTER: ' + charPrompt);
     parts.push('STYLE: ' + theme.prompt);
     parts.push('Simple rhythmic joyful animation — gentle movements, breathing, blinking, subtle sway.');
-    
-    // NOUVEAU : Instruction critique pour éviter les coupures de parole
     parts.push('CRITICAL AUDIO RULE: If the character speaks or sings, the voiceover must be complete, natural, and in French. DO NOT cut the audio mid-word or mid-sentence. Pace the animation to allow the full sentence to be spoken smoothly within the duration.');
-    
     parts.push('Soft glowing sparkles or music notes floating gently if appropriate.');
     parts.push('Bright saturated but soft colors, high quality 3D render, smooth 24fps, vertical 9:16.');
     parts.push('The final 1.0 seconds must smoothly fade out — the character gradually slows down, the light softens, natural peaceful ending. NO abrupt cut.');
@@ -1073,7 +1064,35 @@ function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CLÉ AGNES & UTILITAIRES
+// 7. DONNÉES STATIQUES (Déplacées AVANT init() pour éviter l'erreur ReferenceError)
+// ══════════════════════════════════════════════════════════════════
+const STORY_PRESETS = [
+    { label: '🐻 L\'ourson et la fête', text: 'Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie. Un matin, il décida d\'organiser une grande fête avec tous ses amis. Il invita la petite lapine rose et le poussin jaune. Ensemble, ils préparèrent des gâteaux et décorèrent la prairie avec des ballons colorés. Quand le soleil se coucha, ils dansèrent et chantèrent toute la nuit sous les étoiles. L\'ourson était le plus heureux des oursons.' },
+    { label: '🐲 Le dragon aux bulles', text: 'Il était une fois un petit dragon prénommé Barnabé. Contrairement à tous les autres dragons, Barnabé ne crachait pas de feu. Quand il essayait, il ne sortait que des bulles de savon colorées. Ses frères se moquaient de lui. Un après-midi, un grand nuage noir cacha le soleil et la forêt devint sombre. Barnabé souffla une gigantesque bulle qui captura les rayons du soleil. Elles illuminèrent toute la forêt. Depuis ce jour, Barnabé est le dragon le plus populaire du royaume.' },
+    { label: '🌻 La fleur magique', text: 'Dans un jardin ensoleillé, une petite fleur magique poussait au milieu des tournesols. Chaque matin, elle chantait pour réveiller les abeilles. Un jour, un papillon bleu vint lui rendre visite. Ils devinrent les meilleurs amis du monde. Ensemble, ils firent danser tout le jardin.' },
+    { label: '🐤 Le poussin perdu', text: 'Un petit poussin jaune s\'éloigna de sa maman pour explorer la ferme. Il rencontra un chaton qui jouait avec une pelote de laine. Le chaton lui proposa de l\'aider à retrouver sa maman. Ils traversèrent la grange et le potager. Finalement, ils retrouvèrent la maman poule près de l\'étang. Le poussin promit de ne plus jamais s\'éloigner.' }
+];
+
+const JOYFUL_THEMES = [
+    { id: 'pixar-3d', name: 'Pixar 3D', emoji: '✨', desc: 'Style 3D doux', prompt: 'high-quality 3D computer animation, Pixar-style rendering, soft subsurface scattering, cinematic warm lighting, rounded shapes, high detail, 8K quality' },
+    { id: 'sunny-meadow', name: 'Prairie Ensoleillée', emoji: '🌻', desc: 'Herbe, soleil', prompt: 'lush green meadow with colorful wildflowers, clear azure blue sky, warm golden sunlight, soft fluffy clouds' },
+    { id: 'rainbow-sky', name: 'Ciel Arc-en-ciel', emoji: '🌈', desc: 'Arcs-en-ciel', prompt: 'vibrant rainbow sky with soft clouds, bright pastel colors, magical atmosphere' },
+    { id: 'candy-meadow', name: 'Prairie Sucrée', emoji: '🍭', desc: 'Bonbons', prompt: 'magical meadow with giant colorful lollipops and candy, pastel colors, sweet joyful atmosphere' },
+    { id: 'flower-field', name: 'Champ Fleuri', emoji: '🌺', desc: 'Fleurs géantes', prompt: 'beautiful flower field with giant colorful flowers, butterflies, warm sunny light, magical garden' },
+    { id: 'enchanted-forest', name: 'Forêt Enchantée', emoji: '🌲', desc: 'Arbres magiques', prompt: 'enchanted magical forest with glowing trees, soft sparkles, fireflies, warm friendly atmosphere' },
+    { id: 'sunny-beach', name: 'Plage Ensoleillée', emoji: '🏖️', desc: 'Sable, mer', prompt: 'sunny beach with golden sand, gentle blue waves, bright sun, tropical plants' },
+    { id: 'farm-friends', name: 'Ferme Joyeuse', emoji: '🚜', desc: 'Animaux', prompt: 'cheerful farm with cute animals, green pastures, red barn, sunny day, colorful flowers' },
+    { id: 'jungle-fun', name: 'Jungle Amicale', emoji: '🌴', desc: 'Jungle colorée', prompt: 'friendly colorful jungle with cute animals, bright green leaves, exotic flowers, sunny atmosphere' },
+    { id: 'space-kids', name: 'Espace Enfants', emoji: '🚀', desc: 'Étoiles, planètes', prompt: 'colorful kid-friendly outer space with smiling stars, cute planets, friendly rockets, magical' },
+    { id: 'underwater-joy', name: 'Fonds Marin Joyeux', emoji: '🐠', desc: 'Poissons, coraux', prompt: 'colorful friendly underwater world with smiling fish, bright corals, gentle bubbles, magical light' },
+    { id: 'snow-fun', name: 'Neige Joyeuse', emoji: '⛄', desc: 'Neige, bonhomme', prompt: 'bright snowy landscape with friendly snowman, gentle falling snowflakes, warm winter sun' },
+    { id: 'birthday-party', name: 'Fête d\'Anniversaire', emoji: '🎂', desc: 'Ballons, gâteau', prompt: 'joyful birthday party with colorful balloons, confetti, birthday cake, streamers, festive' },
+    { id: 'musical-meadow', name: 'Prairie Musicale', emoji: '🎵', desc: 'Notes, danse', prompt: 'magical musical meadow with floating music notes, dancing flowers, happy animals' },
+    { id: 'claymation-soft', name: 'Pâte à Modeler', emoji: '🧱', desc: 'Texture douce', prompt: 'soft claymation stop-motion animation, plasticine texture, rounded friendly shapes, warm light' }
+];
+
+// ══════════════════════════════════════════════════════════════════
+// 8. CLÉ AGNES & UTILITAIRES
 // ══════════════════════════════════════════════════════════════════
 function getAgnesKey() { try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
 function saveAgnesKey() {
@@ -1143,7 +1162,7 @@ function generateThumbnail(dataUri) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// POLLINATIONS.AI
+// 9. POLLINATIONS.AI
 // ══════════════════════════════════════════════════════════════════
 const POLLINATIONS_ANONYMOUS_MODELS = ['flux', 'turbo', 'gptimage', 'qwen-image', 'grok-imagine', 'zimage', 'wan-image', 'ideogram-v4-turbo', 'nova-canvas', 'klein', 'sana', 'p-image'];
 
@@ -1198,7 +1217,7 @@ async function generateImageWithPollinations(prompt, retries = 5) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// AGNES — VIDÉOS
+// 10. AGNES — VIDÉOS
 // ══════════════════════════════════════════════════════════════════
 async function apiFetch(url, options = {}, label = 'API') {
     for (let attempt = 0; attempt < 7; attempt++) {
@@ -1271,7 +1290,7 @@ async function pollVideo(videoId, onProgress) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// PIPELINE PRINCIPAL
+// 11. PIPELINE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
 async function generateAllScenes() {
     const scenes = state.storySegments.map((text, i) => ({
@@ -1375,7 +1394,7 @@ async function pollSceneVideo(scene) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ASSEMBLAGE — CORRIGÉ ET ROBUSTE
+// 12. ASSEMBLAGE
 // ══════════════════════════════════════════════════════════════════
 async function downloadVideoBlob(url) {
     const res = await fetch(url);
@@ -1383,7 +1402,6 @@ async function downloadVideoBlob(url) {
     return await res.blob();
 }
 
-// NOUVEAU : Fonction utilitaire pour attendre que la vidéo soit prête à être lue sans frame noire
 function waitForVideoReady(video) {
     return new Promise((resolve, reject) => {
         if (video.readyState >= 3) { resolve(); return; }
@@ -1425,7 +1443,6 @@ async function assembleFinalFilm() {
                 const url = URL.createObjectURL(blob);
                 const video = document.createElement('video');
                 
-                // CRUCIAL : crossOrigin DOIT être défini avant le src pour éviter les erreurs CORS audio
                 video.crossOrigin = 'anonymous';
                 video.src = url;
                 video.muted = false;
@@ -1483,14 +1500,12 @@ async function assembleFinalFilm() {
                 compressor.connect(audioDestination);
             }
 
-            // Capture audio des vidéos avec fallback CORS
             for (const vEl of videoElements) {
                 try {
                     const src = audioCtx.createMediaElementSource(vEl.video);
                     src.connect(audioDestination);
                 } catch (e) {
                     log('Fallback audio CORS pour scène ' + (vEl.index + 1));
-                    // Fallback : on essaie de capturer le stream directement si createMediaElementSource est bloqué
                     if (vEl.video.captureStream) {
                         const vStream = vEl.video.captureStream();
                         vStream.getAudioTracks().forEach(t => audioDestination.stream.addTrack(t));
@@ -1529,7 +1544,6 @@ async function assembleFinalFilm() {
             video.currentTime = 0;
             video.volume = 1.0;
 
-            // Ducking amélioré : transition plus douce
             if (musicGain && state.duckingEnabled && audioCtx) {
                 const now = audioCtx.currentTime;
                 musicGain.gain.cancelScheduledValues(now);
@@ -1558,7 +1572,6 @@ async function assembleFinalFilm() {
                 });
             });
 
-            // Remontée du volume de musique douce entre les scènes
             if (musicGain && state.duckingEnabled && audioCtx) {
                 const now = audioCtx.currentTime;
                 musicGain.gain.cancelScheduledValues(now);
@@ -1566,7 +1579,6 @@ async function assembleFinalFilm() {
                 musicGain.gain.exponentialRampToValueAtTime(state.musicVolume * 0.5, now + 0.5);
             }
 
-            // Micro-pause pour éviter les coupures nettes (overlap simulé)
             await sleep(300);
         }
 
@@ -1614,7 +1626,7 @@ function downloadFinalFilm() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// AUDIO & RENDU (inchangés, fonctionnels)
+// 13. AUDIO & RENDU
 // ══════════════════════════════════════════════════════════════════
 async function detectBPM(file) {
     try {
@@ -1775,7 +1787,7 @@ function displayYouTubeMetadata() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// WORKFLOW PRINCIPAL (AMÉLIORÉ : AUTO-ASSEMBLAGE)
+// 14. WORKFLOW PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
 async function startGeneration() {
     if (state.isRunning || !state.storySegments.length) return;
@@ -1830,8 +1842,6 @@ async function startGeneration() {
     if (doneScenes > 0) {
         displayYouTubeMetadata();
         showToast(doneScenes + ' scène(s) prête(s). Assemblage automatique en cours...', 'success');
-        
-        // NOUVEAU : Déclenchement automatique de l'assemblage après un court délai
         setTimeout(() => {
             assembleFinalFilm();
         }, 1500);
@@ -1871,7 +1881,7 @@ async function runDiagnostic() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// INITIALISATION
+// 15. INITIALISATION
 // ══════════════════════════════════════════════════════════════════
 (function init() {
     document.getElementById('api-save-btn')?.addEventListener('click', saveAgnesKey);
@@ -1944,31 +1954,6 @@ async function runDiagnostic() {
     updateStoryPreview();
     log('Kids Story Studio prêt (accès anonyme direct sans token)');
 })();
-
-const STORY_PRESETS = [
-    { label: '🐻 L\'ourson et la fête', text: 'Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie. Un matin, il décida d\'organiser une grande fête avec tous ses amis. Il invita la petite lapine rose et le poussin jaune. Ensemble, ils préparèrent des gâteaux et décorèrent la prairie avec des ballons colorés. Quand le soleil se coucha, ils dansèrent et chantèrent toute la nuit sous les étoiles. L\'ourson était le plus heureux des oursons.' },
-    { label: '🐲 Le dragon aux bulles', text: 'Il était une fois un petit dragon prénommé Barnabé. Contrairement à tous les autres dragons, Barnabé ne crachait pas de feu. Quand il essayait, il ne sortait que des bulles de savon colorées. Ses frères se moquaient de lui. Un après-midi, un grand nuage noir cacha le soleil et la forêt devint sombre. Barnabé souffla une gigantesque bulle qui captura les rayons du soleil. Elles illuminèrent toute la forêt. Depuis ce jour, Barnabé est le dragon le plus populaire du royaume.' },
-    { label: '🌻 La fleur magique', text: 'Dans un jardin ensoleillé, une petite fleur magique poussait au milieu des tournesols. Chaque matin, elle chantait pour réveiller les abeilles. Un jour, un papillon bleu vint lui rendre visite. Ils devinrent les meilleurs amis du monde. Ensemble, ils firent danser tout le jardin.' },
-    { label: '🐤 Le poussin perdu', text: 'Un petit poussin jaune s\'éloigna de sa maman pour explorer la ferme. Il rencontra un chaton qui jouait avec une pelote de laine. Le chaton lui proposa de l\'aider à retrouver sa maman. Ils traversèrent la grange et le potager. Finalement, ils retrouvèrent la maman poule près de l\'étang. Le poussin promit de ne plus jamais s\'éloigner.' }
-];
-
-const JOYFUL_THEMES = [
-    { id: 'pixar-3d', name: 'Pixar 3D', emoji: '✨', desc: 'Style 3D doux', prompt: 'high-quality 3D computer animation, Pixar-style rendering, soft subsurface scattering, cinematic warm lighting, rounded shapes, high detail, 8K quality' },
-    { id: 'sunny-meadow', name: 'Prairie Ensoleillée', emoji: '🌻', desc: 'Herbe, soleil', prompt: 'lush green meadow with colorful wildflowers, clear azure blue sky, warm golden sunlight, soft fluffy clouds' },
-    { id: 'rainbow-sky', name: 'Ciel Arc-en-ciel', emoji: '🌈', desc: 'Arcs-en-ciel', prompt: 'vibrant rainbow sky with soft clouds, bright pastel colors, magical atmosphere' },
-    { id: 'candy-meadow', name: 'Prairie Sucrée', emoji: '🍭', desc: 'Bonbons', prompt: 'magical meadow with giant colorful lollipops and candy, pastel colors, sweet joyful atmosphere' },
-    { id: 'flower-field', name: 'Champ Fleuri', emoji: '🌺', desc: 'Fleurs géantes', prompt: 'beautiful flower field with giant colorful flowers, butterflies, warm sunny light, magical garden' },
-    { id: 'enchanted-forest', name: 'Forêt Enchantée', emoji: '🌲', desc: 'Arbres magiques', prompt: 'enchanted magical forest with glowing trees, soft sparkles, fireflies, warm friendly atmosphere' },
-    { id: 'sunny-beach', name: 'Plage Ensoleillée', emoji: '🏖️', desc: 'Sable, mer', prompt: 'sunny beach with golden sand, gentle blue waves, bright sun, tropical plants' },
-    { id: 'farm-friends', name: 'Ferme Joyeuse', emoji: '🚜', desc: 'Animaux', prompt: 'cheerful farm with cute animals, green pastures, red barn, sunny day, colorful flowers' },
-    { id: 'jungle-fun', name: 'Jungle Amicale', emoji: '🌴', desc: 'Jungle colorée', prompt: 'friendly colorful jungle with cute animals, bright green leaves, exotic flowers, sunny atmosphere' },
-    { id: 'space-kids', name: 'Espace Enfants', emoji: '🚀', desc: 'Étoiles, planètes', prompt: 'colorful kid-friendly outer space with smiling stars, cute planets, friendly rockets, magical' },
-    { id: 'underwater-joy', name: 'Fonds Marin Joyeux', emoji: '🐠', desc: 'Poissons, coraux', prompt: 'colorful friendly underwater world with smiling fish, bright corals, gentle bubbles, magical light' },
-    { id: 'snow-fun', name: 'Neige Joyeuse', emoji: '⛄', desc: 'Neige, bonhomme', prompt: 'bright snowy landscape with friendly snowman, gentle falling snowflakes, warm winter sun' },
-    { id: 'birthday-party', name: 'Fête d\'Anniversaire', emoji: '🎂', desc: 'Ballons, gâteau', prompt: 'joyful birthday party with colorful balloons, confetti, birthday cake, streamers, festive' },
-    { id: 'musical-meadow', name: 'Prairie Musicale', emoji: '🎵', desc: 'Notes, danse', prompt: 'magical musical meadow with floating music notes, dancing flowers, happy animals' },
-    { id: 'claymation-soft', name: 'Pâte à Modeler', emoji: '🧱', desc: 'Texture douce', prompt: 'soft claymation stop-motion animation, plasticine texture, rounded friendly shapes, warm light' }
-];
 </script>
 </body>
 </html>
