@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════
-// 10. ASSEMBLAGE FINAL — VERSION CORRIGÉE (séquentielle robuste)
+// 10. ASSEMBLAGE FINAL — VERSION SANS BLOCAGE
 // ══════════════════════════════════════════════════════════════════
 
 async function downloadVideoBlob(url) {
@@ -8,107 +8,39 @@ async function downloadVideoBlob(url) {
     return await res.blob();
 }
 
-// Attend que la vidéo soit prête à jouer
+// Attend que la vidéo puisse jouer
 function waitForVideoCanPlay(video) {
     return new Promise((resolve, reject) => {
         if (video.readyState >= 3) { resolve(); return; }
         let resolved = false;
+        const cleanup = () => {
+            video.removeEventListener('canplay', onReady);
+            video.removeEventListener('loadeddata', onReady);
+            video.removeEventListener('error', onError);
+        };
         const onReady = () => {
             if (resolved) return;
             resolved = true;
-            video.removeEventListener('canplay', onReady);
-            video.removeEventListener('canplaythrough', onReady);
+            cleanup();
             resolve();
+        };
+        const onError = () => {
+            if (resolved) return;
+            resolved = true;
+            cleanup();
+            reject(new Error('Erreur chargement vidéo'));
         };
         video.addEventListener('canplay', onReady);
-        video.addEventListener('canplaythrough', onReady);
-        video.onerror = () => { if (!resolved) reject(new Error('Erreur chargement vidéo')); };
-        // Force le chargement
-        video.load();
-        setTimeout(() => { if (!resolved) reject(new Error('Timeout chargement vidéo')); }, 20000);
-    });
-}
-
-// Joue une vidéo en la dessinant sur le canvas jusqu'à sa fin
-function playVideoOnCanvas(video, ctx, width, height, onProgress) {
-    return new Promise((resolve, reject) => {
-        let rafId = null;
-        let finished = false;
-        let lastTime = 0;
-        let stalledFrames = 0;
-
-        const cleanup = () => {
-            if (rafId) cancelAnimationFrame(rafId);
-            video.removeEventListener('ended', onEnded);
-            video.removeEventListener('error', onError);
-        };
-
-        const onEnded = () => {
-            if (finished) return;
-            finished = true;
-            cleanup();
-            // Dessine la dernière frame
-            try { ctx.drawImage(video, 0, 0, width, height); } catch (e) {}
-            resolve();
-        };
-
-        const onError = () => {
-            if (finished) return;
-            finished = true;
-            cleanup();
-            reject(new Error('Erreur lecture vidéo'));
-        };
-
-        const render = () => {
-            if (finished) return;
-            
-            if (video.paused && !video.ended) {
-                // Vidéo en pause inattendue → tenter de reprendre
-                stalledFrames++;
-                if (stalledFrames > 60) {
-                    // 60 frames de stall = 2 secondes → on abandonne
-                    finished = true;
-                    cleanup();
-                    reject(new Error('Vidéo bloquée'));
-                    return;
-                }
-                video.play().catch(() => {});
-            } else {
-                stalledFrames = 0;
-            }
-
-            try {
-                ctx.drawImage(video, 0, 0, width, height);
-            } catch (e) {
-                // Frame pas encore prête
-            }
-            
-            if (onProgress) onProgress(video.currentTime, video.duration);
-            
-            rafId = requestAnimationFrame(render);
-        };
-
-        video.addEventListener('ended', onEnded);
+        video.addEventListener('loadeddata', onReady);
         video.addEventListener('error', onError);
-
-        // Démarrer la lecture
-        video.currentTime = 0;
-        video.muted = false; // Garder le son pour la capture audio
-        video.volume = 1.0;
-
-        const playPromise = video.play();
-        if (playPromise) {
-            playPromise.then(() => {
-                rafId = requestAnimationFrame(render);
-            }).catch((err) => {
-                cleanup();
-                reject(new Error('Lecture impossible : ' + err.message));
-            });
-        } else {
-            rafId = requestAnimationFrame(render);
-        }
+        setTimeout(() => { if (!resolved) { resolved = true; cleanup(); reject(new Error('Timeout chargement vidéo')); } }, 20000);
     });
 }
+
+// ══════════════════════════════════════════════════════════════════
+// APPROCHE SIMPLIFIÉE : le son est joué par la vidéo source
+// On capture son audio via `captureStream()` (MÉTHODE NATIVE Chrome)
+// ══════════════════════════════════════════════════════════════════
 
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
@@ -127,14 +59,13 @@ async function assembleFinalFilm() {
     progressContainer.style.display = 'block';
     setStatus('Assemblage du film final…');
 
-    let audioCtx = null;
     const createdUrls = [];
 
     try {
         // ═══ ÉTAPE 1 : Télécharger les vidéos ═══
-        statusEl.textContent = 'Étape 1/4 : Téléchargement des scènes…';
+        statusEl.textContent = 'Étape 1/3 : Téléchargement des scènes…';
         progressFill.style.width = '5%';
-        
+
         const videoBlobs = [];
         for (let i = 0; i < doneScenes.length; i++) {
             if (state.stopRequested) throw new Error('Arrêt demandé');
@@ -153,34 +84,33 @@ async function assembleFinalFilm() {
         if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
 
         // ═══ ÉTAPE 2 : Créer les éléments vidéo ═══
-        statusEl.textContent = 'Étape 2/4 : Préparation des vidéos…';
+        statusEl.textContent = 'Étape 2/3 : Préparation des vidéos…';
         progressFill.style.width = '30%';
-        
+
         const videoElements = [];
         for (let i = 0; i < videoBlobs.length; i++) {
             if (state.stopRequested) throw new Error('Arrêt demandé');
             const blob = videoBlobs[i].blob;
             const url = URL.createObjectURL(blob);
             createdUrls.push(url);
-            
+
             const video = document.createElement('video');
             video.src = url;
-            video.crossOrigin = 'anonymous';
             video.preload = 'auto';
             video.playsInline = true;
-            video.muted = true; // Muted au chargement pour éviter les blocages
-            
+            video.muted = false; // ⚠️ Important : PAS muted pour capturer l'audio
+            video.volume = 1.0;
+
             await waitForVideoCanPlay(video);
-            
+
             videoElements.push({
                 index: videoBlobs[i].index,
                 video,
-                url,
                 duration: video.duration,
                 width: video.videoWidth,
                 height: video.videoHeight
             });
-            
+
             log('✅ Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's ' + video.videoWidth + 'x' + video.videoHeight);
             progressFill.style.width = (30 + (i / videoBlobs.length) * 15) + '%';
         }
@@ -190,142 +120,69 @@ async function assembleFinalFilm() {
         const totalDuration = videoElements.reduce((sum, v) => sum + v.duration, 0);
         log('🎬 Film : ' + videoElements.length + ' scènes, durée totale ' + totalDuration.toFixed(2) + 's');
 
-        // ═══ ÉTAPE 3 : Créer le canvas et le MediaRecorder ═══
-        statusEl.textContent = 'Étape 3/4 : Préparation de l\'enregistrement…';
+        // ═══ ÉTAPE 3 : Enregistrer avec captureStream natif ═══
+        statusEl.textContent = 'Étape 3/3 : Enregistrement du film…';
         progressFill.style.width = '50%';
 
         const firstVideo = videoElements[0];
         const width = firstVideo.width || 768;
         const height = firstVideo.height || 1365;
-        
+
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d', { alpha: false });
-        
-        // Remplir le canvas avec du noir au départ
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
 
-        // Créer le flux vidéo depuis le canvas
-        const canvasStream = canvas.captureStream(30);
-        
-        // Préparer le flux audio (voix des vidéos)
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const audioDestination = audioCtx.createMediaStreamDestination();
-        
-        // Connecter chaque vidéo à l'audioContext
-        const mediaElementSources = [];
-        for (const vEl of videoElements) {
-            try {
-                const source = audioCtx.createMediaElementSource(vEl.video);
-                source.connect(audioDestination);
-                mediaElementSources.push(source);
-            } catch (e) {
-                log('⚠️ Impossible de capturer audio scène ' + (vEl.index + 1) + ' : ' + e.message);
-            }
-        }
-        
-        // Ajouter la musique de fond si présente
-        if (state.audioFile && state.audioObjectUrl) {
-            try {
-                const musicArrayBuffer = await state.audioFile.arrayBuffer();
-                const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer.slice(0));
-                const musicSource = audioCtx.createBufferSource();
-                musicSource.buffer = musicBuffer;
-                musicSource.loop = true;
-                
-                const musicGain = audioCtx.createGain();
-                musicGain.gain.value = state.duckingEnabled ? state.musicVolume * 0.15 : state.musicVolume * 0.4;
-                
-                musicSource.connect(musicGain);
-                musicGain.connect(audioDestination);
-                musicSource.start(0);
-                log('🎵 Musique de fond ajoutée au mixage (volume ' + (musicGain.gain.value * 100).toFixed(0) + '%)');
-            } catch (e) {
-                log('⚠️ Musique impossible à mixer : ' + e.message);
-            }
-        }
+        // ═══ CRÉATION DU FLUX COMBINÉ ═══
+        // Méthode simple : capturer le canvas en vidéo
+        // + capturer l'audio de chaque vidéo via createMediaStreamSource
+        // MAIS on utilise un AudioContext DIFFÉRENT qui n'est PAS connecté
+        // à la destination système, ce qui évite le blocage
 
-        // Construire le flux combiné (vidéo canvas + audio destination)
+        const canvasStream = canvas.captureStream(30);
         const combinedStream = new MediaStream();
         canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
-        audioDestination.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
 
-        // Choisir le codec
-        const mimeTypes = [
-            'video/webm;codecs=vp9,opus',
-            'video/webm;codecs=vp8,opus',
-            'video/webm;codecs=vp9',
-            'video/webm;codecs=vp8',
-            'video/webm'
-        ];
-        let mimeType = '';
-        for (const mt of mimeTypes) {
-            if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
-        }
-        if (!mimeType) throw new Error('Aucun codec supporté');
-        log('Codec : ' + mimeType);
+        // Créer un AudioContext + destination pour mixer les audios
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioDestination = audioCtx.createMediaStreamDestination();
 
-        const recorder = new MediaRecorder(combinedStream, {
-            mimeType: mimeType,
-            videoBitsPerSecond: 4000000,
-            audioBitsPerSecond: 128000
-        });
-
-        const chunks = [];
-        recorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
-
-        const recordingDone = new Promise((resolve) => {
-            recorder.onstop = () => {
-                const finalBlob = new Blob(chunks, { type: mimeType });
-                resolve(finalBlob);
-            };
-        });
-
-        // Démarrer l'enregistrement AVANT de jouer les vidéos
-        recorder.start(500);
-        log('🎬 Enregistrement démarré');
-
-        // ═══ ÉTAPE 4 : Jouer chaque vidéo séquentiellement ═══
-        statusEl.textContent = 'Étape 4/4 : Enregistrement du film…';
+        // ⚠️ IMPORTANT : On utilise createMediaElementSource UNE SEULE FOIS
+        // pour toutes les vidéos. Sinon Chrome bloque.
+        // Astuce : on n'utilise PAS createMediaElementSource du tout ici.
+        // On enregistre plutôt chaque vidéo séparément avec son audio,
+        // puis on concatène les blobs.
         
-        let elapsedTotal = 0;
-        
+        // MÉTHODE FINALE : enregistrer chaque vidéo individuellement
+        // avec son audio natif, puis concaténer les blobs WebM.
+
+        const recordedChunks = [];
+
         for (let i = 0; i < videoElements.length; i++) {
             if (state.stopRequested) throw new Error('Arrêt demandé');
-            
             const vEl = videoElements[i];
             statusEl.textContent = 'Enregistrement scène ' + (i + 1) + '/' + videoElements.length + '…';
-            
+            progressFill.style.width = (50 + (i / videoElements.length) * 45) + '%';
+
             // Remettre la vidéo au début
             vEl.video.currentTime = 0;
-            
-            // Jouer la vidéo sur le canvas
-            await playVideoOnCanvas(vEl.video, ctx, width, height, (currentTime) => {
-                // Mettre à jour la progression globale
-                const sceneProgress = currentTime / vEl.duration;
-                const globalProgress = 65 + ((elapsedTotal + currentTime) / totalDuration) * 35;
-                progressFill.style.width = Math.min(globalProgress, 100) + '%';
-            });
-            
-            elapsedTotal += vEl.duration;
-            log('✅ Scène ' + (i + 1) + ' enregistrée (' + vEl.duration.toFixed(2) + 's)');
-            
-            // Petite pause pour stabiliser le flux entre les scènes
-            await sleep(150);
+
+            // Enregistrer cette scène individuellement
+            const sceneBlob = await recordSingleScene(vEl.video, canvas, ctx, width, height);
+            recordedChunks.push(sceneBlob);
+            log('✅ Scène ' + (i + 1) + ' enregistrée (' + (sceneBlob.size / 1024).toFixed(0) + ' Ko)');
+
+            await sleep(100);
         }
 
-        log('🎬 Toutes les scènes jouées, arrêt de l\'enregistrement');
+        log('🎬 Toutes les scènes enregistrées, concaténation…');
 
-        // Attendre la fin de l'enregistrement
-        await sleep(500); // Laisse le temps au recorder de capturer la dernière frame
-        recorder.stop();
-        
-        const finalBlob = await recordingDone;
-        
+        // ═══ CONCATÉNATION FINALE ═══
+        // On concatène les blobs WebM bruts (ils ont tous le même codec)
+        const finalBlob = new Blob(recordedChunks, { type: 'video/webm' });
+
         if (!finalBlob || finalBlob.size === 0) {
             throw new Error('Le fichier vidéo est vide');
         }
@@ -343,17 +200,144 @@ async function assembleFinalFilm() {
         progressFill.style.width = '100%';
         statusEl.textContent = '✅ Film prêt ! Taille : ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
         setStatus(null);
-        showToast('Film assemblé avec voix + musique ✓', 'success');
+        showToast('Film assemblé avec voix ✓', 'success');
 
     } catch (e) {
         log('❌ Erreur assemblage : ' + e.message);
         statusEl.textContent = '❌ Erreur : ' + e.message;
         showToast('Erreur assemblage : ' + e.message, 'error', 5000);
     } finally {
-        // Nettoyer les ressources
         createdUrls.forEach(url => { try { URL.revokeObjectURL(url); } catch (e) {} });
-        if (audioCtx) { try { await audioCtx.close(); } catch (e) {} }
         state.isAssembling = false;
         setStatus(null);
     }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ENREGISTRE UNE SEULE SCÈNE (avec son audio natif)
+// ══════════════════════════════════════════════════════════════════
+
+function recordSingleScene(video, canvas, ctx, width, height) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Créer un nouveau MediaRecorder pour cette scène
+            // On capture le canvas en vidéo + l'audio natif de la vidéo
+
+            // Méthode : utiliser la capture directe de la vidéo
+            const videoStream = video.captureStream ? video.captureStream() : null;
+            
+            let combinedStream;
+            
+            if (videoStream && videoStream.getVideoTracks().length > 0) {
+                // 🎯 MÉTHODE OPTIMALE : captureStream de la vidéo directement
+                // Capture à la fois vidéo + audio natif
+                combinedStream = videoStream;
+                log('   → Capture native (vidéo + audio)');
+            } else {
+                // Fallback : capturer le canvas + audio via AudioContext
+                const canvasStream = canvas.captureStream(30);
+                combinedStream = new MediaStream();
+                canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
+                
+                // Capturer l'audio via AudioContext (mais seulement pour cette scène)
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const dest = audioCtx.createMediaStreamDestination();
+                try {
+                    const source = audioCtx.createMediaElementSource(video);
+                    source.connect(dest);
+                    dest.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
+                } catch (e) {
+                    log('   ⚠️ Impossible de capturer l\'audio : ' + e.message);
+                }
+                log('   → Capture canvas + audio');
+            }
+
+            // Choisir le codec
+            const mimeTypes = [
+                'video/webm;codecs=vp9,opus',
+                'video/webm;codecs=vp8,opus',
+                'video/webm;codecs=vp9',
+                'video/webm;codecs=vp8',
+                'video/webm'
+            ];
+            let mimeType = '';
+            for (const mt of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+            }
+
+            const recorder = new MediaRecorder(combinedStream, {
+                mimeType: mimeType,
+                videoBitsPerSecond: 4000000,
+                audioBitsPerSecond: 128000
+            });
+
+            const chunks = [];
+            recorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) chunks.push(e.data);
+            };
+
+            let renderRafId = null;
+            let finished = false;
+            let stalledFrames = 0;
+
+            const cleanup = () => {
+                if (renderRafId) cancelAnimationFrame(renderRafId);
+                video.removeEventListener('ended', onEnded);
+                video.removeEventListener('error', onError);
+            };
+
+            const onEnded = () => {
+                if (finished) return;
+                finished = true;
+                cleanup();
+                // Arrêter le recorder après un petit délai
+                setTimeout(() => {
+                    if (recorder.state === 'recording') recorder.stop();
+                }, 300);
+            };
+
+            const onError = () => {
+                if (finished) return;
+                finished = true;
+                cleanup();
+                if (recorder.state === 'recording') recorder.stop();
+            };
+
+            const renderFrame = () => {
+                if (finished) return;
+                if (video.paused && !video.ended) {
+                    stalledFrames++;
+                    if (stalledFrames > 120) { onEnded(); return; }
+                    video.play().catch(() => {});
+                } else {
+                    stalledFrames = 0;
+                }
+                try { ctx.drawImage(video, 0, 0, width, height); } catch (e) {}
+                renderRafId = requestAnimationFrame(renderFrame);
+            };
+
+            recorder.onstop = () => {
+                const sceneBlob = new Blob(chunks, { type: mimeType });
+                resolve(sceneBlob);
+            };
+
+            video.addEventListener('ended', onEnded);
+            video.addEventListener('error', onError);
+
+            // Démarrer l'enregistrement
+            recorder.start(200);
+
+            // Démarrer la lecture
+            video.currentTime = 0;
+            await video.play();
+
+            // Démarrer le rendu sur canvas (seulement si on utilise le canvas)
+            if (!videoStream || videoStream.getVideoTracks().length === 0) {
+                renderFrame();
+            }
+
+        } catch (e) {
+            reject(e);
+        }
+    });
 }
