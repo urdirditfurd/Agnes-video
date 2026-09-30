@@ -398,21 +398,15 @@
 
 <div class="info-banner">
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
-    <div class="free-badge">🎉 ASSEMBLAGE FIABLE</div>
+    <div class="free-badge">🎉 ASSEMBLAGE VIA PROXY CORS</div>
     <br><br>
-    <strong>Assemblage vidéo :</strong> Enregistrement en temps réel sur canvas + extraction audio
-    par décodage de blob (contourne les problèmes CORS)
+    <strong>Contournement CORS :</strong> 4 proxys publics essayés en cascade pour télécharger les vidéos Agnes
 </div>
 
 <div class="api-panel" id="api-panel">
     <label class="control-label" style="margin-bottom:0.4rem;">🔑 Clé API Agnes (vidéos + voix)</label>
     <input type="password" class="api-key-input" id="api-key-input" placeholder="Collez votre clé API Agnes (sk-...)" autocomplete="off" spellcheck="false">
     <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé Agnes</button>
-    
-    <label class="control-label" style="margin-top:0.8rem; margin-bottom:0.4rem;">🎨 Token HuggingFace (optionnel, améliore les images)</label>
-    <input type="password" class="api-key-input" id="hf-key-input" placeholder="hf_... (gratuit sur huggingface.co)" autocomplete="off" spellcheck="false">
-    <button type="button" class="api-save-btn hf" id="hf-save-btn">Enregistrer le token HuggingFace</button>
-    <div class="api-hint">Obtenez un token gratuit sur <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a></div>
 
     <div class="api-status-line" id="api-status-line">
         <span class="status-dot"></span>
@@ -420,7 +414,7 @@
     </div>
 
     <div class="image-gen-status">
-        🎨 <strong>Images :</strong> Pollinations → HuggingFace → Canvas procédural
+        🎨 <strong>Images :</strong> Pollinations (4 modèles) → Canvas procédural (garanti)
         <br>🎙️ <strong>Voix :</strong> Agnes IA — voix naturelles et enfantines
     </div>
 
@@ -602,7 +596,6 @@
 const AGNES_API_BASE = 'https://apihub.agnes-ai.com/v1';
 const AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
 const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/';
-const HUGGINGFACE_BASE = 'https://api-inference.huggingface.co/models/';
 
 const MODEL_VIDEO = 'agnes-video-v2.0';
 const FRAME_RATE = 24;
@@ -613,7 +606,6 @@ const POLL_INTERVAL_SEC = 8;
 const MAX_POLL_ATTEMPTS = 120;
 
 const AGNES_KEY_STORAGE = 'agnes_api_key';
-const HF_KEY_STORAGE = 'huggingface_api_key';
 const WAKE_LOCK_PREF = 'agnes_wakelock_enabled';
 const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
 
@@ -919,17 +911,11 @@ const JOYFUL_THEMES = [
 // 7. CLÉS API
 // ══════════════════════════════════════════════════════════════════
 function getAgnesKey() { try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
-function getHfKey() { try { return (localStorage.getItem(HF_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
 
 function saveAgnesKey() {
     const key = document.getElementById('api-key-input').value.trim();
     if (!key) { localStorage.removeItem(AGNES_KEY_STORAGE); updateApiPanel(); showToast('Clé Agnes supprimée', 'warn'); return; }
     localStorage.setItem(AGNES_KEY_STORAGE, key); updateApiPanel(); showToast('Clé Agnes enregistrée ✓', 'success');
-}
-function saveHfKey() {
-    const key = document.getElementById('hf-key-input').value.trim();
-    if (!key) { localStorage.removeItem(HF_KEY_STORAGE); showToast('Token HuggingFace supprimé', 'warn'); return; }
-    localStorage.setItem(HF_KEY_STORAGE, key); showToast('Token HuggingFace enregistré ✓', 'success');
 }
 
 function updateApiPanel() {
@@ -973,7 +959,7 @@ function generateThumbnail(dataUri) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 8. GÉNÉRATION D'IMAGES - SYSTÈME MULTI-FALLBACK
+// 8. GÉNÉRATION D'IMAGES
 // ══════════════════════════════════════════════════════════════════
 const POLLINATIONS_ANONYMOUS_MODELS = ['turbo', 'kolors', 'dreamshaper', 'flux'];
 
@@ -1024,33 +1010,6 @@ async function generateImageWithPollinations(prompt, retries = 3) {
     throw new Error('Pollinations échoué : ' + (lastError ? lastError.message : 'tous les modèles ont échoué'));
 }
 
-async function generateImageWithHuggingFace(prompt) {
-    const hfKey = getHfKey();
-    if (!hfKey) throw new Error('Pas de token HuggingFace');
-    log('HuggingFace : tentative de génération');
-    setStatus('Image HuggingFace…');
-
-    for (const model of ['stabilityai/stable-diffusion-xl-base-1.0', 'runwayml/stable-diffusion-v1-5']) {
-        try {
-            const response = await fetch(HUGGINGFACE_BASE + model, {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + hfKey, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inputs: prompt, parameters: { negative_prompt: NEGATIVE_PROMPT, num_inference_steps: 20, guidance_scale: 7.5, width: 768, height: 1365 } })
-            });
-            if (!response.ok) { log('HuggingFace [' + model + '] HTTP ' + response.status); continue; }
-            const blob = await response.blob();
-            if (!blob.type.startsWith('image/')) continue;
-            return await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = () => reject(new Error('Erreur conversion blob'));
-                reader.readAsDataURL(blob);
-            });
-        } catch (e) { log('HuggingFace [' + model + '] erreur : ' + e.message); }
-    }
-    throw new Error('HuggingFace échoué');
-}
-
 async function generateProceduralImage(sceneText, sceneIndex) {
     log('Canvas procédural : génération locale');
     setStatus('Image locale (fallback)…');
@@ -1058,7 +1017,7 @@ async function generateProceduralImage(sceneText, sceneIndex) {
     canvas.width = 768; canvas.height = 1365;
     const ctx = canvas.getContext('2d');
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
-    
+
     const grad = ctx.createLinearGradient(0, 0, 0, 1365);
     if (theme.id.includes('forest') || theme.id.includes('enchanted')) { grad.addColorStop(0, '#2d5016'); grad.addColorStop(0.5, '#4a7c2f'); grad.addColorStop(1, '#6b9b3e'); }
     else if (theme.id.includes('beach') || theme.id.includes('sunny')) { grad.addColorStop(0, '#87CEEB'); grad.addColorStop(0.6, '#FFD700'); grad.addColorStop(1, '#F4A460'); }
@@ -1105,10 +1064,7 @@ async function generateProceduralImage(sceneText, sceneIndex) {
 }
 
 async function generateImage(prompt, sceneIndex) {
-    try { return await generateImageWithPollinations(prompt, 3); } catch (e) { log('⚠️ Pollinations échoué : ' + e.message); }
-    if (getHfKey()) {
-        try { return await generateImageWithHuggingFace(prompt); } catch (e) { log('⚠️ HuggingFace échoué : ' + e.message); }
-    }
+    try { return await generateImageWithPollinations(prompt, 4); } catch (e) { log('⚠️ Pollinations échoué : ' + e.message); }
     log('🎨 Utilisation du fallback Canvas procédural');
     return await generateProceduralImage(state.storySegments[sceneIndex] || '', sceneIndex);
 }
@@ -1183,10 +1139,10 @@ async function pollVideo(videoId, onProgress) {
 async function generateAllScenes() {
     const scenes = state.storySegments.map((text, i) => ({ index: i, text: text, imageDataUri: null, thumbnail: null, videoUrl: null, status: 'pending', error: null }));
     state.scenes = scenes; renderQueue();
-    log('═══ ÉTAPE 1 : Images (système multi-fallback) ═══');
+    log('═══ ÉTAPE 1 : Images ═══');
     setStatus('Étape 1/2 : génération des images…');
     let previousContext = '';
-    
+
     for (let i = 0; i < scenes.length; i++) {
         if (state.stopRequested) break;
         const scene = scenes[i]; scene.status = 'generating-image'; renderQueue();
@@ -1204,7 +1160,7 @@ async function generateAllScenes() {
     log('═══ ÉTAPE 2 : Vidéos Agnes ═══');
     setStatus('Étape 2/2 : génération des vidéos…');
     const pollingTasks = [];
-    
+
     for (let i = 0; i < validScenes.length; i++) {
         if (state.stopRequested) break;
         const scene = validScenes[i]; scene.status = 'creating'; renderQueue();
@@ -1240,22 +1196,54 @@ async function pollSceneVideo(scene) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 10. ASSEMBLAGE FINAL — VERSION ROBUSTE ET FIABLE
+// 10. TÉLÉCHARGEMENT AVEC PROXY CORS (contourne le blocage Agnes)
 // ══════════════════════════════════════════════════════════════════
 
-/**
- * Télécharge un blob vidéo depuis une URL.
- * Utilise fetch qui gère correctement les CORS si le serveur autorise.
- */
+const CORS_PROXIES = [
+    (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
+    (url) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    (url) => 'https://cors.eu.org/' + url,
+    (url) => 'https://thingproxy.freeboard.io/fetch/' + url,
+];
+
 async function downloadVideoBlob(url) {
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) throw new Error('Téléchargement échoué : HTTP ' + res.status);
-    return await res.blob();
+    // Tentative 1 : direct
+    try {
+        const res = await fetch(url, { mode: 'cors' });
+        if (res.ok) {
+            const blob = await res.blob();
+            if (blob && blob.size > 1000) {
+                log('Téléchargement direct OK : ' + (blob.size / 1024).toFixed(0) + ' Ko');
+                return blob;
+            }
+        }
+    } catch (e) {
+        log('Direct bloqué (CORS) → passage aux proxys');
+    }
+
+    // Tentative 2 : via proxys
+    for (let i = 0; i < CORS_PROXIES.length; i++) {
+        const proxyUrl = CORS_PROXIES[i](url);
+        try {
+            log('Proxy ' + (i + 1) + '/' + CORS_PROXIES.length + ' : ' + proxyUrl.slice(0, 60) + '…');
+            const res = await fetch(proxyUrl, { mode: 'cors' });
+            if (!res.ok) {
+                log('Proxy ' + (i + 1) + ' HTTP ' + res.status);
+                continue;
+            }
+            const blob = await res.blob();
+            if (blob && blob.size > 1000) {
+                log('✅ Proxy ' + (i + 1) + ' OK : ' + (blob.size / 1024).toFixed(0) + ' Ko');
+                return blob;
+            }
+        } catch (e) {
+            log('Proxy ' + (i + 1) + ' échoué : ' + e.message);
+        }
+    }
+
+    throw new Error('Impossible de télécharger la vidéo (tous les proxys ont échoué)');
 }
 
-/**
- * Attend que la vidéo soit prête à être lue.
- */
 function waitForVideoReady(video) {
     return new Promise((resolve, reject) => {
         if (video.readyState >= 3 && video.duration > 0) { resolve(); return; }
@@ -1267,24 +1255,16 @@ function waitForVideoReady(video) {
     });
 }
 
-/**
- * Décode un blob vidéo pour en extraire la piste audio.
- * Retourne un AudioBuffer ou null si la vidéo n'a pas d'audio.
- */
 async function extractAudioFromVideoBlob(blob, audioCtx) {
     try {
         const arrayBuffer = await blob.arrayBuffer();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
         return audioBuffer;
     } catch (e) {
-        // Beaucoup de vidéos générées par IA n'ont pas d'audio natif — c'est normal
         return null;
     }
 }
 
-/**
- * Concatène plusieurs AudioBuffers en un seul AudioBuffer.
- */
 function concatAudioBuffers(buffers, audioCtx) {
     if (buffers.length === 0) return null;
     if (buffers.length === 1) return buffers[0];
@@ -1301,10 +1281,6 @@ function concatAudioBuffers(buffers, audioCtx) {
     return result;
 }
 
-/**
- * Mixe un AudioBuffer de voix avec un AudioBuffer de musique (loop).
- * Applique un ducking : musique à bas volume.
- */
 function mixVoiceAndMusic(voiceBuffer, musicBuffer, musicVolume, duckingEnabled, audioCtx) {
     if (!voiceBuffer && !musicBuffer) return null;
     if (!voiceBuffer) return musicBuffer;
@@ -1315,20 +1291,16 @@ function mixVoiceAndMusic(voiceBuffer, musicBuffer, musicVolume, duckingEnabled,
     const numChannels = voiceBuffer.numberOfChannels;
     const length = Math.ceil(duration * sampleRate);
     const mixed = audioCtx.createBuffer(numChannels, length, sampleRate);
-
-    // Volume musique : très bas si ducking, modéré sinon
     const musicGain = duckingEnabled ? musicVolume * 0.25 : musicVolume * 0.7;
 
     for (let channel = 0; channel < numChannels; channel++) {
         const voiceData = voiceBuffer.getChannelData(channel % voiceBuffer.numberOfChannels);
         const musicData = musicBuffer.getChannelData(channel % musicBuffer.numberOfChannels);
         const outData = mixed.getChannelData(channel);
-
         for (let i = 0; i < length; i++) {
             const voiceSample = i < voiceData.length ? voiceData[i] : 0;
             const musicSample = musicData[i % musicData.length] * musicGain;
             let sample = voiceSample + musicSample;
-            // Limiter à [-1, 1]
             if (sample > 1) sample = 1;
             else if (sample < -1) sample = -1;
             outData[i] = sample;
@@ -1337,35 +1309,18 @@ function mixVoiceAndMusic(voiceBuffer, musicBuffer, musicVolume, duckingEnabled,
     return mixed;
 }
 
-/**
- * FONCTION PRINCIPALE D'ASSEMBLAGE
- * 
- * Stratégie robuste :
- * 1. Télécharger tous les blobs vidéo
- * 2. Créer les éléments <video> avec les blobs (pas de CORS car blob://)
- * 3. Extraire l'audio de chaque blob par décodage direct (contourne CORS)
- * 4. Concaténer les audios + mixer la musique
- * 5. Enregistrer le canvas pendant la lecture des vidéos séquentielles
- * 6. Encoder avec MediaRecorder
- */
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
-    
-    const doneScenes = state.scenes
-        .filter(s => s.status === 'done' && s.videoUrl)
-        .sort((a, b) => a.index - b.index);
-    
-    if (doneScenes.length === 0) {
-        showToast('Aucune scène vidéo à assembler', 'error');
-        return;
-    }
+
+    const doneScenes = state.scenes.filter(s => s.status === 'done' && s.videoUrl).sort((a, b) => a.index - b.index);
+    if (doneScenes.length === 0) { showToast('Aucune scène vidéo à assembler', 'error'); return; }
 
     state.isAssembling = true;
     const finalFilmEl = document.getElementById('final-film');
     const progressContainer = document.getElementById('assembly-progress');
     const progressFill = document.getElementById('assembly-progress-fill');
     const statusEl = document.getElementById('assembly-status');
-    
+
     finalFilmEl.classList.add('visible');
     progressContainer.style.display = 'block';
     setStatus('Assemblage du film final…');
@@ -1375,7 +1330,7 @@ async function assembleFinalFilm() {
     let videoElements = [];
 
     try {
-        // ═══ ÉTAPE 1 : TÉLÉCHARGER TOUS LES BLOBS VIDÉO ═══
+        // ÉTAPE 1 : Télécharger tous les blobs vidéo
         statusEl.textContent = 'Étape 1/5 : Téléchargement des scènes…';
         log('═══ ASSEMBLAGE : Étape 1/5 — Téléchargement ═══');
         progressFill.style.width = '5%';
@@ -1397,7 +1352,7 @@ async function assembleFinalFilm() {
 
         if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
 
-        // ═══ ÉTAPE 2 : CRÉER LES ÉLÉMENTS VIDÉO ═══
+        // ÉTAPE 2 : Créer les éléments vidéo
         statusEl.textContent = 'Étape 2/5 : Préparation des vidéos…';
         log('═══ ASSEMBLAGE : Étape 2/5 — Préparation ═══');
         progressFill.style.width = '25%';
@@ -1407,22 +1362,20 @@ async function assembleFinalFilm() {
             const url = URL.createObjectURL(blob);
             const video = document.createElement('video');
             video.src = url;
-            video.muted = true;       // muet pour l'assemblage canvas
+            video.muted = true;
             video.playsInline = true;
             video.preload = 'auto';
-            video.crossOrigin = 'anonymous'; // blob:// n'a pas besoin de CORS, mais sécurité
-            video.setAttribute('playsinline', '');
 
             await waitForVideoReady(video);
             videoElements.push({ index: videoBlobs[i].index, video, url, duration: video.duration, blob });
-            
+
             progressFill.style.width = (25 + (i / videoBlobs.length) * 15) + '%';
             log('Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's, ' + video.videoWidth + 'x' + video.videoHeight);
         }
 
         if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
 
-        // ═══ ÉTAPE 3 : EXTRAIRE ET MIXER L'AUDIO ═══
+        // ÉTAPE 3 : Extraire et mixer l'audio
         statusEl.textContent = 'Étape 3/5 : Extraction audio…';
         log('═══ ASSEMBLAGE : Étape 3/5 — Audio ═══');
         progressFill.style.width = '45%';
@@ -1436,8 +1389,6 @@ async function assembleFinalFilm() {
             if (buf) {
                 audioBuffers.push(buf);
                 log('Audio scène ' + (i + 1) + ' : ' + buf.duration.toFixed(2) + 's');
-            } else {
-                log('Scène ' + (i + 1) + ' : pas d\'audio natif');
             }
             progressFill.style.width = (45 + (i / videoElements.length) * 10) + '%';
         }
@@ -1445,56 +1396,43 @@ async function assembleFinalFilm() {
         let finalAudioBuffer = null;
 
         if (audioBuffers.length > 0) {
-            // Concaténer les voix
             const voiceBuffer = concatAudioBuffers(audioBuffers, audioCtx);
             log('Voix concaténées : ' + voiceBuffer.duration.toFixed(2) + 's');
 
-            // Charger et mixer la musique si présente
             if (state.audioFile && state.audioObjectUrl) {
                 try {
                     statusEl.textContent = 'Mixage voix + musique…';
                     const musicArrayBuffer = await state.audioFile.arrayBuffer();
                     const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer.slice(0));
-                    finalAudioBuffer = mixVoiceAndMusic(
-                        voiceBuffer,
-                        musicBuffer,
-                        state.musicVolume,
-                        state.duckingEnabled,
-                        audioCtx
-                    );
-                    log('Mixage voix + musique OK : ' + finalAudioBuffer.duration.toFixed(2) + 's');
+                    finalAudioBuffer = mixVoiceAndMusic(voiceBuffer, musicBuffer, state.musicVolume, state.duckingEnabled, audioCtx);
+                    log('Mixage OK : ' + finalAudioBuffer.duration.toFixed(2) + 's');
                 } catch (e) {
-                    log('Erreur mixage musique, utilisation voix seule : ' + e.message);
+                    log('Erreur mixage, voix seule : ' + e.message);
                     finalAudioBuffer = voiceBuffer;
                 }
             } else {
                 finalAudioBuffer = voiceBuffer;
             }
         } else if (state.audioFile && state.audioObjectUrl) {
-            // Pas d'audio dans les vidéos, mais musique fournie : musique seule en boucle
             try {
                 const musicArrayBuffer = await state.audioFile.arrayBuffer();
                 const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer.slice(0));
                 const totalDuration = videoElements.reduce((s, v) => s + v.duration, 0);
                 const length = Math.ceil(totalDuration * musicBuffer.sampleRate);
-                finalAudioBuffer = audioCtx.createBuffer(
-                    musicBuffer.numberOfChannels,
-                    length,
-                    musicBuffer.sampleRate
-                );
+                finalAudioBuffer = audioCtx.createBuffer(musicBuffer.numberOfChannels, length, musicBuffer.sampleRate);
                 const musicGain = state.musicVolume * 0.5;
                 for (let ch = 0; ch < finalAudioBuffer.numberOfChannels; ch++) {
                     const src = musicBuffer.getChannelData(ch % musicBuffer.numberOfChannels);
                     const dst = finalAudioBuffer.getChannelData(ch);
                     for (let i = 0; i < length; i++) dst[i] = src[i % src.length] * musicGain;
                 }
-                log('Musique seule en boucle : ' + finalAudioBuffer.duration.toFixed(2) + 's');
+                log('Musique seule : ' + finalAudioBuffer.duration.toFixed(2) + 's');
             } catch (e) {
                 log('Erreur musique seule : ' + e.message);
             }
         }
 
-        // ═══ ÉTAPE 4 : PRÉPARER L'ENREGISTREMENT ═══
+        // ÉTAPE 4 : Préparer l'enregistrement
         statusEl.textContent = 'Étape 4/5 : Préparation de l\'enregistrement…';
         log('═══ ASSEMBLAGE : Étape 4/5 — Enregistrement ═══');
         progressFill.style.width = '55%';
@@ -1511,12 +1449,10 @@ async function assembleFinalFilm() {
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
 
-        // Stream vidéo depuis le canvas
         const canvasStream = canvas.captureStream(30);
         const combinedStream = new MediaStream();
         canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
 
-        // Ajouter l'audio mixé
         if (finalAudioBuffer) {
             const audioSource = audioCtx.createBufferSource();
             audioSource.buffer = finalAudioBuffer;
@@ -1525,62 +1461,37 @@ async function assembleFinalFilm() {
             audioDest.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
         }
 
-        // Choisir le meilleur codec supporté
-        const mimeTypes = [
-            'video/webm;codecs=vp9,opus',
-            'video/webm;codecs=vp8,opus',
-            'video/webm;codecs=vp9',
-            'video/webm;codecs=vp8',
-            'video/webm'
-        ];
+        const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
         let mimeType = 'video/webm';
         for (const mt of mimeTypes) {
             if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
         }
-        log('Codec utilisé : ' + mimeType);
+        log('Codec : ' + mimeType);
 
-        recorder = new MediaRecorder(combinedStream, {
-            mimeType: mimeType,
-            videoBitsPerSecond: 4000000,
-            audioBitsPerSecond: 128000
-        });
+        recorder = new MediaRecorder(combinedStream, { mimeType: mimeType, videoBitsPerSecond: 4000000, audioBitsPerSecond: 128000 });
 
         const chunks = [];
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
 
         const recordingDone = new Promise((resolve) => {
-            recorder.onstop = () => {
-                const blob = new Blob(chunks, { type: mimeType });
-                resolve(blob);
-            };
+            recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
         });
 
-        // ═══ ÉTAPE 5 : LECTURE SÉQUENTIELLE ET ENREGISTREMENT ═══
+        // ÉTAPE 5 : Lecture séquentielle
         statusEl.textContent = 'Étape 5/5 : Enregistrement du film…';
-        log('═══ ASSEMBLAGE : Étape 5/5 — Enregistrement en cours ═══');
+        log('═══ ASSEMBLAGE : Étape 5/5 — Enregistrement ═══');
 
         recorder.start(200);
 
         // Démarrer l'audio
+        let audioPlaybackSource = null;
         if (finalAudioBuffer) {
-            const audioSource = audioCtx.createBufferSource();
-            audioSource.buffer = finalAudioBuffer;
-            audioSource.connect(audioCtx.destination); // écoute en direct (optionnel, mais aide)
-            // En fait on l'a déjà connecté à audioDest, on crée un nouveau pour la lecture live
+            audioPlaybackSource = audioCtx.createBufferSource();
+            audioPlaybackSource.buffer = finalAudioBuffer;
+            audioPlaybackSource.connect(audioCtx.destination);
+            audioPlaybackSource.start(0);
         }
 
-        // Créer une source audio pour l'enregistrement + lecture live
-        if (finalAudioBuffer) {
-            const audioSrc = audioCtx.createBufferSource();
-            audioSrc.buffer = finalAudioBuffer;
-            const gainNode = audioCtx.createGain();
-            gainNode.gain.value = 1.0;
-            audioSrc.connect(gainNode);
-            gainNode.connect(audioCtx.destination); // pour entendre pendant l'enregistrement
-            audioSrc.start(0);
-        }
-
-        // Lecture séquentielle des vidéos, dessin sur canvas
         const totalDuration = videoElements.reduce((sum, v) => sum + v.duration, 0);
         let elapsedPlayback = 0;
 
@@ -1588,7 +1499,6 @@ async function assembleFinalFilm() {
             if (state.stopRequested) throw new Error('Arrêt demandé');
             const { video, duration } = videoElements[i];
 
-            // Reset la vidéo
             video.currentTime = 0;
             await new Promise((resolve) => {
                 if (video.readyState >= 2) { resolve(); return; }
@@ -1596,7 +1506,6 @@ async function assembleFinalFilm() {
                 setTimeout(resolve, 1000);
             });
 
-            // Jouer la vidéo et dessiner sur le canvas jusqu'à la fin
             await new Promise((resolve) => {
                 let rafId = null;
                 let finished = false;
@@ -1610,39 +1519,26 @@ async function assembleFinalFilm() {
 
                 const drawFrame = () => {
                     if (finished) return;
-
-                    // Dessiner la frame actuelle sur le canvas
                     if (video.readyState >= 2) {
-                        try {
-                            ctx.drawImage(video, 0, 0, width, height);
-                        } catch (e) {
-                            // Ignorer les erreurs de dessin transitoires
-                        }
+                        try { ctx.drawImage(video, 0, 0, width, height); } catch (e) {}
                     }
-
-                    // Mise à jour progression
                     const sceneProgress = video.currentTime / Math.max(video.duration, 0.1);
                     const globalProgress = (elapsedPlayback + video.currentTime) / totalDuration;
                     progressFill.style.width = (60 + globalProgress * 40) + '%';
-                    statusEl.textContent = 'Enregistrement scène ' + (i + 1) + '/' + videoElements.length +
-                        ' (' + Math.round(sceneProgress * 100) + '%)…';
+                    statusEl.textContent = 'Enregistrement scène ' + (i + 1) + '/' + videoElements.length + ' (' + Math.round(sceneProgress * 100) + '%)…';
 
-                    // Vidéo terminée ?
                     if (video.ended || (video.currentTime >= video.duration - 0.05 && video.duration > 0)) {
                         elapsedPlayback += video.duration;
                         finish();
                         return;
                     }
-
                     rafId = requestAnimationFrame(drawFrame);
                 };
 
-                // Lancer la lecture
                 video.play().then(() => {
                     rafId = requestAnimationFrame(drawFrame);
                 }).catch((e) => {
                     log('Erreur lecture vidéo ' + (i + 1) + ' : ' + e.message);
-                    // Essayer quand même de dessiner la première frame
                     if (video.readyState >= 2) {
                         try { ctx.drawImage(video, 0, 0, width, height); } catch (err) {}
                     }
@@ -1650,41 +1546,32 @@ async function assembleFinalFilm() {
                     finish();
                 });
 
-                // Sécurité : timeout de 30s max par scène
                 setTimeout(() => {
                     if (!finished) {
-                        log('Timeout scène ' + (i + 1) + ', passage à la suivante');
+                        log('Timeout scène ' + (i + 1));
                         elapsedPlayback += video.duration || 1;
                         finish();
                     }
                 }, Math.max(30000, (video.duration || 5) * 3000));
             });
 
-            // Petite pause pour laisser le canvas se stabiliser
             await sleep(100);
         }
 
-        // Attendre un peu pour que l'audio finisse
         await sleep(500);
 
-        // Stopper l'enregistrement
+        if (audioPlaybackSource) { try { audioPlaybackSource.stop(); } catch (e) {} }
         recorder.stop();
-        log('Enregistrement arrêté, finalisation du blob…');
+        log('Enregistrement arrêté, finalisation…');
 
         const finalBlob = await recordingDone;
-
-        // Arrêter l'audio
         if (audioCtx) { try { await audioCtx.close(); } catch (e) {} }
 
-        // Vérifier que le blob n'est pas vide
-        if (!finalBlob || finalBlob.size < 1000) {
-            throw new Error('Le fichier vidéo final est vide ou trop petit');
-        }
+        if (!finalBlob || finalBlob.size < 1000) throw new Error('Le fichier vidéo final est vide');
 
         state.finalFilmBlob = finalBlob;
         log('Film final : ' + (finalBlob.size / 1024 / 1024).toFixed(2) + ' Mo');
 
-        // Afficher dans le lecteur
         const finalVideo = document.getElementById('final-video');
         finalVideo.src = URL.createObjectURL(finalBlob);
         finalVideo.load();
@@ -1695,7 +1582,6 @@ async function assembleFinalFilm() {
         setStatus(null);
         showToast('Film assemblé avec succès ✓', 'success');
 
-        // Nettoyer les URLs blob des vidéos sources
         videoElements.forEach(v => { try { URL.revokeObjectURL(v.url); } catch (e) {} });
 
     } catch (e) {
@@ -1704,10 +1590,7 @@ async function assembleFinalFilm() {
         statusEl.textContent = '❌ Erreur : ' + e.message;
         showToast('Erreur assemblage : ' + e.message, 'error', 5000);
 
-        // Nettoyage
-        if (recorder && recorder.state === 'recording') {
-            try { recorder.stop(); } catch (err) {}
-        }
+        if (recorder && recorder.state === 'recording') { try { recorder.stop(); } catch (err) {} }
         if (audioCtx) { try { await audioCtx.close(); } catch (err) {} }
         videoElements.forEach(v => { try { URL.revokeObjectURL(v.url); } catch (err) {} });
     } finally {
@@ -1801,7 +1684,7 @@ function renderStoryPresets() {
 
 function renderStyles() {
     const container = document.getElementById('styles-grid');
-    container.innerHTML = JOYFUL_THEMES.map(s => 
+    container.innerHTML = JOYFUL_THEMES.map(s =>
         '<div class="style-card ' + (state.selectedTheme === s.id ? 'selected' : '') + '" data-theme="' + s.id + '">' +
         '<div class="style-emoji">' + s.emoji + '</div><div><div class="style-name">' + esc(s.name) + '</div><div class="style-desc">' + esc(s.desc) + '</div></div></div>'
     ).join('');
@@ -1818,7 +1701,7 @@ function renderQueue() {
     let html = '<div class="queue-summary"><span class="progress-text">Progression : ' + done + '/' + total + ' scènes</span><span class="eta-text">' + (failed > 0 ? '⚠️ ' + failed + ' échec(s)' : '') + '</span></div>';
     html += state.scenes.slice(0, MAX_VISIBLE_QUEUE).map(scene => {
         let icon = '○', statusText = 'En attente', cls = 'pending';
-        if (scene.status === 'generating-image') { icon = '🎨'; statusText = 'Image (multi-fallback)…'; cls = 'generating-image'; }
+        if (scene.status === 'generating-image') { icon = '🎨'; statusText = 'Image…'; cls = 'generating-image'; }
         else if (scene.status === 'image-done') { icon = '✓'; statusText = 'Image prête'; cls = 'pending'; }
         else if (scene.status === 'creating') { icon = '◐'; statusText = 'Création vidéo…'; cls = 'creating'; }
         else if (scene.status === 'processing') { icon = '◐'; statusText = scene.progress || 'Vidéo…'; cls = 'processing'; }
@@ -1926,10 +1809,18 @@ async function runDiagnostic() {
             } else { logLine('❌ ' + model + ' — HTTP ' + res.status); }
         } catch (e) { logLine('❌ ' + model + ' — Réseau : ' + e.message); }
     }
-    logLine('\n═══ TEST HUGGINGFACE ═══');
-    const hfKey = getHfKey();
-    if (hfKey) logLine('✅ Token HuggingFace présent (' + hfKey.slice(0, 8) + '...)');
-    else logLine('⚠️ Aucun token HuggingFace (le fallback Canvas sera utilisé si Pollinations échoue)');
+    logLine('\n═══ TEST PROXYS CORS ═══');
+    for (let i = 0; i < CORS_PROXIES.length; i++) {
+        try {
+            const testUrl = 'https://platform-outputs.agnes-ai.space/videos/agnes-video-v2.0/nonexistent.mp4';
+            const proxyUrl = CORS_PROXIES[i](testUrl);
+            const start = Date.now();
+            const res = await fetch(proxyUrl, { method: 'HEAD' });
+            logLine('Proxy ' + (i + 1) + ' : HTTP ' + res.status + ' (' + ((Date.now() - start) / 1000).toFixed(1) + 's)');
+        } catch (e) {
+            logLine('Proxy ' + (i + 1) + ' : ' + e.message);
+        }
+    }
     logLine('\n═══ FIN ═══');
 }
 
@@ -1938,7 +1829,6 @@ async function runDiagnostic() {
 // ══════════════════════════════════════════════════════════════════
 (function init() {
     document.getElementById('api-save-btn')?.addEventListener('click', saveAgnesKey);
-    document.getElementById('hf-save-btn')?.addEventListener('click', saveHfKey);
     document.getElementById('stop-btn')?.addEventListener('click', stopGeneration);
     document.getElementById('assemble-btn')?.addEventListener('click', assembleFinalFilm);
     document.getElementById('download-btn')?.addEventListener('click', downloadFinalFilm);
@@ -1989,8 +1879,6 @@ async function runDiagnostic() {
         wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
         const savedChar = localStorage.getItem(CANONICAL_CHAR_STORAGE);
         if (savedChar) { state.canonicalCharacter = savedChar; const ta = document.getElementById('canonical-character'); if (ta) ta.value = savedChar; }
-        const savedHf = localStorage.getItem(HF_KEY_STORAGE);
-        if (savedHf) document.getElementById('hf-key-input').value = savedHf;
     } catch (e) {}
 
     if (wakeLockEnabled) activateWakeLock().then(updateWakeStatus);
@@ -2001,7 +1889,7 @@ async function runDiagnostic() {
     });
 
     updateApiPanel(); updateWakeStatus(); renderStoryPresets(); renderStyles(); renderQueue(); updateStoryPreview();
-    log('Kids Story Studio prêt (assemblage robuste)');
+    log('Kids Story Studio prêt (proxy CORS actif)');
 })();
 </script>
 </body>
