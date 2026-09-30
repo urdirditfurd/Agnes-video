@@ -119,7 +119,6 @@
         margin-bottom: 0.6rem;
     }
     .api-save-btn:active { transform: scale(0.98); }
-    .api-save-btn.hf { background: linear-gradient(135deg, var(--yellow), var(--orange)); }
 
     .api-status-line {
         font-size: 0.78rem; padding: 0.6rem 0.9rem;
@@ -398,9 +397,9 @@
 
 <div class="info-banner">
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
-    <div class="free-badge">🎉 ASSEMBLAGE VIA PROXY CORS</div>
+    <div class="free-badge">🎉 ASSEMBLAGE 100% LOCAL</div>
     <br><br>
-    <strong>Contournement CORS :</strong> 4 proxys publics essayés en cascade pour télécharger les vidéos Agnes
+    <strong>Nouveau système :</strong> téléchargement manuel des scènes puis assemblage local garanti sans blocage CORS
 </div>
 
 <div class="api-panel" id="api-panel">
@@ -417,11 +416,6 @@
         🎨 <strong>Images :</strong> Pollinations (4 modèles) → Canvas procédural (garanti)
         <br>🎙️ <strong>Voix :</strong> Agnes IA — voix naturelles et enfantines
     </div>
-
-    <button type="button" id="diag-btn" style="width:100%; padding:0.7rem; border-radius:10px; border:2px solid var(--warn); background:#fff8e8; color:var(--warn); font-weight:700; cursor:pointer; margin-top:0.5rem; font-family:inherit; font-size:0.82rem;">
-        🔍 Tester les services
-    </button>
-    <pre id="diag-output" style="display:none; margin-top:0.7rem; padding:0.7rem; background:#fff; border:2px solid var(--border); border-radius:8px; font-size:0.7rem; white-space:pre-wrap; word-break:break-all; max-height:250px; overflow:auto; font-family:monospace;"></pre>
 
     <div class="wake-status" id="wake-status">
         <span id="wake-status-text">💤 Veille automatique</span>
@@ -535,11 +529,41 @@
 </div>
 
 <button type="button" class="btn-primary" id="generate-btn" disabled>🌟 Créer les scènes du film</button>
-<button type="button" class="btn-assemble" id="assemble-btn">🎬 Assembler le film final (toutes les scènes)</button>
-<button type="button" class="btn-download" id="download-btn">⬇️ Télécharger le film (WebM)</button>
 <button type="button" class="btn-stop" id="stop-btn">⏹ Arrêter la génération</button>
 
 <div class="queue" id="queue" style="display:none;"></div>
+
+<div class="gallery" id="gallery" style="display:none;">
+    <div class="section-title" style="margin-bottom:0.8rem;">🎬 Scènes générées — Téléchargez-les une par une</div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+</div>
+
+<!-- ZONE DE RECHARGEMENT MANUEL DES SCÈNES -->
+<div class="section" id="manual-assembly-zone" style="display:none; margin-top:1.5rem; border: 3px solid var(--blue);">
+    <div class="section-header" style="background: linear-gradient(135deg, #e8f4ff, #f0e8ff);">
+        <span class="section-title" style="color: var(--blue); font-size: 0.9rem;">📁 ÉTAPE FINALE : Recharger les vidéos téléchargées</span>
+    </div>
+    <div class="section-body" style="max-height: none; overflow: visible;">
+        <div class="section-content">
+            <div style="background: #fff8e8; border-left: 4px solid var(--warn); padding: 0.85rem 1rem; border-radius: 10px; font-size: 0.82rem; margin-bottom: 1rem; line-height: 1.6;">
+                <strong>⚠️ Les vidéos Agnes ne peuvent pas être téléchargées automatiquement (CORS).</strong>
+                <br><br>
+                <strong>1.</strong> Dans la galerie ci-dessus, cliquez sur <strong>"⬇ Télécharger la scène"</strong> pour chaque vidéo<br>
+                <strong>2.</strong> Puis cliquez sur le bouton bleu ci-dessous et sélectionnez <strong>tous les fichiers téléchargés</strong><br>
+                <strong>3.</strong> L'assemblage se lance automatiquement 🎬
+            </div>
+
+            <input type="file" id="manual-files-input" accept="video/*" multiple style="display:none;">
+            <button type="button" id="manual-upload-btn" style="width:100%; padding:1.4rem; border-radius:12px; border:3px dashed var(--blue); background: linear-gradient(135deg, #e8f4ff, #f0e8ff); color:var(--blue); font-size:1.05rem; font-weight:700; cursor:pointer; font-family:inherit;">
+                📁 Sélectionner les vidéos téléchargées
+            </button>
+
+            <div id="manual-files-list" style="margin-top:1rem; font-size:0.82rem; color:var(--ink-dim); padding: 0.7rem; background: #f9f9f9; border-radius: 8px; min-height: 40px;"></div>
+        </div>
+    </div>
+</div>
+
+<button type="button" class="btn-download" id="download-btn">⬇️ Télécharger le film final (WebM)</button>
 
 <div class="final-film" id="final-film">
     <h3>🎬 Film final assemblé</h3>
@@ -548,11 +572,6 @@
         <div class="progress-bar-fill" id="assembly-progress-fill"></div>
     </div>
     <div id="assembly-status" style="font-size:0.78rem; color:var(--ink-dim); text-align:center; margin-top:0.4rem;"></div>
-</div>
-
-<div class="gallery" id="gallery" style="display:none;">
-    <div class="section-title" style="margin-bottom:0.8rem;">🎬 Scènes générées</div>
-    <div class="gallery-grid" id="gallery-grid"></div>
 </div>
 
 <div class="meta-panel" id="meta-panel" style="display:none; background:linear-gradient(135deg,#fff9f0,#e8f4ff); border:2px solid var(--blue); border-radius:var(--radius); padding:1rem 1.2rem; margin-top:1.5rem;">
@@ -622,7 +641,8 @@ const state = {
     durationFrames: 153, targetScenes: 'auto', audioFile: null, audioObjectUrl: null,
     audioBpm: null, audioDuration: 0, finalFilmBlob: null, isAssembling: false,
     lastPollinationsCall: 0, canonicalCharacter: '', globalSetting: '',
-    seed: 42, musicVolume: 0.20, duckingEnabled: true
+    seed: 42, musicVolume: 0.20, duckingEnabled: true,
+    uploadedScenes: []
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -1196,53 +1216,8 @@ async function pollSceneVideo(scene) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 10. TÉLÉCHARGEMENT AVEC PROXY CORS (contourne le blocage Agnes)
+// 10. ASSEMBLAGE LOCAL — À PARTIR DES FICHIERS RECHARGÉS
 // ══════════════════════════════════════════════════════════════════
-
-const CORS_PROXIES = [
-    (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
-    (url) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-    (url) => 'https://cors.eu.org/' + url,
-    (url) => 'https://thingproxy.freeboard.io/fetch/' + url,
-];
-
-async function downloadVideoBlob(url) {
-    // Tentative 1 : direct
-    try {
-        const res = await fetch(url, { mode: 'cors' });
-        if (res.ok) {
-            const blob = await res.blob();
-            if (blob && blob.size > 1000) {
-                log('Téléchargement direct OK : ' + (blob.size / 1024).toFixed(0) + ' Ko');
-                return blob;
-            }
-        }
-    } catch (e) {
-        log('Direct bloqué (CORS) → passage aux proxys');
-    }
-
-    // Tentative 2 : via proxys
-    for (let i = 0; i < CORS_PROXIES.length; i++) {
-        const proxyUrl = CORS_PROXIES[i](url);
-        try {
-            log('Proxy ' + (i + 1) + '/' + CORS_PROXIES.length + ' : ' + proxyUrl.slice(0, 60) + '…');
-            const res = await fetch(proxyUrl, { mode: 'cors' });
-            if (!res.ok) {
-                log('Proxy ' + (i + 1) + ' HTTP ' + res.status);
-                continue;
-            }
-            const blob = await res.blob();
-            if (blob && blob.size > 1000) {
-                log('✅ Proxy ' + (i + 1) + ' OK : ' + (blob.size / 1024).toFixed(0) + ' Ko');
-                return blob;
-            }
-        } catch (e) {
-            log('Proxy ' + (i + 1) + ' échoué : ' + e.message);
-        }
-    }
-
-    throw new Error('Impossible de télécharger la vidéo (tous les proxys ont échoué)');
-}
 
 function waitForVideoReady(video) {
     return new Promise((resolve, reject) => {
@@ -1253,16 +1228,6 @@ function waitForVideoReady(video) {
         video.addEventListener('error', () => reject(new Error('Erreur chargement vidéo')), { once: true });
         setTimeout(() => { if (video.readyState >= 2) resolve(); else reject(new Error('Timeout chargement vidéo')); }, 20000);
     });
-}
-
-async function extractAudioFromVideoBlob(blob, audioCtx) {
-    try {
-        const arrayBuffer = await blob.arrayBuffer();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-        return audioBuffer;
-    } catch (e) {
-        return null;
-    }
 }
 
 function concatAudioBuffers(buffers, audioCtx) {
@@ -1312,8 +1277,12 @@ function mixVoiceAndMusic(voiceBuffer, musicBuffer, musicVolume, duckingEnabled,
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
 
-    const doneScenes = state.scenes.filter(s => s.status === 'done' && s.videoUrl).sort((a, b) => a.index - b.index);
-    if (doneScenes.length === 0) { showToast('Aucune scène vidéo à assembler', 'error'); return; }
+    const uploadedFiles = state.uploadedScenes || [];
+    if (uploadedFiles.length === 0) {
+        showToast('Sélectionnez d\'abord les vidéos téléchargées', 'error', 4000);
+        document.getElementById('manual-assembly-zone').scrollIntoView({ behavior: 'smooth' });
+        return;
+    }
 
     state.isAssembling = true;
     const finalFilmEl = document.getElementById('final-film');
@@ -1330,36 +1299,25 @@ async function assembleFinalFilm() {
     let videoElements = [];
 
     try {
-        // ÉTAPE 1 : Télécharger tous les blobs vidéo
-        statusEl.textContent = 'Étape 1/5 : Téléchargement des scènes…';
-        log('═══ ASSEMBLAGE : Étape 1/5 — Téléchargement ═══');
-        progressFill.style.width = '5%';
+        // ÉTAPE 1 : Trier les fichiers par nom
+        statusEl.textContent = 'Étape 1/4 : Tri des fichiers…';
+        log('═══ ASSEMBLAGE LOCAL ═══');
+        progressFill.style.width = '10%';
 
-        const videoBlobs = [];
-        for (let i = 0; i < doneScenes.length; i++) {
-            if (state.stopRequested) throw new Error('Arrêt demandé');
-            const scene = doneScenes[i];
-            progressFill.style.width = (5 + (i / doneScenes.length) * 20) + '%';
-            statusEl.textContent = 'Téléchargement scène ' + (i + 1) + '/' + doneScenes.length + '…';
-            try {
-                const blob = await downloadVideoBlob(scene.videoUrl);
-                videoBlobs.push({ index: scene.index, blob });
-                log('Scène ' + (scene.index + 1) + ' téléchargée : ' + (blob.size / 1024).toFixed(0) + ' Ko');
-            } catch (e) {
-                log('Scène ' + (scene.index + 1) + ' téléchargement échoué : ' + e.message);
-            }
-        }
-
-        if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
+        const sortedFiles = [...uploadedFiles].sort((a, b) => {
+            const numA = parseInt((a.name.match(/\d+/) || ['0'])[0], 10);
+            const numB = parseInt((b.name.match(/\d+/) || ['0'])[0], 10);
+            return numA - numB;
+        });
+        log('Fichiers triés : ' + sortedFiles.length);
 
         // ÉTAPE 2 : Créer les éléments vidéo
-        statusEl.textContent = 'Étape 2/5 : Préparation des vidéos…';
-        log('═══ ASSEMBLAGE : Étape 2/5 — Préparation ═══');
-        progressFill.style.width = '25%';
+        statusEl.textContent = 'Étape 2/4 : Chargement des vidéos…';
+        progressFill.style.width = '30%';
 
-        for (let i = 0; i < videoBlobs.length; i++) {
-            const { blob } = videoBlobs[i];
-            const url = URL.createObjectURL(blob);
+        for (let i = 0; i < sortedFiles.length; i++) {
+            const file = sortedFiles[i];
+            const url = URL.createObjectURL(file);
             const video = document.createElement('video');
             video.src = url;
             video.muted = true;
@@ -1367,47 +1325,46 @@ async function assembleFinalFilm() {
             video.preload = 'auto';
 
             await waitForVideoReady(video);
-            videoElements.push({ index: videoBlobs[i].index, video, url, duration: video.duration, blob });
-
-            progressFill.style.width = (25 + (i / videoBlobs.length) * 15) + '%';
-            log('Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's, ' + video.videoWidth + 'x' + video.videoHeight);
+            videoElements.push({ index: i, video, url, duration: video.duration, file });
+            progressFill.style.width = (30 + (i / sortedFiles.length) * 20) + '%';
+            log('Vidéo ' + (i + 1) + ' : ' + video.duration.toFixed(2) + 's, ' + video.videoWidth + 'x' + video.videoHeight);
         }
 
-        if (videoElements.length === 0) throw new Error('Aucune vidéo décodée');
+        if (videoElements.length === 0) throw new Error('Aucune vidéo chargée');
 
-        // ÉTAPE 3 : Extraire et mixer l'audio
-        statusEl.textContent = 'Étape 3/5 : Extraction audio…';
-        log('═══ ASSEMBLAGE : Étape 3/5 — Audio ═══');
-        progressFill.style.width = '45%';
+        // ÉTAPE 3 : Extraire l'audio de chaque vidéo
+        statusEl.textContent = 'Étape 3/4 : Extraction audio…';
+        progressFill.style.width = '55%';
 
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const audioBuffers = [];
 
         for (let i = 0; i < videoElements.length; i++) {
-            const { blob } = videoElements[i];
-            const buf = await extractAudioFromVideoBlob(blob, audioCtx);
-            if (buf) {
-                audioBuffers.push(buf);
-                log('Audio scène ' + (i + 1) + ' : ' + buf.duration.toFixed(2) + 's');
+            const { file } = videoElements[i];
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+                audioBuffers.push(audioBuffer);
+                log('Audio scène ' + (i + 1) + ' : ' + audioBuffer.duration.toFixed(2) + 's');
+            } catch (e) {
+                log('Scène ' + (i + 1) + ' : pas d\'audio');
             }
-            progressFill.style.width = (45 + (i / videoElements.length) * 10) + '%';
+            progressFill.style.width = (55 + (i / videoElements.length) * 10) + '%';
         }
 
         let finalAudioBuffer = null;
-
         if (audioBuffers.length > 0) {
             const voiceBuffer = concatAudioBuffers(audioBuffers, audioCtx);
             log('Voix concaténées : ' + voiceBuffer.duration.toFixed(2) + 's');
 
             if (state.audioFile && state.audioObjectUrl) {
                 try {
-                    statusEl.textContent = 'Mixage voix + musique…';
                     const musicArrayBuffer = await state.audioFile.arrayBuffer();
                     const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer.slice(0));
                     finalAudioBuffer = mixVoiceAndMusic(voiceBuffer, musicBuffer, state.musicVolume, state.duckingEnabled, audioCtx);
-                    log('Mixage OK : ' + finalAudioBuffer.duration.toFixed(2) + 's');
+                    log('Mixage voix + musique OK');
                 } catch (e) {
-                    log('Erreur mixage, voix seule : ' + e.message);
+                    log('Erreur mixage, voix seule');
                     finalAudioBuffer = voiceBuffer;
                 }
             } else {
@@ -1426,21 +1383,17 @@ async function assembleFinalFilm() {
                     const dst = finalAudioBuffer.getChannelData(ch);
                     for (let i = 0; i < length; i++) dst[i] = src[i % src.length] * musicGain;
                 }
-                log('Musique seule : ' + finalAudioBuffer.duration.toFixed(2) + 's');
-            } catch (e) {
-                log('Erreur musique seule : ' + e.message);
-            }
+            } catch (e) { log('Erreur musique seule'); }
         }
 
-        // ÉTAPE 4 : Préparer l'enregistrement
-        statusEl.textContent = 'Étape 4/5 : Préparation de l\'enregistrement…';
-        log('═══ ASSEMBLAGE : Étape 4/5 — Enregistrement ═══');
-        progressFill.style.width = '55%';
+        // ÉTAPE 4 : Enregistrement
+        statusEl.textContent = 'Étape 4/4 : Enregistrement du film…';
+        progressFill.style.width = '70%';
 
         const firstVideo = videoElements[0].video;
         const width = firstVideo.videoWidth || 768;
         const height = firstVideo.videoHeight || 1365;
-        log('Dimensions film : ' + width + 'x' + height);
+        log('Dimensions : ' + width + 'x' + height);
 
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -1468,22 +1421,16 @@ async function assembleFinalFilm() {
         }
         log('Codec : ' + mimeType);
 
-        recorder = new MediaRecorder(combinedStream, { mimeType: mimeType, videoBitsPerSecond: 4000000, audioBitsPerSecond: 128000 });
+        recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 4000000, audioBitsPerSecond: 128000 });
 
         const chunks = [];
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-
         const recordingDone = new Promise((resolve) => {
             recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
         });
 
-        // ÉTAPE 5 : Lecture séquentielle
-        statusEl.textContent = 'Étape 5/5 : Enregistrement du film…';
-        log('═══ ASSEMBLAGE : Étape 5/5 — Enregistrement ═══');
-
         recorder.start(200);
 
-        // Démarrer l'audio
         let audioPlaybackSource = null;
         if (finalAudioBuffer) {
             audioPlaybackSource = audioCtx.createBufferSource();
@@ -1497,9 +1444,9 @@ async function assembleFinalFilm() {
 
         for (let i = 0; i < videoElements.length; i++) {
             if (state.stopRequested) throw new Error('Arrêt demandé');
-            const { video, duration } = videoElements[i];
-
+            const { video } = videoElements[i];
             video.currentTime = 0;
+
             await new Promise((resolve) => {
                 if (video.readyState >= 2) { resolve(); return; }
                 video.addEventListener('canplay', resolve, { once: true });
@@ -1509,7 +1456,6 @@ async function assembleFinalFilm() {
             await new Promise((resolve) => {
                 let rafId = null;
                 let finished = false;
-
                 const finish = () => {
                     if (finished) return;
                     finished = true;
@@ -1522,10 +1468,9 @@ async function assembleFinalFilm() {
                     if (video.readyState >= 2) {
                         try { ctx.drawImage(video, 0, 0, width, height); } catch (e) {}
                     }
-                    const sceneProgress = video.currentTime / Math.max(video.duration, 0.1);
                     const globalProgress = (elapsedPlayback + video.currentTime) / totalDuration;
-                    progressFill.style.width = (60 + globalProgress * 40) + '%';
-                    statusEl.textContent = 'Enregistrement scène ' + (i + 1) + '/' + videoElements.length + ' (' + Math.round(sceneProgress * 100) + '%)…';
+                    progressFill.style.width = (70 + globalProgress * 30) + '%';
+                    statusEl.textContent = 'Scène ' + (i + 1) + '/' + videoElements.length + ' (' + Math.round((video.currentTime / video.duration) * 100) + '%)…';
 
                     if (video.ended || (video.currentTime >= video.duration - 0.05 && video.duration > 0)) {
                         elapsedPlayback += video.duration;
@@ -1716,10 +1661,25 @@ function renderQueue() {
 }
 
 function addToGallery(videoUrl, sceneNumber) {
-    const galleryEl = document.getElementById('gallery'), galleryGrid = document.getElementById('gallery-grid');
+    const galleryEl = document.getElementById('gallery');
+    const galleryGrid = document.getElementById('gallery-grid');
     galleryEl.style.display = 'block';
-    const el = document.createElement('div'); el.className = 'gallery-item';
-    el.innerHTML = '<video controls preload="metadata" muted playsinline><source src="' + videoUrl + '" type="video/mp4"></video><div class="g-caption">🎬 Scène ' + sceneNumber + '</div>';
+
+    const el = document.createElement('div');
+    el.className = 'gallery-item';
+
+    // ⚠️ IMPORTANT : <a download> force le téléchargement côté navigateur,
+    // ce qui contourne complètement le CORS (navigation classique, pas fetch)
+    el.innerHTML =
+        '<video controls preload="metadata" muted playsinline>' +
+            '<source src="' + videoUrl + '" type="video/mp4">' +
+        '</video>' +
+        '<div class="g-caption">🎬 Scène ' + sceneNumber + '</div>' +
+        '<a href="' + videoUrl + '" download="scene-' + String(sceneNumber).padStart(2, '0') + '.mp4" ' +
+           'style="display:block; text-align:center; padding:0.7rem; background:linear-gradient(135deg,var(--blue),var(--purple)); color:#fff; text-decoration:none; font-size:0.8rem; font-weight:700; border-radius:0 0 12px 12px;">' +
+           '⬇ Télécharger la scène ' + sceneNumber +
+        '</a>';
+
     galleryGrid.appendChild(el);
 }
 
@@ -1753,13 +1713,15 @@ async function startGeneration() {
 
     state.isRunning = true; state.stopRequested = false; state.completed = 0; state.failed = 0;
     state.scenes = []; state.finalFilmBlob = null; state.lastPollinationsCall = 0;
+    state.uploadedScenes = [];
     state.seed = parseInt(document.getElementById('seed-input').value, 10) || 42;
     createIntervalMs = CREATE_INTERVAL_MIN;
 
     document.getElementById('gallery-grid').innerHTML = '';
     document.getElementById('gallery').style.display = 'none';
+    document.getElementById('manual-assembly-zone').style.display = 'none';
+    document.getElementById('manual-files-list').innerHTML = '';
     document.getElementById('final-film').classList.remove('visible');
-    document.getElementById('assemble-btn').classList.remove('visible');
     document.getElementById('download-btn').classList.remove('visible');
     document.getElementById('stop-btn').classList.add('visible');
     document.getElementById('generate-btn').disabled = true;
@@ -1782,8 +1744,13 @@ async function startGeneration() {
 
     if (doneScenes > 0) {
         displayYouTubeMetadata();
-        showToast(doneScenes + ' scène(s) prête(s). Assemblage automatique en cours...', 'success');
-        setTimeout(() => { assembleFinalFilm(); }, 1500);
+
+        // Afficher la zone de rechargement manuel
+        const manualZone = document.getElementById('manual-assembly-zone');
+        manualZone.style.display = 'block';
+        setTimeout(() => manualZone.scrollIntoView({ behavior: 'smooth', block: 'start' }), 500);
+
+        showToast(doneScenes + ' scène(s) générée(s) ! Téléchargez-les puis rechargez-les ci-dessous.', 'warn', 6000);
     } else {
         showToast('Aucune scène générée', 'error');
     }
@@ -1794,45 +1761,13 @@ function stopGeneration() {
     state.stopRequested = true; setStatus('Arrêt en cours…');
 }
 
-async function runDiagnostic() {
-    const out = document.getElementById('diag-output');
-    out.style.display = 'block'; out.textContent = '⏳ Diagnostic en cours...\n\n';
-    const logLine = (msg) => { out.textContent += msg + '\n'; };
-    logLine('═══ TEST POLLINATIONS.AI ═══');
-    for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 3)) {
-        try {
-            const start = Date.now();
-            const res = await fetch(POLLINATIONS_BASE + encodeURIComponent('a cute friendly cartoon teddy bear') + '?width=768&height=1365&model=' + model + '&nologo=true&seed=42');
-            if (res.ok) {
-                const blob = await res.blob();
-                logLine('✅ ' + model + ' — HTTP 200 (' + ((Date.now() - start) / 1000).toFixed(1) + 's, ' + (blob.size / 1024).toFixed(0) + ' Ko)');
-            } else { logLine('❌ ' + model + ' — HTTP ' + res.status); }
-        } catch (e) { logLine('❌ ' + model + ' — Réseau : ' + e.message); }
-    }
-    logLine('\n═══ TEST PROXYS CORS ═══');
-    for (let i = 0; i < CORS_PROXIES.length; i++) {
-        try {
-            const testUrl = 'https://platform-outputs.agnes-ai.space/videos/agnes-video-v2.0/nonexistent.mp4';
-            const proxyUrl = CORS_PROXIES[i](testUrl);
-            const start = Date.now();
-            const res = await fetch(proxyUrl, { method: 'HEAD' });
-            logLine('Proxy ' + (i + 1) + ' : HTTP ' + res.status + ' (' + ((Date.now() - start) / 1000).toFixed(1) + 's)');
-        } catch (e) {
-            logLine('Proxy ' + (i + 1) + ' : ' + e.message);
-        }
-    }
-    logLine('\n═══ FIN ═══');
-}
-
 // ══════════════════════════════════════════════════════════════════
 // 13. INITIALISATION
 // ══════════════════════════════════════════════════════════════════
 (function init() {
     document.getElementById('api-save-btn')?.addEventListener('click', saveAgnesKey);
     document.getElementById('stop-btn')?.addEventListener('click', stopGeneration);
-    document.getElementById('assemble-btn')?.addEventListener('click', assembleFinalFilm);
     document.getElementById('download-btn')?.addEventListener('click', downloadFinalFilm);
-    document.getElementById('diag-btn')?.addEventListener('click', runDiagnostic);
 
     document.querySelectorAll('[data-toggle]').forEach(header => {
         header.addEventListener('click', () => { document.getElementById(header.dataset.toggle).classList.toggle('open'); });
@@ -1875,6 +1810,33 @@ async function runDiagnostic() {
     document.getElementById('generate-btn')?.addEventListener('click', startGeneration);
     document.getElementById('wake-toggle-btn')?.addEventListener('click', toggleWakeLock);
 
+    // ═══ ZONE DE RECHARGEMENT MANUEL ═══
+    const manualUploadBtn = document.getElementById('manual-upload-btn');
+    const manualFilesInput = document.getElementById('manual-files-input');
+    const manualFilesList = document.getElementById('manual-files-list');
+
+    if (manualUploadBtn && manualFilesInput) {
+        manualUploadBtn.addEventListener('click', () => manualFilesInput.click());
+
+        manualFilesInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files).filter(f => f.type.startsWith('video/'));
+            if (files.length === 0) {
+                showToast('Aucune vidéo sélectionnée', 'error');
+                return;
+            }
+
+            state.uploadedScenes = files;
+            log('Fichiers rechargés : ' + files.length);
+
+            manualFilesList.innerHTML = '<strong style="color:var(--success);">✅ ' + files.length + ' vidéo(s) chargée(s) :</strong><br>' +
+                files.map((f, i) => (i + 1) + '. ' + esc(f.name) + ' — ' + (f.size / 1024 / 1024).toFixed(1) + ' Mo').join('<br>');
+
+            showToast(files.length + ' vidéo(s) chargée(s) ✓', 'success');
+            await sleep(600);
+            assembleFinalFilm();
+        });
+    }
+
     try {
         wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
         const savedChar = localStorage.getItem(CANONICAL_CHAR_STORAGE);
@@ -1889,7 +1851,7 @@ async function runDiagnostic() {
     });
 
     updateApiPanel(); updateWakeStatus(); renderStoryPresets(); renderStyles(); renderQueue(); updateStoryPreview();
-    log('Kids Story Studio prêt (proxy CORS actif)');
+    log('Kids Story Studio prêt (assemblage local via rechargement manuel)');
 })();
 </script>
 </body>
