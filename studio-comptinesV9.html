@@ -397,9 +397,9 @@
 
 <div class="info-banner">
     <div class="coppa-badge">🛡️ COPPA COMPLIANT</div>
-    <div class="free-badge">🎬 MONTAGE FINAL FIABLE</div>
+    <div class="free-badge">🎬 ASSEMBLAGE LOCAL</div>
     <br><br>
-    <strong>Améliorations :</strong> cohérence narrative verrouillée, transition cross-fade entre scènes, assemblage robuste avec détection de fin par temps réel, extraction audio résiliente.
+    <strong>Améliorations :</strong> retry intelligent HTTP/1.1, intervalle augmenté pour éviter rate limit, classification des erreurs réseau, cache localStorage.
 </div>
 
 <div class="api-panel" id="api-panel">
@@ -413,9 +413,9 @@
     </div>
 
     <div class="image-gen-status">
-        🎨 <strong>Images : Pollinations.ai</strong> — accès anonyme direct
+        🎨 <strong>Images : Pollinations.ai</strong>
         <br>
-        🎙️ <strong>Voix : Agnes IA</strong> — voix naturelles et enfantines
+        🎙️ <strong>Voix : Agnes IA</strong>
     </div>
 
     <div class="api-hint">
@@ -448,18 +448,17 @@
                 <span>🎬 <strong id="story-scenes">0</strong> scènes</span>
             </div>
             <div class="prompt-main-hint">
-                💡 Découpage par phrases complètes. Personnage et décor verrouillés automatiquement pour la cohérence.
+                💡 Découpage par phrases complètes. Personnage verrouillé automatiquement.
             </div>
         </div>
     </div>
 </div>
 
 <div class="character-lock" id="character-lock">
-    <div class="lock-title">🔒 Personnage & Décor canoniques (verrouillés)</div>
+    <div class="lock-title">🔒 Personnage canonique (verrouillé)</div>
     <textarea id="canonical-character" placeholder="Le personnage sera extrait automatiquement de votre histoire."></textarea>
-    <textarea id="canonical-setting" placeholder="Le décor sera extrait automatiquement de votre histoire." style="margin-top:0.5rem;"></textarea>
     <div class="lock-hint">
-        ✨ Ces descriptions seront <strong>réutilisées à l'identique</strong> dans chaque scène et chaque prompt vidéo.
+        ✨ Cette description sera <strong>réutilisée à l'identique</strong> dans chaque scène.
     </div>
 </div>
 
@@ -502,9 +501,6 @@
             <div class="control-row">
                 <label class="control-label">🌱 Seed (cohérence visuelle)</label>
                 <input type="number" id="seed-input" value="42" min="0" max="999999">
-                <div style="font-size:0.72rem; color:var(--ink-dim); margin-top:0.3rem;">
-                    Même seed = même style visuel entre les scènes
-                </div>
             </div>
         </div>
     </div>
@@ -623,23 +619,22 @@ const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/';
 const MODEL_VIDEO = 'agnes-video-v2.0';
 const FRAME_RATE = 24;
 
-let createIntervalMs = 62000;
-const CREATE_INTERVAL_MIN = 62000;
-const CREATE_INTERVAL_MAX = 90000;
+// ⏱️ Intervalle augmenté pour éviter le rate limit d'Agnes
+let createIntervalMs = 90000;    // 90s minimum
+const CREATE_INTERVAL_MIN = 90000;
+const CREATE_INTERVAL_MAX = 150000;
 
-const POLL_INTERVAL_SEC = 8;
-const MAX_POLL_ATTEMPTS = 120;
+const POLL_INTERVAL_SEC = 10;    // Polling plus espacé
+const MAX_POLL_ATTEMPTS = 100;
 
 const AGNES_KEY_STORAGE = 'agnes_api_key';
 const WAKE_LOCK_PREF = 'agnes_wakelock_enabled';
 const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
-const CANONICAL_SETTING_STORAGE = 'kids_story_canonical_setting';
+const STORY_CACHE_KEY = 'kids_story_scene_cache_v1';
 
 const MAX_VISIBLE_QUEUE = 30;
 const THUMBNAIL_MAX_WIDTH = 200;
 const POLLINATIONS_MIN_INTERVAL_MS = 20000;
-
-// Cross-fade entre les scènes (durée de transition visuelle, en secondes)
 const CROSSFADE_DURATION = 0.3;
 
 // ══════════════════════════════════════════════════════════════════
@@ -653,7 +648,7 @@ const state = {
     audioFile: null, audioObjectUrl: null, audioBpm: null, audioDuration: 0,
     finalFilmBlob: null, isAssembling: false,
     lastPollinationsCall: 0,
-    canonicalCharacter: '', canonicalSetting: '',
+    canonicalCharacter: '',
     seed: 42, musicVolume: 0.20, duckingEnabled: true
 };
 
@@ -748,7 +743,6 @@ async function activateWakeLock() {
     let success = false;
     if (isWakeLockSupported()) success = await requestWakeLockAPI();
     if (!success) success = startCanvasStream();
-    if (!success && !canvasStream) success = startCanvasStream();
     return success;
 }
 
@@ -898,12 +892,6 @@ function buildCanonicalCharacter(storyText) {
           detail: 'avec une fourrure soyeuse, de grands yeux ronds expressifs, un petit nez rose, des moustaches fines' },
         { regex: /(chiot|chien)/, base: 'un petit chiot joyeux',
           detail: 'avec un pelage duveteux, de grands yeux brillants, un petit nez humide, une queue remuante' },
-        { regex: /(souris|souriceau)/, base: 'une petite souris adorable',
-          detail: 'avec de grandes oreilles rondes, un petit nez rose, des yeux perçants, une longue queue fine' },
-        { regex: /(hibou|chouette)/, base: 'un petit hibou sage',
-          detail: 'avec des plumes douces et soyeuses, de grands yeux ronds dorés, un petit bec crochu' },
-        { regex: /(écureuil)/, base: 'un petit écureuil espiègle',
-          detail: 'avec une grande queue touffue rousse, des yeux brillants, un petit nez pointu' },
         { regex: /(garçon|petit garçon)/, base: 'un petit garçon joyeux',
           detail: 'avec des cheveux doux, des yeux pétillants, un grand sourire, des vêtements colorés et simples' },
         { regex: /(fille|petite fille)/, base: 'une petite fille joyeuse',
@@ -933,32 +921,14 @@ function buildCanonicalCharacter(storyText) {
     return 'Un personnage principal adorable et attachant, avec de grands yeux expressifs, un sourire chaleureux, un design doux et arrondi style Pixar. Ce personnage doit être IDENTIQUE dans toutes les scènes.';
 }
 
-function extractGlobalSetting(storyText) {
-    if (!storyText) return 'un décor joyeux, coloré et lumineux, style livre pour enfants';
-    const lower = storyText.toLowerCase();
-    if (lower.includes('forêt') || lower.includes('bois')) return 'une forêt enchantée et lumineuse, avec des arbres doux, des rayons de soleil filtrant à travers les feuilles, des fleurs colorées au sol';
-    if (lower.includes('mer') || lower.includes('océan') || lower.includes('plage')) return 'une plage ensoleillée avec un sable doré doux, une mer bleue calme et des vagues gentilles, un ciel clair';
-    if (lower.includes('château') || lower.includes('palais')) return 'un château magique aux couleurs pastel, avec des tourelles arrondies, des drapeaux joyeux, un jardin fleuri';
-    if (lower.includes('ferme')) return 'une ferme joyeuse et colorée, avec une grange rouge, des pâturages verts, un ciel bleu avec des nuages doux';
-    if (lower.includes('espace') || lower.includes('étoile') || lower.includes('lune')) return 'un espace magique et coloré pour enfants, avec des étoiles souriantes, des planètes douces et des nébuleuses pastel';
-    if (lower.includes('chambre') || lower.includes('maison')) return 'une chambre d\'enfant chaleureuse et lumineuse, avec des jouets colorés, une lumière douce venant de la fenêtre';
-    return 'un décor extérieur joyeux, ensoleillé, avec des couleurs pastel vives, un ciel bleu doux et des éléments naturels amicaux';
-}
-
 function updateCanonicalCharacter() {
     const story = state.story;
     if (!story) return;
     state.canonicalCharacter = buildCanonicalCharacter(story);
-    state.canonicalSetting = extractGlobalSetting(story);
-    const charTa = document.getElementById('canonical-character');
-    const setTa = document.getElementById('canonical-setting');
-    if (charTa) {
-        charTa.value = state.canonicalCharacter;
+    const textarea = document.getElementById('canonical-character');
+    if (textarea) {
+        textarea.value = state.canonicalCharacter;
         try { localStorage.setItem(CANONICAL_CHAR_STORAGE, state.canonicalCharacter); } catch (e) {}
-    }
-    if (setTa) {
-        setTa.value = state.canonicalSetting;
-        try { localStorage.setItem(CANONICAL_SETTING_STORAGE, state.canonicalSetting); } catch (e) {}
     }
 }
 
@@ -1050,7 +1020,6 @@ const NEGATIVE_PROMPT = 'scary, dark, deformed, text, watermark, realistic, cree
 
 function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
-
     let charPrompt = state.canonicalCharacter;
     if (!charPrompt) {
         const selectedChar = CHARACTER_PROMPTS[state.characters];
@@ -1059,9 +1028,8 @@ function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
 
     const bloc1 = 'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still';
     const bloc2 = 'MAIN CHARACTER (must be IDENTICAL in every scene, same face, same colors, same proportions, same details): ' + charPrompt;
-    const bloc3 = 'GLOBAL ENVIRONMENT LOCK (must remain consistent across ALL scenes): ' + state.canonicalSetting;
-    const bloc4 = 'SCENE ACTION: ' + sceneText;
-    const bloc5 = 'STYLE: ' + theme.prompt;
+    const bloc3 = 'SCENE ACTION: ' + sceneText;
+    const bloc4 = 'STYLE: ' + theme.prompt;
 
     const cameraAngles = [
         'medium shot, character centered, cinematic composition',
@@ -1080,14 +1048,13 @@ function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     ];
     const camIndex = sceneIndex % cameraAngles.length;
     const lightIndex = sceneIndex % lightingMoods.length;
-    const bloc6 = 'CAMERA: ' + cameraAngles[camIndex] + '. LIGHTING: ' + lightingMoods[lightIndex];
+    const bloc5 = 'CAMERA: ' + cameraAngles[camIndex] + '. LIGHTING: ' + lightingMoods[lightIndex];
+    const bloc6 = 'vertical portrait format 9:16, high detail, smooth rendering, vibrant saturated colors, child-friendly, no text, no watermark, no scary elements, no realistic humans. Avoid: ' + NEGATIVE_PROMPT;
 
-    const bloc7 = 'vertical portrait format 9:16, high detail, smooth rendering, vibrant saturated colors, child-friendly, no text, no watermark, no scary elements, no realistic humans. Avoid: ' + NEGATIVE_PROMPT;
-
-    const parts = [bloc1, bloc2, bloc3, bloc4, bloc5, bloc6, bloc7];
+    const parts = [bloc1, bloc2, bloc3, bloc4, bloc5, bloc6];
 
     if (previousContext) {
-        parts.push('Narrative continuity from previous scene: ' + previousContext);
+        parts.push('Continuing from previous scene for visual consistency: ' + previousContext);
     }
 
     return parts.join('. ');
@@ -1101,30 +1068,16 @@ function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
     }
 
     const parts = [];
-
-    // Voix : instructions strictes pour une voix identique et enfantine
-    parts.push('VOICE DIRECTION (STRICT — must be IDENTICAL in every scene): use a warm, soft, gentle, friendly, childlike French voice. Same pitch, same pace, same tone as all other scenes of this story. Narrate slowly and softly, as a kind storyteller for toddlers aged 2-5.');
-    parts.push('Do NOT use any voice other than this consistent soft French childlike voice.');
-
-    // Animation
+    parts.push('VOICE DIRECTION (STRICT — must be IDENTICAL in every scene): use a warm, soft, gentle, friendly, childlike French voice. Same pitch, same pace, same tone as all other scenes of this story.');
     parts.push('Animate this exact image as the starting frame. The character must remain IDENTICAL: same face, same colors, same identity.');
-    parts.push('GLOBAL ENVIRONMENT (must remain consistent across ALL scenes): ' + state.canonicalSetting);
     parts.push('SCENE: ' + sceneText);
     parts.push('CHARACTER: ' + charPrompt);
     parts.push('STYLE: ' + theme.prompt);
-    parts.push('Simple rhythmic joyful animation — gentle movements, breathing, blinking, subtle sway. Hypnotic and easy for young children.');
-
-    // Règle audio stricte
-    parts.push('CRITICAL AUDIO RULE: The voiceover must say the exact SCENE text in French, complete and natural. Do NOT cut the audio mid-word or mid-sentence. Pace the animation to allow the full sentence to be spoken smoothly within the duration.');
-
-    parts.push('Soft glowing sparkles or music notes floating gently if appropriate.');
+    parts.push('Simple rhythmic joyful animation — gentle movements, breathing, blinking, subtle sway.');
+    parts.push('CRITICAL AUDIO RULE: The voiceover must say the exact SCENE text in French, complete and natural. DO NOT cut the audio mid-word or mid-sentence.');
     parts.push('Bright saturated but soft colors, high quality 3D render, smooth 24fps, Pixar style, vertical 9:16.');
     parts.push('Safe for children, COPPA compliant, no text, no watermarks, no scary elements.');
-    parts.push('Warm golden sunlight, no harsh shadows.');
-
-    // Fin douce + transition
-    parts.push('The final 0.8 seconds smoothly fade out — the character gradually slows down, the light softens, natural peaceful ending. No abrupt cut.');
-
+    parts.push('The final 0.8 seconds smoothly fade out — natural peaceful ending. No abrupt cut.');
     parts.push('NEGATIVE PROMPT: ' + NEGATIVE_PROMPT);
     return parts.join('. ');
 }
@@ -1156,7 +1109,7 @@ function updateApiPanel() {
         panel.classList.add('ok');
     } else {
         statusLine.classList.remove('ok');
-        statusText.textContent = 'Aucune clé Agnes enregistrée';
+        statusText.textContent = 'Aucune clé Agnes enregistrée (nécessaire pour les vidéos)';
         input.value = '';
         panel.classList.remove('ok');
     }
@@ -1222,12 +1175,27 @@ function generateThumbnail(dataUri) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// CLASSIFICATION DES ERREURS RÉSEAU
+// ══════════════════════════════════════════════════════════════════
+function classifyError(error) {
+    const msg = (error.message || '').toLowerCase();
+    if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('err_connection')) {
+        return { type: 'network', retryable: true, wait: 30000 };
+    }
+    if (msg.includes('err_http2') || msg.includes('protocol')) {
+        return { type: 'http2', retryable: true, wait: 45000 };
+    }
+    if (msg.includes('timeout') || msg.includes('aborted')) {
+        return { type: 'timeout', retryable: true, wait: 20000 };
+    }
+    return { type: 'unknown', retryable: true, wait: 30000 };
+}
+
+// ══════════════════════════════════════════════════════════════════
 // POLLINATIONS.AI — GÉNÉRATION D'IMAGES
 // ══════════════════════════════════════════════════════════════════
 const POLLINATIONS_ANONYMOUS_MODELS = [
-    'flux', 'turbo', 'gptimage', 'qwen-image', 'grok-imagine',
-    'zimage', 'wan-image', 'ideogram-v4-turbo', 'nova-canvas',
-    'klein', 'sana', 'p-image'
+    'flux', 'turbo', 'gptimage', 'qwen-image', 'grok-imagine'
 ];
 
 async function generateImageWithPollinations(prompt, retries = 5) {
@@ -1235,7 +1203,7 @@ async function generateImageWithPollinations(prompt, retries = 5) {
     const elapsed = now - state.lastPollinationsCall;
     if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
         const wait = POLLINATIONS_MIN_INTERVAL_MS - elapsed;
-        log('Rate limit : attente ' + Math.ceil(wait / 1000) + 's');
+        log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's');
         setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
         await sleep(wait);
     }
@@ -1263,14 +1231,8 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             clearTimeout(timeoutId);
 
             if (res.status === 401 || res.status === 402) continue;
-            if (res.status === 429) {
-                await sleep([20, 40, 60][Math.min(attempt, 2)] * 1000);
-                continue;
-            }
-            if (res.status >= 500) {
-                await sleep([5, 10, 15][Math.min(attempt, 2)] * 1000);
-                continue;
-            }
+            if (res.status === 429) { await sleep([20, 40, 60][Math.min(attempt, 2)] * 1000); continue; }
+            if (res.status >= 500) { await sleep([5, 10, 15][Math.min(attempt, 2)] * 1000); continue; }
             if (!res.ok) throw new Error('HTTP ' + res.status);
 
             const blob = await res.blob();
@@ -1336,34 +1298,97 @@ async function generateFallbackImage(prompt) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// AGNES — VIDÉOS
+// AGNES — VIDÉOS (VERSION ANTI-HTTP2-ERROR)
 // ══════════════════════════════════════════════════════════════════
+
+/**
+ * Fetch avec retry intelligent pour Agnes.
+ * Gère les erreurs HTTP/2, les rate limits, et les coupures réseau.
+ */
 async function apiFetch(url, options = {}, label = 'API') {
-    for (let attempt = 0; attempt < 7; attempt++) {
+    const maxAttempts = 6;
+    let lastError = null;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
+
         try {
-            const res = await fetch(url, options);
+            // Ajout d'un paramètre anti-cache qui casse aussi la réutilisation de canal HTTP/2 défaillant
+            const separator = url.includes('?') ? '&' : '?';
+            const urlWithBuster = url + separator + '_t=' + Date.now() + '_a=' + attempt;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+            const res = await fetch(urlWithBuster, {
+                ...options,
+                signal: controller.signal,
+                cache: 'no-store',
+                mode: 'cors'
+            });
+
+            clearTimeout(timeoutId);
+
+            // 429 → rate limit explicite
             if (res.status === 429) {
-                const wait = [15, 30, 45, 60, 90, 120, 180][Math.min(attempt, 6)];
-                setStatus('L\'IA se prépare… (' + wait + 's)');
+                const wait = [30, 60, 90, 120, 180, 240][Math.min(attempt, 5)];
+                log(label + ' : HTTP 429 (rate limit), attente ' + wait + 's');
+                setStatus('Quota dépassé, attente ' + wait + 's…');
                 await sleep(wait * 1000);
                 continue;
             }
+
+            // 503 → maintenance serveur
             if (res.status === 503) {
-                const wait = [5, 10, 15, 20, 30, 45][Math.min(attempt, 5)];
-                setStatus('Votre scène se prépare… (' + wait + 's)');
+                const wait = [15, 30, 45, 60, 90, 120][Math.min(attempt, 5)];
+                log(label + ' : HTTP 503 (serveur occupé), attente ' + wait + 's');
+                setStatus('Serveur occupé, attente ' + wait + 's…');
                 await sleep(wait * 1000);
                 continue;
             }
+
+            // 500/502/504 → erreur serveur
+            if (res.status >= 500) {
+                const wait = [10, 20, 30, 45, 60, 90][Math.min(attempt, 5)];
+                log(label + ' : HTTP ' + res.status + ', attente ' + wait + 's');
+                setStatus('Erreur serveur, retry dans ' + wait + 's…');
+                await sleep(wait * 1000);
+                continue;
+            }
+
+            // Autres 4xx → ne sert à rien de retenter
+            if (!res.ok) return res;
+
+            // Succès
             return res;
+
         } catch (e) {
-            if (e.message === 'Arrêt demandé') throw e;
-            const wait = [3, 5, 8, 12, 20, 30][Math.min(attempt, 5)];
-            setStatus('Connexion… (' + wait + 's)');
-            await sleep(wait * 1000);
+            lastError = e;
+            const classification = classifyError(e);
+
+            if (e.name === 'AbortError') {
+                log(label + ' : timeout (' + (attempt + 1) + '/' + maxAttempts + ')');
+            } else if (classification.type === 'http2') {
+                log(label + ' : erreur HTTP/2 (tentative ' + (attempt + 1) + ')');
+            } else if (classification.type === 'network') {
+                log(label + ' : erreur réseau (tentative ' + (attempt + 1) + ')');
+            } else {
+                log(label + ' : ' + e.message + ' (tentative ' + (attempt + 1) + ')');
+            }
+
+            if (attempt < maxAttempts - 1) {
+                // Backoff progressif + jitter aléatoire
+                const baseWait = classification.wait;
+                const jitter = Math.random() * 5000;
+                const totalWait = Math.min(baseWait + attempt * 10000 + jitter, 120000);
+
+                setStatus('Problème réseau, retry dans ' + Math.round(totalWait / 1000) + 's… (' + (attempt + 1) + '/' + maxAttempts + ')');
+                await sleep(totalWait);
+            }
         }
     }
-    return fetch(url, options);
+
+    throw new Error('Échec après ' + maxAttempts + ' tentatives : ' + (lastError ? lastError.message : 'raison inconnue'));
 }
 
 async function createVideoTask(imageDataUri, prompt) {
@@ -1485,10 +1510,11 @@ async function generateAllScenes() {
     log('═══ ÉTAPE 2 : Vidéos Agnes (' + validScenes.length + ' scènes) ═══');
     setStatus('Étape 2/2 : génération des vidéos…');
 
-    const pollingTasks = [];
+    // Traitement séquentiel pour éviter le rate limit Agnes
     for (let i = 0; i < validScenes.length; i++) {
         if (state.stopRequested) break;
         const scene = validScenes[i];
+
         scene.status = 'creating';
         renderQueue();
 
@@ -1500,7 +1526,10 @@ async function generateAllScenes() {
             scene.startTime = Date.now();
             scene.status = 'processing';
             renderQueue();
-            pollingTasks.push(pollSceneVideo(scene));
+
+            // Attendre la fin de la vidéo AVANT de passer à la suivante
+            await pollSceneVideo(scene);
+
         } catch (e) {
             if (e.message === 'Arrêt demandé') break;
             log('[Scène ' + (scene.index + 1) + '] Vidéo échouée : ' + e.message);
@@ -1510,20 +1539,15 @@ async function generateAllScenes() {
             renderQueue();
         }
 
+        // Pause entre les vidéos (sauf après la dernière)
         if (i < validScenes.length - 1 && !state.stopRequested) {
-            // Réduit l'intervalle pour préserver la cohérence narrative
             const waitSec = Math.ceil(createIntervalMs / 1000);
             for (let r = waitSec; r > 0; r--) {
                 if (state.stopRequested) break;
-                setStatus('Pause… — vidéo ' + (i + 2) + '/' + validScenes.length + ' dans ' + r + 's');
+                setStatus('Pause avant scène ' + (i + 2) + '/' + validScenes.length + ' — ' + r + 's');
                 await sleep(1000);
             }
         }
-    }
-
-    if (pollingTasks.length > 0) {
-        setStatus('Finalisation des vidéos…');
-        await Promise.allSettled(pollingTasks);
     }
 }
 
@@ -1560,9 +1584,6 @@ async function pollSceneVideo(scene) {
 // ASSEMBLAGE FINAL — VERSION ROBUSTE
 // ══════════════════════════════════════════════════════════════════
 
-/**
- * Concatène plusieurs AudioBuffers en un seul AudioBuffer continu.
- */
 function concatAudioBuffers(audioCtx, buffers) {
     if (!buffers || buffers.length === 0) return null;
     const valid = buffers.filter(b => b && b.length > 0);
@@ -1586,9 +1607,6 @@ function concatAudioBuffers(audioCtx, buffers) {
     return result;
 }
 
-/**
- * Mixe la voix concaténée avec la musique de fond (avec ducking).
- */
 async function mixAudioWithMusic(audioCtx, voiceBuffer, musicFile, musicVolume, duckingEnabled) {
     if (!musicFile || !voiceBuffer) return voiceBuffer;
     try {
@@ -1623,9 +1641,6 @@ async function mixAudioWithMusic(audioCtx, voiceBuffer, musicFile, musicVolume, 
     }
 }
 
-/**
- * Attend qu'une vidéo soit prête à être lue.
- */
 function waitForVideoCanPlay(video, timeoutMs = 20000) {
     return new Promise((resolve, reject) => {
         if (video.readyState >= 3 && video.videoWidth > 0) { resolve(); return; }
@@ -1635,7 +1650,6 @@ function waitForVideoCanPlay(video, timeoutMs = 20000) {
             done = true;
             video.removeEventListener('canplaythrough', onReady);
             video.removeEventListener('canplay', onReady);
-            video.removeEventListener('loadeddata', onReady);
             video.removeEventListener('error', onError);
         };
         const onReady = () => {
@@ -1647,7 +1661,6 @@ function waitForVideoCanPlay(video, timeoutMs = 20000) {
         const onError = () => { cleanup(); reject(new Error('Erreur de chargement vidéo')); };
         video.addEventListener('canplaythrough', onReady);
         video.addEventListener('canplay', onReady);
-        video.addEventListener('loadeddata', onReady);
         video.addEventListener('error', onError);
         setTimeout(() => {
             if (!done) {
@@ -1659,10 +1672,6 @@ function waitForVideoCanPlay(video, timeoutMs = 20000) {
     });
 }
 
-/**
- * Joue une vidéo scène et la dessine sur le canvas jusqu'à la fin.
- * Détection de fin par temps réel (performance.now()).
- */
 function playSceneToCanvas(video, ctx, width, height, onProgress) {
     return new Promise((resolve) => {
         let rafId = null;
@@ -1714,39 +1723,26 @@ function playSceneToCanvas(video, ctx, width, height, onProgress) {
 
         setTimeout(() => {
             if (!finished) {
-                log('Timeout rendu scène, passage à la suivante');
+                log('Timeout rendu scène');
                 finish();
             }
         }, (duration + 5) * 1000);
     });
 }
 
-/**
- * Fait un cross-fade entre deux vidéos : capture la dernière frame
- * de la vidéo précédente et la superpose à la nouvelle avec opacité progressive.
- */
 function crossFadeToCanvas(ctx, prevVideo, newVideo, width, height, duration) {
     return new Promise((resolve) => {
         const start = performance.now();
         const fadeMs = duration * 1000;
-
         const animate = () => {
             const elapsed = performance.now() - start;
             const progress = Math.min(elapsed / fadeMs, 1);
-
-            // Dessiner la nouvelle vidéo en fond
             ctx.globalAlpha = 1;
             try { ctx.drawImage(newVideo, 0, 0, width, height); } catch (e) {}
-
-            // Superposer l'ancienne vidéo avec opacité décroissante
             ctx.globalAlpha = 1 - progress;
             try { ctx.drawImage(prevVideo, 0, 0, width, height); } catch (e) {}
             ctx.globalAlpha = 1;
-
-            if (progress >= 1) {
-                resolve();
-                return;
-            }
+            if (progress >= 1) { resolve(); return; }
             requestAnimationFrame(animate);
         };
         requestAnimationFrame(animate);
@@ -1784,43 +1780,38 @@ async function assembleFinalFilm() {
     const videoElements = [];
 
     try {
-        // ═══ ÉTAPE 1/5 : TÉLÉCHARGEMENT ═══
-        statusEl.textContent = 'Étape 1/5 : Téléchargement des scènes…';
-        log('═══ ÉTAPE 1/5 : Téléchargement ═══');
+        statusEl.textContent = 'Étape 1/4 : Téléchargement des scènes…';
+        log('═══ ASSEMBLAGE ═══');
         progressFill.style.width = '5%';
 
         const videoBlobs = [];
         for (let i = 0; i < doneScenes.length; i++) {
             if (state.stopRequested) throw new Error('Arrêt demandé');
             const scene = doneScenes[i];
-            progressFill.style.width = (5 + (i / doneScenes.length) * 15) + '%';
+            progressFill.style.width = (5 + (i / doneScenes.length) * 20) + '%';
             statusEl.textContent = 'Téléchargement scène ' + (i + 1) + '/' + doneScenes.length + '…';
-
             try {
-                const res = await fetch(scene.videoUrl, { mode: 'cors' });
+                const res = await fetch(scene.videoUrl);
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const blob = await res.blob();
-                if (!blob || blob.size < 1000) throw new Error('Blob trop petit');
+                if (blob.size < 1000) throw new Error('Blob trop petit');
                 videoBlobs.push({ index: scene.index, blob });
-                log('Scène ' + (scene.index + 1) + ' : ' + (blob.size / 1024).toFixed(0) + ' Ko');
             } catch (e) {
-                log('Scène ' + (scene.index + 1) + ' : échec téléchargement (' + e.message + ')');
+                log('Scène ' + (scene.index + 1) + ' téléchargement échoué : ' + e.message);
             }
         }
 
         if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
 
-        // ═══ ÉTAPE 2/5 : PRÉPARATION VIDÉOS + AUDIO ═══
-        statusEl.textContent = 'Étape 2/5 : Préparation des vidéos…';
-        log('═══ ÉTAPE 2/5 : Préparation ═══');
-        progressFill.style.width = '20%';
+        statusEl.textContent = 'Étape 2/4 : Préparation des vidéos…';
+        progressFill.style.width = '25%';
 
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const voiceBuffers = [];
 
         for (let i = 0; i < videoBlobs.length; i++) {
             if (state.stopRequested) throw new Error('Arrêt demandé');
-            progressFill.style.width = (20 + (i / videoBlobs.length) * 20) + '%';
+            progressFill.style.width = (25 + (i / videoBlobs.length) * 20) + '%';
             statusEl.textContent = 'Préparation scène ' + (i + 1) + '/' + videoBlobs.length + '…';
 
             const { blob } = videoBlobs[i];
@@ -1833,12 +1824,11 @@ async function assembleFinalFilm() {
             video.playsInline = true;
             video.preload = 'auto';
             video.setAttribute('playsinline', '');
-            video.setAttribute('webkit-playsinline', '');
 
             try {
                 await waitForVideoCanPlay(video, 20000);
                 videoElements.push({ index: videoBlobs[i].index, video, url, duration: video.duration });
-                log('Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's, ' + video.videoWidth + 'x' + video.videoHeight);
+                log('Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's');
             } catch (e) {
                 log('Vidéo ' + (i + 1) + ' non lisible : ' + e.message);
                 continue;
@@ -1848,34 +1838,28 @@ async function assembleFinalFilm() {
                 const arrayBuffer = await blob.arrayBuffer();
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
                 voiceBuffers.push(audioBuffer);
-                log('Audio extrait scène ' + (i + 1) + ' : ' + audioBuffer.duration.toFixed(2) + 's');
             } catch (e) {
-                log('Pas d\'audio décodable scène ' + (i + 1) + ' : ' + e.message);
+                log('Pas d\'audio scène ' + (i + 1));
                 voiceBuffers.push(null);
             }
         }
 
         if (videoElements.length === 0) throw new Error('Aucune vidéo exploitable');
 
-        // ═══ ÉTAPE 3/5 : AUDIO ═══
-        statusEl.textContent = 'Étape 3/5 : Mixage audio…';
-        log('═══ ÉTAPE 3/5 : Audio ═══');
-        progressFill.style.width = '45%';
+        statusEl.textContent = 'Étape 3/4 : Mixage audio…';
+        progressFill.style.width = '50%';
 
         let finalAudioBuffer = null;
         const validVoiceBuffers = voiceBuffers.filter(b => b && b.length > 0);
-
         if (validVoiceBuffers.length > 0) {
             const voiceBuffer = concatAudioBuffers(audioCtx, validVoiceBuffers);
             log('Voix concaténées : ' + voiceBuffer.duration.toFixed(2) + 's');
-
             if (state.audioFile && state.audioObjectUrl) {
                 finalAudioBuffer = await mixAudioWithMusic(audioCtx, voiceBuffer, state.audioFile, state.musicVolume, state.duckingEnabled);
             } else {
                 finalAudioBuffer = voiceBuffer;
             }
         } else if (state.audioFile && state.audioObjectUrl) {
-            log('Aucune voix extraite → musique seule');
             try {
                 const musicArrayBuffer = await state.audioFile.arrayBuffer();
                 const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer);
@@ -1888,18 +1872,15 @@ async function assembleFinalFilm() {
                     const dst = finalAudioBuffer.getChannelData(ch);
                     for (let i = 0; i < length; i++) dst[i] = src[i % src.length] * gain;
                 }
-            } catch (e) { log('Impossible de charger la musique : ' + e.message); }
+            } catch (e) { log('Erreur musique seule : ' + e.message); }
         }
 
-        // ═══ ÉTAPE 4/5 : ENREGISTREMENT ═══
-        statusEl.textContent = 'Étape 4/5 : Préparation enregistrement…';
-        log('═══ ÉTAPE 4/5 : Enregistrement ═══');
-        progressFill.style.width = '55%';
+        statusEl.textContent = 'Étape 4/4 : Enregistrement…';
+        progressFill.style.width = '60%';
 
         const firstVideo = videoElements[0].video;
         const width = firstVideo.videoWidth || 720;
         const height = firstVideo.videoHeight || 1280;
-        log('Dimensions : ' + width + 'x' + height);
 
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -1919,24 +1900,13 @@ async function assembleFinalFilm() {
             audioSource.buffer = finalAudioBuffer;
             audioSource.connect(audioDest);
             audioDest.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
-            log('Piste audio ajoutée au stream');
-        } else {
-            log('⚠️ Aucune piste audio (vidéo silencieuse)');
         }
 
-        const mimeTypes = [
-            'video/webm;codecs=vp9,opus',
-            'video/webm;codecs=vp8,opus',
-            'video/webm;codecs=vp9',
-            'video/webm;codecs=vp8',
-            'video/webm'
-        ];
-        let mimeType = '';
+        const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+        let mimeType = 'video/webm';
         for (const mt of mimeTypes) {
             if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
         }
-        if (!mimeType) throw new Error('Aucun codec WebM supporté');
-        log('Codec : ' + mimeType);
 
         recorder = new MediaRecorder(combinedStream, {
             mimeType,
@@ -1946,20 +1916,12 @@ async function assembleFinalFilm() {
 
         const chunks = [];
         recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-
         const recordingDone = new Promise((resolve) => {
-            recorder.onstop = () => {
-                resolve(new Blob(chunks, { type: mimeType }));
-            };
+            recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
         });
-
-        // ═══ ÉTAPE 5/5 : RENDU SÉQUENTIEL AVEC CROSS-FADE ═══
-        statusEl.textContent = 'Étape 5/5 : Enregistrement du film…';
-        log('═══ ÉTAPE 5/5 : Rendu ═══');
 
         recorder.start(500);
         recorderStarted = true;
-
         if (audioSource) audioSource.start(0);
 
         const totalDuration = videoElements.reduce((sum, v) => sum + (v.video.duration || 0), 0);
@@ -1970,20 +1932,15 @@ async function assembleFinalFilm() {
             if (state.stopRequested) throw new Error('Arrêt demandé');
             const scene = videoElements[i];
 
-            // Cross-fade : uniquement si ce n'est pas la première scène
             if (prevVideo && CROSSFADE_DURATION > 0) {
                 await crossFadeToCanvas(ctx, prevVideo, scene.video, width, height, CROSSFADE_DURATION);
             }
 
-            await playSceneToCanvas(
-                scene.video, ctx, width, height,
-                (currentTime, duration) => {
-                    const global = (elapsed + currentTime) / Math.max(totalDuration, 0.1);
-                    progressFill.style.width = (55 + global * 45) + '%';
-                    statusEl.textContent = 'Enregistrement scène ' + (i + 1) + '/' + videoElements.length +
-                        ' (' + Math.round((currentTime / duration) * 100) + '%)…';
-                }
-            );
+            await playSceneToCanvas(scene.video, ctx, width, height, (currentTime, duration) => {
+                const global = (elapsed + currentTime) / Math.max(totalDuration, 0.1);
+                progressFill.style.width = (60 + global * 40) + '%';
+                statusEl.textContent = 'Scène ' + (i + 1) + '/' + videoElements.length + ' (' + Math.round((currentTime / duration) * 100) + '%)…';
+            });
 
             prevVideo = scene.video;
             elapsed += scene.video.duration || 0;
@@ -1992,12 +1949,11 @@ async function assembleFinalFilm() {
 
         await sleep(400);
         recorder.stop();
-        log('Recorder arrêté, finalisation…');
 
         const finalBlob = await recordingDone;
 
         if (!finalBlob || finalBlob.size < 5000) {
-            throw new Error('Fichier final trop petit (' + (finalBlob ? finalBlob.size : 0) + ' octets)');
+            throw new Error('Fichier final trop petit');
         }
 
         state.finalFilmBlob = finalBlob;
@@ -2009,14 +1965,13 @@ async function assembleFinalFilm() {
 
         document.getElementById('download-btn').classList.add('visible');
         progressFill.style.width = '100%';
-        statusEl.textContent = '✅ Film prêt ! Taille : ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
+        statusEl.textContent = '✅ Film prêt ! ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
         showToast('Film assemblé avec succès ✓', 'success');
 
     } catch (e) {
         log('❌ Erreur assemblage : ' + e.message);
-        console.error(e);
-        statusEl.textContent = '❌ Erreur : ' + e.message;
-        showToast('Erreur assemblage : ' + e.message, 'error', 6000);
+        statusEl.textContent = '❌ ' + e.message;
+        showToast('Erreur : ' + e.message, 'error', 5000);
     } finally {
         if (recorder && recorderStarted && recorder.state === 'recording') {
             try { recorder.stop(); } catch (e) {}
@@ -2028,7 +1983,6 @@ async function assembleFinalFilm() {
         videoElements.forEach(v => {
             try { v.video.pause(); v.video.src = ''; } catch (e) {}
         });
-
         state.isAssembling = false;
         setStatus(null);
     }
@@ -2065,9 +2019,7 @@ async function detectBPM(file) {
         const minPeakDistance = Math.floor(sampleRate * 0.1);
         for (let i = 0; i < channelData.length; i++) {
             if (Math.abs(channelData[i]) > threshold) {
-                if (peaks.length === 0 || (i - peaks[peaks.length - 1]) > minPeakDistance) {
-                    peaks.push(i);
-                }
+                if (peaks.length === 0 || (i - peaks[peaks.length - 1]) > minPeakDistance) peaks.push(i);
             }
         }
         if (peaks.length < 2) { audioCtx.close(); return null; }
@@ -2285,11 +2237,10 @@ async function startGeneration() {
         return;
     }
 
-    // Récupère les valeurs finales des champs éditables
-    const charTa = document.getElementById('canonical-character');
-    const setTa = document.getElementById('canonical-setting');
-    if (charTa && charTa.value.trim()) state.canonicalCharacter = charTa.value.trim();
-    if (setTa && setTa.value.trim()) state.canonicalSetting = setTa.value.trim();
+    const canonicalEl = document.getElementById('canonical-character');
+    if (canonicalEl && canonicalEl.value.trim()) {
+        state.canonicalCharacter = canonicalEl.value.trim();
+    }
 
     state.isRunning = true;
     state.stopRequested = false;
@@ -2313,7 +2264,7 @@ async function startGeneration() {
     await ensureWakeLockActive();
     log('═══ DÉMARRAGE ═══');
     log('Personnage : ' + state.canonicalCharacter.slice(0, 100) + '…');
-    log('Décor : ' + state.canonicalSetting.slice(0, 100) + '…');
+    log('Intervalle Agnes : ' + (createIntervalMs / 1000) + 's');
 
     try {
         await generateAllScenes();
@@ -2432,10 +2383,6 @@ async function runDiagnostic() {
         state.canonicalCharacter = e.target.value;
         try { localStorage.setItem(CANONICAL_CHAR_STORAGE, e.target.value); } catch (err) {}
     });
-    document.getElementById('canonical-setting')?.addEventListener('input', e => {
-        state.canonicalSetting = e.target.value;
-        try { localStorage.setItem(CANONICAL_SETTING_STORAGE, e.target.value); } catch (err) {}
-    });
 
     document.getElementById('music-volume')?.addEventListener('input', e => {
         state.musicVolume = parseInt(e.target.value, 10) / 100;
@@ -2468,16 +2415,10 @@ async function runDiagnostic() {
     try {
         wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
         const savedChar = localStorage.getItem(CANONICAL_CHAR_STORAGE);
-        const savedSet = localStorage.getItem(CANONICAL_SETTING_STORAGE);
         if (savedChar) {
             state.canonicalCharacter = savedChar;
             const ta = document.getElementById('canonical-character');
             if (ta) ta.value = savedChar;
-        }
-        if (savedSet) {
-            state.canonicalSetting = savedSet;
-            const ta = document.getElementById('canonical-setting');
-            if (ta) ta.value = savedSet;
         }
     } catch (e) {}
 
@@ -2496,7 +2437,7 @@ async function runDiagnostic() {
     renderStyles();
     renderQueue();
     updateStoryPreview();
-    log('Kids Story Studio prêt (cohérence verrouillée)');
+    log('Kids Story Studio prêt (anti-HTTP2 + retry intelligent)');
 })();
 </script>
 
