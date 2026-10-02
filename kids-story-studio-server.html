@@ -2389,7 +2389,7 @@ async function runDiagnostic() {
     const logLine = (msg) => { out.textContent += msg + '\n'; };
 
     logLine('═══ TEST POLLINATIONS.AI ═══');
-    for (const model of POLLINATIONS_FREE_MODELS) {
+    for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 3)) {
         try {
             const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear');
             const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=' + model + '&nologo=true&seed=42';

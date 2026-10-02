@@ -640,13 +640,16 @@ const CROSSFADE_DURATION = 0.3;
 // ══════════════════════════════════════════════════════════════════
 // ÉTAT GLOBAL
 // ══════════════════════════════════════════════════════════════════
+const SERVER_URL = 'https://51-254-135-158.sslip.io';
+const SERVER_API_KEY = 'kids-studio-secret-change-me'; // à changer
+
 const state = {
     story: '', storySegments: [], scenes: [],
     isRunning: false, stopRequested: false, completed: 0, failed: 0,
     selectedTheme: 'pixar-3d', characters: 'custom',
     durationFrames: 153, targetScenes: 'auto',
     audioFile: null, audioObjectUrl: null, audioBpm: null, audioDuration: 0,
-    finalFilmBlob: null, isAssembling: false,
+    finalFilmBlob: null, finalFilmUrl: null, isAssembling: false,
     lastPollinationsCall: 0,
     canonicalCharacter: '',
     seed: 42, musicVolume: 0.20, duckingEnabled: true
@@ -1749,6 +1752,15 @@ function crossFadeToCanvas(ctx, prevVideo, newVideo, width, height, duration) {
     });
 }
 
+async function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('Lecture fichier impossible'));
+        reader.readAsDataURL(file);
+    });
+}
+
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
 
@@ -1771,236 +1783,72 @@ async function assembleFinalFilm() {
 
     finalFilmEl.classList.add('visible');
     progressContainer.style.display = 'block';
-    setStatus('Assemblage du film final…');
-
-    let audioCtx = null;
-    let recorder = null;
-    let recorderStarted = false;
-    const objectUrls = [];
-    const videoElements = [];
+    setStatus('Assemblage serveur…');
 
     try {
-        statusEl.textContent = 'Étape 1/4 : Téléchargement des scènes…';
-        log('═══ ASSEMBLAGE ═══');
-        progressFill.style.width = '5%';
+        log('═══ ASSEMBLAGE SERVEUR ═══');
+        statusEl.textContent = 'Envoi de ' + doneScenes.length + ' scènes au VPS…';
+        progressFill.style.width = '20%';
 
-        const videoBlobs = [];
-        for (let i = 0; i < doneScenes.length; i++) {
-            if (state.stopRequested) throw new Error('Arrêt demandé');
-            const scene = doneScenes[i];
-            progressFill.style.width = (5 + (i / doneScenes.length) * 20) + '%';
-            statusEl.textContent = 'Téléchargement scène ' + (i + 1) + '/' + doneScenes.length + '…';
-            try {
-                const res = await fetch(scene.videoUrl);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const blob = await res.blob();
-                if (blob.size < 1000) throw new Error('Blob trop petit');
-                videoBlobs.push({ index: scene.index, blob });
-            } catch (e) {
-                log('Scène ' + (scene.index + 1) + ' téléchargement échoué : ' + e.message);
-            }
-        }
+        const musicDataUrl = state.audioFile ? await fileToDataUrl(state.audioFile) : null;
+        progressFill.style.width = '40%';
+        statusEl.textContent = 'Montage FFmpeg sur le serveur…';
 
-        if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
-
-        statusEl.textContent = 'Étape 2/4 : Préparation des vidéos…';
-        progressFill.style.width = '25%';
-
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const voiceBuffers = [];
-
-        for (let i = 0; i < videoBlobs.length; i++) {
-            if (state.stopRequested) throw new Error('Arrêt demandé');
-            progressFill.style.width = (25 + (i / videoBlobs.length) * 20) + '%';
-            statusEl.textContent = 'Préparation scène ' + (i + 1) + '/' + videoBlobs.length + '…';
-
-            const { blob } = videoBlobs[i];
-            const url = URL.createObjectURL(blob);
-            objectUrls.push(url);
-
-            const video = document.createElement('video');
-            video.src = url;
-            video.muted = true;
-            video.playsInline = true;
-            video.preload = 'auto';
-            video.setAttribute('playsinline', '');
-
-            try {
-                await waitForVideoCanPlay(video, 20000);
-                videoElements.push({ index: videoBlobs[i].index, video, url, duration: video.duration });
-                log('Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's');
-            } catch (e) {
-                log('Vidéo ' + (i + 1) + ' non lisible : ' + e.message);
-                continue;
-            }
-
-            try {
-                const arrayBuffer = await blob.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-                voiceBuffers.push(audioBuffer);
-            } catch (e) {
-                log('Pas d\'audio scène ' + (i + 1));
-                voiceBuffers.push(null);
-            }
-        }
-
-        if (videoElements.length === 0) throw new Error('Aucune vidéo exploitable');
-
-        statusEl.textContent = 'Étape 3/4 : Mixage audio…';
-        progressFill.style.width = '50%';
-
-        let finalAudioBuffer = null;
-        const validVoiceBuffers = voiceBuffers.filter(b => b && b.length > 0);
-        if (validVoiceBuffers.length > 0) {
-            const voiceBuffer = concatAudioBuffers(audioCtx, validVoiceBuffers);
-            log('Voix concaténées : ' + voiceBuffer.duration.toFixed(2) + 's');
-            if (state.audioFile && state.audioObjectUrl) {
-                finalAudioBuffer = await mixAudioWithMusic(audioCtx, voiceBuffer, state.audioFile, state.musicVolume, state.duckingEnabled);
-            } else {
-                finalAudioBuffer = voiceBuffer;
-            }
-        } else if (state.audioFile && state.audioObjectUrl) {
-            try {
-                const musicArrayBuffer = await state.audioFile.arrayBuffer();
-                const musicBuffer = await audioCtx.decodeAudioData(musicArrayBuffer);
-                const totalDuration = videoElements.reduce((s, v) => s + (v.video.duration || 0), 0);
-                const length = Math.ceil(totalDuration * musicBuffer.sampleRate);
-                finalAudioBuffer = audioCtx.createBuffer(musicBuffer.numberOfChannels, length, musicBuffer.sampleRate);
-                const gain = state.musicVolume * 0.5;
-                for (let ch = 0; ch < finalAudioBuffer.numberOfChannels; ch++) {
-                    const src = musicBuffer.getChannelData(ch % musicBuffer.numberOfChannels);
-                    const dst = finalAudioBuffer.getChannelData(ch);
-                    for (let i = 0; i < length; i++) dst[i] = src[i % src.length] * gain;
-                }
-            } catch (e) { log('Erreur musique seule : ' + e.message); }
-        }
-
-        statusEl.textContent = 'Étape 4/4 : Enregistrement…';
-        progressFill.style.width = '60%';
-
-        const firstVideo = videoElements[0].video;
-        const width = firstVideo.videoWidth || 720;
-        const height = firstVideo.videoHeight || 1280;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d', { alpha: false });
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, height);
-
-        const canvasStream = canvas.captureStream(30);
-        const combinedStream = new MediaStream();
-        canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
-
-        let audioSource = null;
-        if (finalAudioBuffer) {
-            const audioDest = audioCtx.createMediaStreamDestination();
-            audioSource = audioCtx.createBufferSource();
-            audioSource.buffer = finalAudioBuffer;
-            audioSource.connect(audioDest);
-            audioDest.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
-        }
-
-        const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
-        let mimeType = 'video/webm';
-        for (const mt of mimeTypes) {
-            if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
-        }
-
-        recorder = new MediaRecorder(combinedStream, {
-            mimeType,
-            videoBitsPerSecond: 4000000,
-            audioBitsPerSecond: 128000
+        const response = await fetch(SERVER_URL + '/api/assemble', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': SERVER_API_KEY
+            },
+            body: JSON.stringify({
+                videos: doneScenes.map(s => s.videoUrl),
+                musicDataUrl,
+                musicVolume: state.musicVolume
+            })
         });
 
-        const chunks = [];
-        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-        const recordingDone = new Promise((resolve) => {
-            recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
-        });
-
-        recorder.start(500);
-        recorderStarted = true;
-        if (audioSource) audioSource.start(0);
-
-        const totalDuration = videoElements.reduce((sum, v) => sum + (v.video.duration || 0), 0);
-        let elapsed = 0;
-        let prevVideo = null;
-
-        for (let i = 0; i < videoElements.length; i++) {
-            if (state.stopRequested) throw new Error('Arrêt demandé');
-            const scene = videoElements[i];
-
-            if (prevVideo && CROSSFADE_DURATION > 0) {
-                await crossFadeToCanvas(ctx, prevVideo, scene.video, width, height, CROSSFADE_DURATION);
-            }
-
-            await playSceneToCanvas(scene.video, ctx, width, height, (currentTime, duration) => {
-                const global = (elapsed + currentTime) / Math.max(totalDuration, 0.1);
-                progressFill.style.width = (60 + global * 40) + '%';
-                statusEl.textContent = 'Scène ' + (i + 1) + '/' + videoElements.length + ' (' + Math.round((currentTime / duration) * 100) + '%)…';
-            });
-
-            prevVideo = scene.video;
-            elapsed += scene.video.duration || 0;
-            await sleep(80);
+        progressFill.style.width = '80%';
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success || !result.url) {
+            throw new Error(result.error || ('HTTP ' + response.status));
         }
 
-        await sleep(400);
-        recorder.stop();
-
-        const finalBlob = await recordingDone;
-
-        if (!finalBlob || finalBlob.size < 5000) {
-            throw new Error('Fichier final trop petit');
-        }
-
-        state.finalFilmBlob = finalBlob;
-        log('Film final : ' + (finalBlob.size / 1024 / 1024).toFixed(2) + ' Mo');
+        state.finalFilmUrl = SERVER_URL + result.url;
+        state.finalFilmBlob = null;
 
         const finalVideo = document.getElementById('final-video');
-        finalVideo.src = URL.createObjectURL(finalBlob);
+        finalVideo.src = state.finalFilmUrl;
         finalVideo.load();
 
         document.getElementById('download-btn').classList.add('visible');
         progressFill.style.width = '100%';
-        statusEl.textContent = '✅ Film prêt ! ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
-        showToast('Film assemblé avec succès ✓', 'success');
-
+        const sizeMo = result.size ? (result.size / 1024 / 1024).toFixed(1) + ' Mo' : '';
+        statusEl.textContent = '✅ Film prêt ! ' + sizeMo + (result.duration ? ' · ' + result.duration + 's' : '');
+        log('Film serveur : ' + state.finalFilmUrl + ' (' + sizeMo + ')');
+        showToast('Film assemblé sur le serveur ✓', 'success');
     } catch (e) {
-        log('❌ Erreur assemblage : ' + e.message);
+        log('❌ Erreur assemblage serveur : ' + e.message);
         statusEl.textContent = '❌ ' + e.message;
         showToast('Erreur : ' + e.message, 'error', 5000);
     } finally {
-        if (recorder && recorderStarted && recorder.state === 'recording') {
-            try { recorder.stop(); } catch (e) {}
-        }
-        if (audioCtx && audioCtx.state !== 'closed') {
-            try { await audioCtx.close(); } catch (e) {}
-        }
-        objectUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
-        videoElements.forEach(v => {
-            try { v.video.pause(); v.video.src = ''; } catch (e) {}
-        });
         state.isAssembling = false;
         setStatus(null);
     }
 }
 
 function downloadFinalFilm() {
-    if (!state.finalFilmBlob) {
+    if (!state.finalFilmUrl) {
         showToast('Aucun film à télécharger', 'error');
         return;
     }
-    const url = URL.createObjectURL(state.finalFilmBlob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'kids-story-film-' + Date.now() + '.webm';
+    a.href = state.finalFilmUrl;
+    a.download = 'kids-story-film-' + Date.now() + '.mp4';
+    a.target = '_blank';
+    a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
     showToast('Téléchargement lancé ✓', 'success');
 }
 
@@ -2248,6 +2096,7 @@ async function startGeneration() {
     state.failed = 0;
     state.scenes = [];
     state.finalFilmBlob = null;
+    state.finalFilmUrl = null;
     state.lastPollinationsCall = 0;
     state.seed = parseInt(document.getElementById('seed-input').value, 10) || 42;
     createIntervalMs = CREATE_INTERVAL_MIN;
