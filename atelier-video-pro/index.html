@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atelier Vidéo Pro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">Atelier Vidéo Pro</div>
+  <p class="tagline">Un script → une vidéo narrative longue, automatiquement.</p>
+  <p class="tagline" id="build-label" style="margin-top:0.35rem;font-size:0.72rem;opacity:0.7">build …</p>
+  <nav class="nav-modes">
+    <a href="../Agnes.html">Mode classique (images → clips)</a>
+    <a href="#settings" id="link-settings">Clés API</a>
+  </nav>
+</header>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- ═══ ÉCRAN 1 — Saisie ═══ -->
+<section id="screen-1" class="screen active" aria-label="Saisie du script">
+  <h2>1. Votre histoire</h2>
+  <p class="screen-lead">Collez un script. En <strong>5 secondes (rapide)</strong> : mode EXPRESS (image turbo + Agnes, objectif ≤ 1 min).</p>
+
+  <div class="api-box" id="settings">
+    <h3>Configuration API</h3>
+    <div class="row">
+      <label>Clé Agnes AI (vidéo)
+        <input type="password" id="agnes-key" placeholder="sk-…" autocomplete="off">
+      </label>
+      <label>Clé Gemini (image, optionnel)
+        <input type="password" id="gemini-key" placeholder="AIza…" autocomplete="off">
+      </label>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-test-keys" class="secondary">Tester les clés</button>
+      <button type="button" id="btn-save-keys" class="primary">Enregistrer les clés</button>
+      <span id="api-status" class="api-status">Clés non configurées</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <textarea id="script-input" placeholder="Écrivez votre histoire ici…"></textarea>
+    <div class="actions" style="margin-bottom:0.8rem">
+      <button type="button" id="btn-demo" class="ghost">Charger la démo « Le voyage d'une goutte d'eau »</button>
+    </div>
+
+    <div class="row">
+      <label>Durée cible
+        <select id="duration-select">
+          <option value="5s" selected>5 secondes (rapide)</option>
+          <option value="10s">10 secondes</option>
+          <option value="30s">30 secondes</option>
+          <option value="1min">1 minute</option>
+          <option value="5min">5 minutes</option>
+          <option value="20min">20 minutes</option>
+        </select>
+      </label>
+      <label>Style visuel
+        <select id="style-select">
+          <option value="cinematic">Cinématique</option>
+          <option value="anime">Anime</option>
+          <option value="realistic">Réaliste</option>
+          <option value="watercolor">Aquarelle</option>
+          <option value="noir">Noir &amp; Blanc</option>
+        </select>
+      </label>
+      <label>Voix off
+        <select id="voice-select">
+          <option value="fr-FR-DeniseNeural">Denise (FR)</option>
+          <option value="fr-FR-HenriNeural">Henri (FR)</option>
+          <option value="fr-FR-EloiseNeural">Éloïse (FR)</option>
+          <option value="en-US-JennyNeural">Jenny (EN)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="btn-analyze" class="primary">Analyser le script →</button>
+      <button type="button" id="btn-preview-tts" class="secondary">Écouter la voix</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ÉCRAN 2 — Prévisualisation ═══ -->
+<section id="screen-2" class="screen" aria-label="Scènes détectées">
+  <h2>2. Scènes détectées</h2>
+  <p class="screen-lead">Vérifiez, éditez les prompts, réordonnez. Puis lancez la génération.</p>
+  <div id="plan-meta"></div>
+  <div id="scenes-preview" class="scenes-grid"></div>
+  <div class="actions">
+    <button type="button" id="btn-back-1" class="secondary">← Modifier le script</button>
+    <button type="button" id="btn-generate" class="primary">Générer tout →</button>
+    <button type="button" id="btn-resume" class="secondary" style="display:none">Reprendre la génération</button>
+  </div>
+</section>
+
+<!-- ═══ ÉCRAN 3 — Progression ═══ -->
+<section id="screen-3" class="screen" aria-label="Génération">
+  <h2>3. Génération en cours</h2>
+  <p class="screen-lead">Agnes peut rester à 30% plusieurs minutes — <strong>ne fermez pas</strong>. Attente max ~12 min. Si vous voyez encore « budget 60s », forcez un rechargement (Ctrl+F5).</p>
+  <div class="global-progress panel">
+    <div class="bar"><div id="global-bar" class="fill"></div></div>
+    <p id="global-status">En attente…</p>
+    <p id="eta-text"></p>
+  </div>
+  <div id="scenes-progress" class="scenes-grid"></div>
+  <div class="actions">
+    <button type="button" id="btn-stop" class="danger">Arrêter</button>
+  </div>
+</section>
+
+<!-- ═══ ÉCRAN 4 — Résultat ═══ -->
+<section id="screen-4" class="screen" aria-label="Vidéo finale">
+  <h2>4. Votre vidéo</h2>
+  <p class="screen-lead">Lecture portrait 9:16 · téléchargement MP4.</p>
+  <video id="final-video" controls playsinline></video>
+  <div class="actions" style="justify-content:center">
+    <a id="btn-download" class="btn primary" download="atelier-video-pro.mp4">Télécharger</a>
+    <button type="button" id="btn-regen-scene" class="secondary">Regénérer une scène</button>
+    <button type="button" id="btn-restart" class="secondary">Nouvelle vidéo</button>
+  </div>
+</section>
+
+<div id="status-bar" class="status-bar hidden">
+  <span class="spinner" aria-hidden="true"></span>
+  <span id="status-text">…</span>
+</div>
+
+<script src="config.js?v=20260926d"></script>
+<script src="api-manager.js?v=20260926d"></script>
+<script src="character-bible.js?v=20260926d"></script>
+<script src="story-parser.js?v=20260926d"></script>
+<script src="state-store.js?v=20260926d"></script>
+<script src="image-generator.js?v=20260926d"></script>
+<script src="video-orchestrator.js?v=20260926d"></script>
+<script src="tts.js?v=20260926d"></script>
+<script src="assembler.js?v=20260926d"></script>
+<script src="app.js?v=20260926d"></script>
+<script>
+  (function () {
+    var el = document.getElementById('build-label');
+    var b = (window.CONFIG && window.CONFIG.BUILD) || '?';
+    if (el) el.textContent = 'build ' + b + ' — si ≠ 20260926d → Ctrl+F5';
+  })();
+</script>
+</body>
+</html>
