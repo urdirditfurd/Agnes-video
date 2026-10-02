@@ -653,7 +653,7 @@ const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
 
 const MAX_VISIBLE_QUEUE = 30;
 const THUMBNAIL_MAX_WIDTH = 200;
-const POLLINATIONS_MIN_INTERVAL_MS = 20000;
+const POLLINATIONS_MIN_INTERVAL_MS = 28000;
 const CROSSFADE_DURATION = 0.3;
 
 // ══════════════════════════════════════════════════════════════════
@@ -1220,9 +1220,10 @@ function classifyError(error) {
 // ══════════════════════════════════════════════════════════════════
 // POLLINATIONS
 // ══════════════════════════════════════════════════════════════════
-const POLLINATIONS_ANONYMOUS_MODELS = ['flux', 'turbo', 'gptimage', 'qwen-image', 'grok-imagine'];
+// Modèles gratuits uniquement — gptimage/qwen/grok + enhance=true provoquent souvent HTTP 402
+const POLLINATIONS_FREE_MODELS = ['flux', 'turbo'];
 
-async function generateImageWithPollinations(prompt, retries = 5) {
+async function generateImageWithPollinations(prompt, retries = 4) {
     const now = Date.now();
     const elapsed = now - state.lastPollinationsCall;
     if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
@@ -1233,16 +1234,18 @@ async function generateImageWithPollinations(prompt, retries = 5) {
     }
     state.lastPollinationsCall = Date.now();
 
-    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1800));
+    // Prompt plus court = moins de 402 / timeouts
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1200));
     let lastError = null;
 
     for (let attempt = 0; attempt < retries; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
-        const model = POLLINATIONS_ANONYMOUS_MODELS[attempt % POLLINATIONS_ANONYMOUS_MODELS.length];
+        const model = POLLINATIONS_FREE_MODELS[attempt % POLLINATIONS_FREE_MODELS.length];
         const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
+        // Pas d'enhance=true (payant) ; nologo optionnel
         const url = POLLINATIONS_BASE + encodedPrompt +
             '?width=720&height=1280&model=' + model +
-            '&nologo=true&enhance=true&seed=' + state.seed +
+            '&nologo=true&seed=' + (state.seed + attempt) +
             '&_=' + cacheBuster;
 
         try {
@@ -1254,9 +1257,21 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             const res = await fetch(url, { method: 'GET', signal: controller.signal });
             clearTimeout(timeoutId);
 
-            if (res.status === 401 || res.status === 402) continue;
-            if (res.status === 429) { await sleep([20, 40, 60][Math.min(attempt, 2)] * 1000); continue; }
-            if (res.status >= 500) { await sleep([5, 10, 15][Math.min(attempt, 2)] * 1000); continue; }
+            if (res.status === 401 || res.status === 402) {
+                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota/payant) — pause 45s');
+                await sleep(45000);
+                state.lastPollinationsCall = Date.now();
+                continue;
+            }
+            if (res.status === 429) {
+                await sleep([30, 50, 70][Math.min(attempt, 2)] * 1000);
+                state.lastPollinationsCall = Date.now();
+                continue;
+            }
+            if (res.status >= 500) {
+                await sleep([8, 15, 25][Math.min(attempt, 2)] * 1000);
+                continue;
+            }
             if (!res.ok) throw new Error('HTTP ' + res.status);
 
             const blob = await res.blob();
@@ -1273,13 +1288,13 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             if (e.name === 'AbortError') log('Pollinations [' + model + '] timeout');
             else { lastError = e; log('Pollinations [' + model + '] échec : ' + e.message); }
             if (attempt < retries - 1) {
-                await sleep(5000);
+                await sleep(8000);
                 state.lastPollinationsCall = Date.now();
             }
         }
     }
 
-    log('⚠️ Tous les modèles ont échoué — fallback local');
+    log('⚠️ Pollinations saturé — fallback local (les vidéos Agnes peuvent quand même marcher)');
     setStatus('Fallback image de secours…');
     return await generateFallbackImage(prompt);
 }
@@ -1411,6 +1426,11 @@ async function createVideoTask(imageDataUri, prompt) {
     }, 'Création');
     if (!res.ok) {
         const err = await res.text();
+        if (res.status === 401 || /invalid token/i.test(err)) {
+            const authErr = new Error('AGNES_AUTH_INVALID');
+            authErr.detail = err.slice(0, 200);
+            throw authErr;
+        }
         throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
     }
     const data = await res.json();
@@ -1532,6 +1552,24 @@ async function generateAllScenes() {
 
         } catch (e) {
             if (e.message === 'Arrêt demandé') break;
+            if (e.message === 'AGNES_AUTH_INVALID') {
+                log('❌ Clé Agnes invalide (HTTP 401 Invalid token)');
+                showToast('Clé Agnes invalide — colle une nouvelle clé sk-… puis réessaie', 'error', 8000);
+                setStatus('Clé Agnes invalide — régénère-la sur platform.agnes-ai.com');
+                scene.status = 'failed';
+                scene.error = 'Vidéo: clé Agnes invalide';
+                state.failed++;
+                // Marquer le reste comme non tenté pour éviter 14× 401
+                for (let j = i + 1; j < validScenes.length; j++) {
+                    if (validScenes[j].status === 'image-done' || validScenes[j].status === 'pending') {
+                        validScenes[j].status = 'failed';
+                        validScenes[j].error = 'Vidéo: annulée (clé Agnes invalide)';
+                        state.failed++;
+                    }
+                }
+                renderQueue();
+                break;
+            }
             log('[Scène ' + (scene.index + 1) + '] Vidéo échouée : ' + e.message);
             scene.status = 'failed';
             scene.error = 'Vidéo: ' + e.message;
@@ -2351,7 +2389,7 @@ async function runDiagnostic() {
     const logLine = (msg) => { out.textContent += msg + '\n'; };
 
     logLine('═══ TEST POLLINATIONS.AI ═══');
-    for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 3)) {
+    for (const model of POLLINATIONS_FREE_MODELS) {
         try {
             const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear');
             const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=' + model + '&nologo=true&seed=42';
