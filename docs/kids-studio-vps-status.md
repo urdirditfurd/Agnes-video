@@ -48,8 +48,10 @@ Résultat obtenu :
 
 ## Mission 4 — HTML patché
 
-Fichiers :
-- `studio-comptinesV9.html` (patché)
-- `kids-story-studio-server.html` (copie livrable)
+Fichiers livrables :
+- `studio-comptinesV10.html` (version la plus récente, patchée)
+- `kids-story-studio-server.html` (copie livrable = V10)
+- `studio-comptinesV9.html` (aussi patché)
 
 `assembleFinalFilm()` appelle désormais `http://51.254.135.158/api/assemble`.
+Ouvrir le HTML en `file://` ou via HTTP (pas HTTPS mixte) pour éviter le blocage Mixed Content.
