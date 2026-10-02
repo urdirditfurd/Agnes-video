@@ -1,22 +1,19 @@
 # Kids Studio VPS — statut missions
 
-## Mission 1 — Accès HTTP (VALIDÉ depuis Internet)
-
-Depuis cet environnement cloud (Internet) :
+## Mission 1 — Accès HTTP/HTTPS (VALIDÉ)
 
 | Test | Résultat |
 |------|----------|
-| `http://51.254.135.158/api/health` | `{"status":"ok",...}` HTTP 200 |
-| Port 80 | Ouvert |
-| Port 22 | Ouvert |
-| Port 443 | Ouvert |
-| Port 3001 (direct) | Fermé (attendu — Nginx proxy uniquement) |
+| `http://51.254.135.158/api/health` | OK (JSON) |
+| `https://51-254-135-158.sslip.io/api/health` | OK — **URL navigateur recommandée** |
+| Favicon IP | 204 (plus le favicon ebx) |
 
-Si Windows refuse encore la connexion alors que l’IP publique répond ici :
-1. Vérifier antivirus / pare-feu Windows local
-2. Tester dans un navigateur privé : `http://51.254.135.158/api/health`
-3. Tester via un autre réseau (4G téléphone)
-4. Panel OVH → Network → Firewall : autoriser TCP 80/443 (et garder 22)
+### Conflit Nginx corrigé (02 Oct)
+- Cause navigateur : Chrome force souvent HTTPS sur l’IP → certificat Let’s Encrypt uniquement pour `51-254-135-158.sslip.io` → erreur cert.
+- Site nginx `ebx` (doublon) **désactivé** (symlink only ; app PM2 `/var/www/ebx` intacte).
+- `kids-studio` = `default_server` port 80.
+- Routes `/api/` + `/outputs/` ajoutées sur le vhost HTTPS sslip.io.
+- **Prospection NON supprimée** (utile pour le certificat HTTPS).
 
 ## Mission 2 — npm deps (VALIDÉ)
 
