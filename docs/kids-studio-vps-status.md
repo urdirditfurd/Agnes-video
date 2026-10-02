@@ -18,16 +18,14 @@ Si Windows refuse encore la connexion alors que l’IP publique répond ici :
 3. Tester via un autre réseau (4G téléphone)
 4. Panel OVH → Network → Firewall : autoriser TCP 80/443 (et garder 22)
 
-## Mission 2 — npm deps (EN ATTENTE SSH)
+## Mission 2 — npm deps (VALIDÉ)
 
-Sans mot de passe SSH root, impossible d’exécuter sur le VPS.
-Script prêt : `scripts/vps-fix-deps.sh`
+Sur le VPS (`/opt/kids-studio`) :
+- `uuid` → **9.0.1** (`require('uuid').v4` OK)
+- `express-rate-limit` → **8.7.0**
+- `pm2 restart kids-studio` → online, health OK
 
-```bash
-ssh root@51.254.135.158 'bash -s' < scripts/vps-fix-deps.sh
-```
-
-Note : `/api/assemble` fonctionne déjà → `uuid` / rate-limit ne bloquent pas le chemin critique actuel.
+UFW actif : 22/80/443/8080 autorisés ; 3001 non exposé (correct, accès via Nginx `/api/`).
 
 ## Mission 3 — Pipeline assemble (VALIDÉ)
 
