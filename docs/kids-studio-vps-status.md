@@ -48,5 +48,12 @@ Fichiers livrables :
 - `kids-story-studio-server.html` (copie livrable = V10)
 - `studio-comptinesV9.html` (aussi patché)
 
-`assembleFinalFilm()` appelle désormais `http://51.254.135.158/api/assemble`.
-Ouvrir le HTML en `file://` ou via HTTP (pas HTTPS mixte) pour éviter le blocage Mixed Content.
+`assembleFinalFilm()` appelle désormais `https://51-254-135-158.sslip.io/api/assemble`.
+
+### Fix montage final (04 Oct)
+- Cause : le montage VPS réussissait (`3152a92d`, 14 scènes, ~30 Mo) puis Edge recevait **404** sur `/outputs/….mp4` (fichier plus servi / nettoyé) ; le client ne gardait que l’URL distante.
+- Correctifs :
+  - rétention outputs **7 jours** (`kids-studio-server.js`)
+  - après assemble, le client **télécharge immédiatement le MP4 en blob** local + lecture + bouton télécharger
+  - **auto-download** activé par défaut
+- UI : `https://51-254-135-158.sslip.io/studio.html` (hard refresh Ctrl+F5)

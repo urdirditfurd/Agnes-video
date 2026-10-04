@@ -674,7 +674,7 @@ const state = {
     seed: 42, musicVolume: 0.20, duckingEnabled: true,
     crossfadeDuration: 0.3,
     autoAssemble: true,
-    autoDownload: false,
+    autoDownload: true,
     addTitleCard: true
 };
 
@@ -1997,9 +1997,11 @@ async function assembleFinalFilm() {
     progressContainer.style.display = 'block';
     setStatus('Assemblage serveur…');
     progressFill.style.width = '0%';
+    try { finalFilmEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ }
 
     try {
         log('═══ ASSEMBLAGE SERVEUR ═══');
+        log('Scènes à monter : ' + doneScenes.length);
         statusEl.textContent = 'Envoi de ' + doneScenes.length + ' scènes au VPS…';
         progressFill.style.width = '20%';
 
@@ -2023,33 +2025,68 @@ async function assembleFinalFilm() {
             })
         });
 
-        progressFill.style.width = '80%';
+        progressFill.style.width = '70%';
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.success || !result.url) {
             throw new Error(result.error || ('HTTP ' + response.status));
         }
 
-        state.finalFilmUrl = SERVER_URL + result.url;
-        state.finalFilmBlob = null;
+        const remoteUrl = SERVER_URL + result.url;
+        statusEl.textContent = 'Téléchargement du film final…';
+        progressFill.style.width = '85%';
+        log('Film serveur prêt : ' + remoteUrl);
+
+        // Garde une copie locale (blob) — le fichier VPS peut disparaître / 404 plus tard
+        const prevUrl = state.finalFilmUrl;
+        if (prevUrl && prevUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(prevUrl); } catch (e) { /* ignore */ }
+        }
+        const filmRes = await fetch(remoteUrl);
+        if (!filmRes.ok) {
+            throw new Error('Film assemblé mais inaccessible (HTTP ' + filmRes.status + ')');
+        }
+        const filmBlob = await filmRes.blob();
+        if (!filmBlob || filmBlob.size < 1000) {
+            throw new Error('Film assemblé vide ou corrompu');
+        }
+        state.finalFilmBlob = filmBlob;
+        const localUrl = URL.createObjectURL(filmBlob);
+        state.finalFilmUrl = localUrl;
+
+        try {
+            sessionStorage.setItem('kids_story_last_film', JSON.stringify({
+                remoteUrl: remoteUrl,
+                jobId: result.jobId || null,
+                size: filmBlob.size,
+                scenes: result.scenes || doneScenes.length,
+                at: Date.now()
+            }));
+        } catch (e) { /* ignore */ }
 
         const finalVideo = document.getElementById('final-video');
-        finalVideo.src = state.finalFilmUrl;
+        finalVideo.src = localUrl;
         finalVideo.load();
 
         document.getElementById('download-btn').classList.add('visible');
+        document.getElementById('assemble-btn').classList.add('visible');
         progressFill.style.width = '100%';
-        const sizeMo = result.size ? (result.size / 1024 / 1024).toFixed(1) + ' Mo' : '';
-        statusEl.textContent = '✅ Film prêt ! ' + sizeMo + (result.duration ? ' · ' + result.duration + 's' : '');
-        log('Film serveur : ' + state.finalFilmUrl + ' (' + sizeMo + ')');
-        showToast('Film assemblé sur le serveur ✓', 'success', 4000);
+        const sizeMo = (filmBlob.size / 1024 / 1024).toFixed(1) + ' Mo';
+        statusEl.textContent = '✅ Film prêt ! ' + sizeMo
+            + (result.scenes ? ' · ' + result.scenes + ' scènes' : '')
+            + ' — conservé dans le navigateur';
+        log('✅ Film local prêt (' + sizeMo + ') — téléchargement disponible');
+        showToast('Film monté ✓ ' + sizeMo, 'success', 5000);
+        try { finalFilmEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ }
 
-        if (state.autoDownload) {
-            setTimeout(() => downloadFinalFilm(), 1000);
+        // Téléchargement auto (activé par défaut) pour ne pas perdre le montage
+        if (state.autoDownload !== false) {
+            setTimeout(() => downloadFinalFilm(), 600);
         }
     } catch (e) {
         log('❌ Erreur assemblage serveur : ' + e.message);
         statusEl.textContent = '❌ ' + e.message;
         showToast('Erreur assemblage : ' + e.message, 'error', 5000);
+        document.getElementById('assemble-btn').classList.add('visible');
     } finally {
         state.isAssembling = false;
         setStatus(null);
@@ -2057,19 +2094,31 @@ async function assembleFinalFilm() {
 }
 
 function downloadFinalFilm() {
-    if (!state.finalFilmUrl) {
-        showToast('Aucun film à télécharger', 'error');
+    if (state.finalFilmBlob) {
+        const url = URL.createObjectURL(state.finalFilmBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'kids-story-film-' + Date.now() + '.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('Téléchargement lancé ✓', 'success');
         return;
     }
-    const a = document.createElement('a');
-    a.href = state.finalFilmUrl;
-    a.download = 'kids-story-film-' + Date.now() + '.mp4';
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showToast('Téléchargement lancé ✓', 'success');
+    if (state.finalFilmUrl) {
+        const a = document.createElement('a');
+        a.href = state.finalFilmUrl;
+        a.download = 'kids-story-film-' + Date.now() + '.mp4';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast('Téléchargement lancé ✓', 'success');
+        return;
+    }
+    showToast('Aucun film à télécharger', 'error');
 }
 
 // ══════════════════════════════════════════════════════════════════
