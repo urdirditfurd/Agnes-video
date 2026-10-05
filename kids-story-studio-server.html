@@ -215,9 +215,24 @@
     .prompt-main-hint { font-size: 0.75rem; color: var(--ink-dim); margin-top: 0.5rem; line-height: 1.45; }
     .story-counter {
         font-size: 0.75rem; color: var(--ink-dim);
-        margin-top: 0.4rem; display: flex; justify-content: space-between;
+        margin-top: 0.4rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.35rem;
     }
     .story-counter strong { color: var(--pink); }
+    .segments-preview {
+        margin-top: 0.7rem; display: none; flex-direction: column; gap: 0.45rem;
+    }
+    .segments-preview.visible { display: flex; }
+    .segment-card {
+        background: #fff; border: 1.5px solid var(--border); border-radius: 10px;
+        padding: 0.55rem 0.7rem; font-size: 0.75rem; line-height: 1.4;
+    }
+    .segment-card.warn { border-color: var(--orange); background: #fff8f0; }
+    .segment-card .seg-meta {
+        display: flex; justify-content: space-between; gap: 0.5rem;
+        font-weight: 700; color: var(--purple); margin-bottom: 0.25rem; font-size: 0.72rem;
+    }
+    .segment-card .seg-meta .warn-label { color: var(--orange); }
+    .segment-card .seg-text { color: var(--ink-dim); }
     .prompt-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
     .prompt-preset {
         padding: 0.45rem 0.85rem; border-radius: 20px;
@@ -446,9 +461,11 @@
             <div class="story-counter">
                 <span>📝 <strong id="story-words">0</strong> mots</span>
                 <span>🎬 <strong id="story-scenes">0</strong> scènes</span>
+                <span>⏱️ ~<strong id="story-duration">0</strong>s estimées</span>
             </div>
+            <div class="segments-preview" id="segments-preview"></div>
             <div class="prompt-main-hint">
-                💡 Découpage par phrases complètes. Personnage verrouillé automatiquement.
+                💡 Segments 80–180 mots pour remplir ~10s Agnes. Personnage + décor verrouillés automatiquement.
             </div>
         </div>
     </div>
@@ -459,6 +476,14 @@
     <textarea id="canonical-character" placeholder="Le personnage sera extrait automatiquement de votre histoire."></textarea>
     <div class="lock-hint">
         ✨ Cette description sera <strong>réutilisée à l'identique</strong> dans chaque scène.
+    </div>
+</div>
+
+<div class="character-lock" id="environment-lock" style="background:linear-gradient(135deg,#e8fff4,#e8f4ff); border-color:var(--green);">
+    <div class="lock-title" style="color:var(--green);">🌍 Décor canonique (verrouillé)</div>
+    <textarea id="canonical-environment" placeholder="Le décor sera extrait automatiquement de votre histoire + thème."></textarea>
+    <div class="lock-hint">
+        ✨ Même environnement visuel dans <strong>toutes</strong> les scènes (continuité).
     </div>
 </div>
 
@@ -473,8 +498,8 @@
                 <label class="control-label">Durée cible par scène</label>
                 <select id="duration-select">
                     <option value="121">5 secondes</option>
-                    <option value="153" selected>6,4 secondes (recommandé)</option>
-                    <option value="241">10 secondes</option>
+                    <option value="153">6,4 secondes</option>
+                    <option value="241" selected>10 secondes (recommandé)</option>
                 </select>
             </div>
             <div class="control-row">
@@ -516,7 +541,7 @@
                 <label for="auto-assemble" style="font-size:0.82rem; font-weight:600;">🎬 Assembler automatiquement le film à la fin</label>
             </div>
             <div class="control-row" style="display:flex; align-items:center; gap:0.6rem;">
-                <input type="checkbox" id="auto-download" style="width:20px; height:20px; accent-color:var(--blue);">
+                <input type="checkbox" id="auto-download" checked style="width:20px; height:20px; accent-color:var(--blue);">
                 <label for="auto-download" style="font-size:0.82rem; font-weight:600;">⬇️ Télécharger automatiquement le film final</label>
             </div>
             <div class="control-row" style="display:flex; align-items:center; gap:0.6rem;">
@@ -666,11 +691,13 @@ const state = {
     story: '', storySegments: [], scenes: [],
     isRunning: false, stopRequested: false, completed: 0, failed: 0,
     selectedTheme: 'pixar-3d', characters: 'custom',
-    durationFrames: 153, targetScenes: 'auto',
+    durationFrames: 241, targetScenes: 'auto',
     audioFile: null, audioObjectUrl: null, audioBpm: null, audioDuration: 0,
     finalFilmBlob: null, finalFilmUrl: null, isAssembling: false,
     lastPollinationsCall: 0,
     canonicalCharacter: '',
+    canonicalEnvironment: '',
+    segmentMeta: [],
     seed: 42, musicVolume: 0.20, duckingEnabled: true,
     crossfadeDuration: 0.3,
     autoAssemble: true,
@@ -837,64 +864,192 @@ async function ensureWakeLockActive() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// DÉCOUPAGE INTELLIGENT
+// DÉCOUPAGE INTELLIGENT (optimisé narration Agnes ~10s)
 // ══════════════════════════════════════════════════════════════════
-function segmentStory(text, targetScenes) {
-    if (!text || !text.trim()) return [];
-    let normalized = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
-    const sentences = normalized.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(s => s.length > 0);
-    const MIN_LEN = 40;
-    const merged = [];
+const MIN_SEGMENT_WORDS = 80;
+const MAX_SEGMENT_WORDS = 180;
+const TARGET_SEGMENT_WORDS = 120;
+/** Rythme narration enfant ~2.2 mots/s → vise ~10s de voix */
+const NARRATION_WORDS_PER_SEC = 2.2;
+
+function countWords(text) {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+}
+
+function estimateSegmentDurationSec(text) {
+    const words = countWords(text);
+    if (!words) return 0;
+    const raw = words / NARRATION_WORDS_PER_SEC;
+    // Affichage borné autour de la durée Agnes cible
+    return Math.round(Math.min(12, Math.max(6, raw)) * 10) / 10;
+}
+
+function mergeShortSegments(segments, minWords) {
+    const min = minWords || MIN_SEGMENT_WORDS;
+    if (!segments.length) return [];
+    const result = [];
     let buffer = '';
-    for (const s of sentences) {
-        buffer = buffer ? buffer + ' ' + s : s;
-        if (buffer.length >= MIN_LEN) {
-            merged.push(buffer);
+    for (let i = 0; i < segments.length; i++) {
+        buffer = buffer ? buffer + ' ' + segments[i] : segments[i];
+        const words = countWords(buffer);
+        const isLast = i === segments.length - 1;
+        if (words >= min || isLast) {
+            result.push(buffer.trim());
             buffer = '';
         }
     }
-    if (buffer) {
-        if (merged.length > 0) merged[merged.length - 1] += ' ' + buffer;
-        else merged.push(buffer);
-    }
-    const MAX_LEN = 250;
-    const finalSegments = [];
-    for (const seg of merged) {
-        if (seg.length <= MAX_LEN) {
-            finalSegments.push(seg);
-        } else {
-            const parts = seg.split(/[,;]\s+|\s+(?:et|puis|alors|donc|mais|car)\s+/i);
-            let sub = '';
-            for (const p of parts) {
-                sub = sub ? sub + ', ' + p : p;
-                if (sub.length >= MAX_LEN * 0.6) {
-                    finalSegments.push(sub);
-                    sub = '';
-                }
-            }
-            if (sub) {
-                if (finalSegments.length > 0) finalSegments[finalSegments.length - 1] += ', ' + sub;
-                else finalSegments.push(sub);
-            }
-        }
-    }
-    if (targetScenes === 'auto' || !targetScenes) return finalSegments;
-    const target = parseInt(targetScenes, 10);
-    if (isNaN(target) || target <= 0 || finalSegments.length <= target) return finalSegments;
-    const result = [];
-    const groupSize = finalSegments.length / target;
-    for (let i = 0; i < target; i++) {
-        const start = Math.round(i * groupSize);
-        const end = Math.round((i + 1) * groupSize);
-        const group = finalSegments.slice(start, end).join(' ');
-        if (group.trim()) result.push(group.trim());
+    // Fusionner un dernier segment encore trop court avec le précédent
+    if (result.length >= 2 && countWords(result[result.length - 1]) < min) {
+        const last = result.pop();
+        result[result.length - 1] = (result[result.length - 1] + ' ' + last).trim();
     }
     return result;
 }
 
+function splitLongSegment(seg, maxWords) {
+    const max = maxWords || MAX_SEGMENT_WORDS;
+    if (countWords(seg) <= max) return [seg];
+
+    const sentences = seg.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(Boolean);
+    const out = [];
+    let buf = '';
+    for (const s of sentences) {
+        const next = buf ? buf + ' ' + s : s;
+        if (countWords(next) > max && buf) {
+            out.push(buf.trim());
+            buf = s;
+        } else {
+            buf = next;
+        }
+    }
+    if (buf) out.push(buf.trim());
+
+    // Si une phrase seule dépasse encore le max, couper sur conjonctions
+    const refined = [];
+    for (const part of out) {
+        if (countWords(part) <= max) {
+            refined.push(part);
+            continue;
+        }
+        const chunks = part.split(/[,;]\s+|\s+(?:et|puis|alors|donc|mais|car|ensuite)\s+/i);
+        let sub = '';
+        for (const c of chunks) {
+            const next = sub ? sub + ' ' + c : c;
+            if (countWords(next) >= Math.floor(max * 0.75) && sub) {
+                refined.push(sub.trim());
+                sub = c;
+            } else {
+                sub = next;
+            }
+        }
+        if (sub) refined.push(sub.trim());
+    }
+    return refined.filter(Boolean);
+}
+
+/**
+ * Valide les segments : alerte les trop courts, propose/applique la fusion.
+ * @returns {{ segments: string[], warnings: string[], meta: Array<{index:number,words:number,durationSec:number,short:boolean,text:string}> }}
+ */
+function validateSegments(segments) {
+    const warnings = [];
+    let working = segments.map(s => s.trim()).filter(Boolean);
+
+    // 1) Fusionner les trop courts avec le suivant
+    working = mergeShortSegments(working, MIN_SEGMENT_WORDS);
+
+    // 2) Découper les trop longs
+    const normalized = [];
+    for (const seg of working) {
+        const parts = splitLongSegment(seg, MAX_SEGMENT_WORDS);
+        if (parts.length > 1) {
+            warnings.push('Segment trop long découpé en ' + parts.length + ' scènes (~' + countWords(seg) + ' mots)');
+        }
+        normalized.push(...parts);
+    }
+
+    // 3) Re-fusion au cas où le découpage a créé des restes courts
+    working = mergeShortSegments(normalized, MIN_SEGMENT_WORDS);
+
+    const meta = working.map((text, index) => {
+        const words = countWords(text);
+        const short = words < MIN_SEGMENT_WORDS;
+        if (short) {
+            warnings.push('Scène ' + (index + 1) + ' encore courte (' + words + ' mots < ' + MIN_SEGMENT_WORDS + ') — Agnes risque de couper avant 10s');
+        }
+        if (words > MAX_SEGMENT_WORDS) {
+            warnings.push('Scène ' + (index + 1) + ' dense (' + words + ' mots) — Agnes peut tronquer la fin de phrase');
+        }
+        return {
+            index: index,
+            words: words,
+            durationSec: estimateSegmentDurationSec(text),
+            short: short,
+            text: text
+        };
+    });
+
+    return { segments: working, warnings: warnings, meta: meta };
+}
+
+function segmentStory(text, targetScenes) {
+    if (!text || !text.trim()) return [];
+    const normalized = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    const sentences = normalized.split(/(?<=[.!?…])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+
+    // Empiler les phrases jusqu'à atteindre la cible de mots (~10s)
+    const raw = [];
+    let buffer = '';
+    for (const s of sentences) {
+        buffer = buffer ? buffer + ' ' + s : s;
+        if (countWords(buffer) >= TARGET_SEGMENT_WORDS) {
+            raw.push(buffer.trim());
+            buffer = '';
+        }
+    }
+    if (buffer) {
+        if (raw.length > 0 && countWords(buffer) < MIN_SEGMENT_WORDS) {
+            raw[raw.length - 1] = (raw[raw.length - 1] + ' ' + buffer).trim();
+        } else {
+            raw.push(buffer.trim());
+        }
+    }
+
+    // Découpe des blocs trop longs puis validation/fusion
+    let chunks = [];
+    for (const seg of raw) {
+        chunks.push(...splitLongSegment(seg, MAX_SEGMENT_WORDS));
+    }
+
+    let { segments: finalSegments } = validateSegments(chunks);
+
+    if (targetScenes === 'auto' || !targetScenes) return finalSegments;
+
+    const target = parseInt(targetScenes, 10);
+    if (isNaN(target) || target <= 0) return finalSegments;
+
+    // Regrouper vers un nombre cible sans retomber sous le minimum de mots
+    if (finalSegments.length > target) {
+        const result = [];
+        const groupSize = finalSegments.length / target;
+        for (let i = 0; i < target; i++) {
+            const start = Math.round(i * groupSize);
+            const end = Math.round((i + 1) * groupSize);
+            const group = finalSegments.slice(start, end).join(' ').trim();
+            if (group) result.push(group);
+        }
+        return validateSegments(result).segments;
+    }
+
+    return finalSegments;
+}
+
 // ══════════════════════════════════════════════════════════════════
-// EXTRACTION DU PERSONNAGE CANONIQUE
+// EXTRACTION PERSONNAGE + DÉCOR CANONIQUES
 // ══════════════════════════════════════════════════════════════════
+const CANONICAL_ENV_STORAGE = 'kids_story_canonical_environment';
+
 function buildCanonicalCharacter(storyText) {
     if (!storyText) return '';
     const lower = storyText.toLowerCase();
@@ -903,25 +1058,25 @@ function buildCanonicalCharacter(storyText) {
 
     const patterns = [
         { regex: /(dragon)/, base: 'un petit dragon mignon',
-          detail: 'aux écailles douces et brillantes, grandes ailes rondes, yeux dorés expressifs et bienveillants, queue ornée d\'une petite flamme dorée' },
+          detail: 'corps compact et arrondi, écailles douces et brillantes, grandes ailes rondes proportionnées, yeux dorés expressifs et bienveillants, museau court amical, queue courte ornée d\'une petite flamme dorée, mêmes proportions Pixar dans chaque plan' },
         { regex: /(ourson|ours)/, base: 'un adorable ourson en peluche',
-          detail: 'avec un pelage duveteux et doux, de grands yeux ronds et brillants, des oreilles rondes, un sourire chaleureux' },
+          detail: 'pelage duveteux uniforme, grands yeux ronds brillants, oreilles rondes symétriques, museau clair doux, sourire chaleureux permanent, silhouette peluche arrondie identique plan après plan' },
         { regex: /(lapin|lapine|lièvre)/, base: 'une petite lapine adorable',
-          detail: 'avec de longues oreilles tombantes toutes douces, un pelage soyeux, de grands yeux pétillants, une petite queue ronde' },
+          detail: 'longues oreilles tombantes toutes douces, pelage soyeux uniforme, grands yeux pétillants, petite queue ronde cotonneuse, museau rose, silhouette inchangée d\'une scène à l\'autre' },
         { regex: /(poussin|poule)/, base: 'un petit poussin tout jaune',
-          detail: 'avec un duvet soyeux jaune doré, de grands yeux noirs brillants, un petit bec orange, un chapeau de paille' },
+          detail: 'duvet soyeux jaune doré uniforme, grands yeux noirs brillants, petit bec orange, petit chapeau de paille fixe, pattes courtes, même taille relative dans chaque scène' },
         { regex: /(renard)/, base: 'un petit renard espiègle',
-          detail: 'avec une fourrure orange rousse douce, une grande queue touffue, de grands yeux malicieux, des oreilles pointues' },
+          detail: 'fourrure orange rousse douce uniforme, grande queue touffue blanche au bout, grands yeux malicieux, oreilles pointues, museau fin, silhouette constante' },
         { regex: /(licorne)/, base: 'une petite licorne magique',
-          detail: 'avec une corne arc-en-ciel scintillante, une crinière multicolore soyeuse, un pelage doux et brillant, des sabots dorés' },
+          detail: 'corne arc-en-ciel scintillante fixe, crinière multicolore soyeuse, pelage doux brillant, sabots dorés, yeux doux, proportions magiques identiques' },
         { regex: /(chaton|chat)/, base: 'un petit chaton mignon',
-          detail: 'avec une fourrure soyeuse, de grands yeux ronds expressifs, un petit nez rose, des moustaches fines' },
+          detail: 'fourrure soyeuse uniforme, grands yeux ronds expressifs, petit nez rose, moustaches fines, oreilles triangulaires, queue douce, design constant' },
         { regex: /(chiot|chien)/, base: 'un petit chiot joyeux',
-          detail: 'avec un pelage duveteux, de grands yeux brillants, un petit nez humide, une queue remuante' },
+          detail: 'pelage duveteux uniforme, grands yeux brillants, petit nez humide, queue remuante, oreilles douces, silhouette inchangée' },
         { regex: /(garçon|petit garçon)/, base: 'un petit garçon joyeux',
-          detail: 'avec des cheveux doux, des yeux pétillants, un grand sourire, des vêtements colorés et simples' },
+          detail: 'cheveux doux coupe fixe, yeux pétillants, grand sourire, vêtements colorés simples toujours les mêmes, proportions enfant stylisées Pixar' },
         { regex: /(fille|petite fille)/, base: 'une petite fille joyeuse',
-          detail: 'avec des cheveux soyeux, des yeux pétillants, un grand sourire, une robe colorée et simple' }
+          detail: 'cheveux soyeux coiffure fixe, yeux pétillants, grand sourire, robe colorée simple toujours la même, proportions enfant stylisées Pixar' }
     ];
 
     let charBase = '', charDetail = '';
@@ -934,40 +1089,123 @@ function buildCanonicalCharacter(storyText) {
     }
 
     let colorInfo = '';
-    const colorMatch = lower.match(/(bleu|turquoise|rose|jaune|vert|rouge|orange|violet|brun|blanc|noir|gris|doré|argenté)/);
+    const colorMatch = lower.match(/(bleu(?:\s+turquoise)?|turquoise|rose|jaune|vert|rouge|orange|violet|brun|blanc|noir|gris|doré|argenté)/);
     if (colorMatch) colorInfo = ' de couleur ' + colorMatch[1];
 
+    const lock = ' CHARACTER LOCK ABSOLU: ce personnage est IDENTIQUE dans TOUTES les scènes — même visage, même couleur exacte, mêmes proportions, mêmes accessoires, même âge, même taille relative. Interdit de changer d\'espèce, de palette, de coiffure ou de style.';
+
     if (charBase) {
-        let description = charBase + colorInfo + ' ' + charDetail;
+        let description = charBase + colorInfo + ', ' + charDetail;
         if (characterName) description = characterName + ', ' + description;
-        description += '. Ce personnage doit être IDENTIQUE dans toutes les scènes : même apparence, même couleur, mêmes proportions, mêmes détails.';
-        return description;
+        return description + '.' + lock;
     }
 
-    return 'Un personnage principal adorable et attachant, avec de grands yeux expressifs, un sourire chaleureux, un design doux et arrondi style Pixar. Ce personnage doit être IDENTIQUE dans toutes les scènes.';
+    return 'Un personnage principal adorable et attachant, grands yeux expressifs, sourire chaleureux, design doux arrondi style Pixar, palette de couleurs fixe.' + lock;
+}
+
+function buildCanonicalEnvironment(storyText) {
+    const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
+    const lower = (storyText || '').toLowerCase();
+
+    const places = [
+        { regex: /(prairie|pré|champ fleuri|jardin)/, env: 'une prairie fleurie verdoyante sous un ciel bleu clair, herbe douce, fleurs colorées au premier plan, lumière chaude constante' },
+        { regex: /(forêt|bois|clairière)/, env: 'une forêt enchantée amicale, arbres ronds lumineux, mousse douce, rayons de soleil filtrés, atmosphère magique mais douce' },
+        { regex: /(plage|mer|océan|sable)/, env: 'une plage ensoleillée au sable doré, mer bleue calme, ciel dégagé, palmiers amicaux, lumière estivale constante' },
+        { regex: /(ferme|grange|potager|étang)/, env: 'une ferme joyeuse avec prairie verte, grange rouge au loin, potager coloré, ciel bleu, ambiance rurale douce' },
+        { regex: /(village|maison|rue)/, env: 'un petit village coloré et accueillant, maisons arrondies pastel, rue pavée propre, ciel bleu, lumière chaude' },
+        { regex: /(espace|étoile|lune|fusée|planète)/, env: 'un espace enfantin coloré, étoiles souriantes, planètes douces pastel, fond cosmique amical non effrayant' },
+        { regex: /(sous.?marin|océan|corail|poisson)/, env: 'un monde sous-marin amical, coraux colorés, eau claire turquoise, bulles douces, lumière filtrée joyeuse' },
+        { regex: /(neige|hiver|bonhomme de neige)/, env: 'un paysage enneigé lumineux, neige douce, soleil d\'hiver chaud, arbres givrés amicaux, pas d\'ambiance glaciale sombre' },
+        { regex: /(anniversaire|fête|ballons|gâteau)/, env: 'une fête d\'anniversaire colorée, ballons, confettis doux, décor festif pastel, lumière chaleureuse' },
+        { regex: /(grotte|royaume|château)/, env: 'un royaume magique doux pour enfants, formes arrondies, couleurs pastel saturées, lumière dorée bienveillante' }
+    ];
+
+    let place = '';
+    for (const p of places) {
+        if (p.regex.test(lower)) {
+            place = p.env;
+            break;
+        }
+    }
+    if (!place) {
+        place = 'un univers joyeux pour enfants cohérent avec le thème « ' + theme.name + ' » : ' + theme.prompt;
+    }
+
+    return place + '. ENVIRONMENT LOCK ABSOLU: même lieu, même palette, même heure de journée, mêmes éléments de fond dans TOUTES les scènes. Interdit de changer radicalement de décor, de saison ou de météo sauf si le texte de scène l\'exige explicitement. Continuité visuelle cinématographique.';
 }
 
 function updateCanonicalCharacter() {
     const story = state.story;
-    if (!story) return;
-    state.canonicalCharacter = buildCanonicalCharacter(story);
-    const textarea = document.getElementById('canonical-character');
-    if (textarea) {
-        textarea.value = state.canonicalCharacter;
-        try { localStorage.setItem(CANONICAL_CHAR_STORAGE, state.canonicalCharacter); } catch (e) {}
+    if (!story) {
+        state.canonicalCharacter = '';
+        state.canonicalEnvironment = '';
+        return;
     }
+
+    const charEl = document.getElementById('canonical-character');
+    const envEl = document.getElementById('canonical-environment');
+    const charManual = charEl && document.activeElement === charEl;
+    const envManual = envEl && document.activeElement === envEl;
+
+    if (!charManual) {
+        state.canonicalCharacter = buildCanonicalCharacter(story);
+        if (charEl) charEl.value = state.canonicalCharacter;
+        try { localStorage.setItem(CANONICAL_CHAR_STORAGE, state.canonicalCharacter); } catch (e) { /* ignore */ }
+    } else {
+        state.canonicalCharacter = charEl.value.trim();
+    }
+
+    if (!envManual) {
+        state.canonicalEnvironment = buildCanonicalEnvironment(story);
+        if (envEl) envEl.value = state.canonicalEnvironment;
+        try { localStorage.setItem(CANONICAL_ENV_STORAGE, state.canonicalEnvironment); } catch (e) { /* ignore */ }
+    } else {
+        state.canonicalEnvironment = envEl.value.trim();
+    }
+}
+
+function renderSegmentsPreview(meta, warnings) {
+    const box = document.getElementById('segments-preview');
+    const durationEl = document.getElementById('story-duration');
+    if (!box) return;
+
+    if (!meta || !meta.length) {
+        box.classList.remove('visible');
+        box.innerHTML = '';
+        if (durationEl) durationEl.textContent = '0';
+        return;
+    }
+
+    const totalSec = meta.reduce((sum, m) => sum + (m.durationSec || 0), 0);
+    if (durationEl) durationEl.textContent = String(Math.round(totalSec));
+
+    box.classList.add('visible');
+    box.innerHTML = meta.map(m => {
+        const warn = m.short ? '<span class="warn-label">⚠ trop court</span>' : '<span>~' + m.durationSec + 's narration</span>';
+        const cls = m.short ? 'segment-card warn' : 'segment-card';
+        const excerpt = m.text.length > 140 ? m.text.slice(0, 140) + '…' : m.text;
+        return '<div class="' + cls + '">'
+            + '<div class="seg-meta"><span>Scène ' + (m.index + 1) + ' · ' + m.words + ' mots</span>' + warn + '</div>'
+            + '<div class="seg-text">' + excerpt.replace(/</g, '&lt;') + '</div>'
+            + '</div>';
+    }).join('') + (warnings && warnings.length
+        ? '<div class="segment-card warn"><div class="seg-meta"><span>Validation</span><span class="warn-label">' + warnings.length + ' alerte(s)</span></div><div class="seg-text">' + warnings.slice(0, 3).map(w => w.replace(/</g, '&lt;')).join('<br>') + '</div></div>'
+        : '');
 }
 
 function updateStoryPreview() {
     const storyEl = document.getElementById('main-prompt');
     const story = storyEl.value.trim();
     state.story = story;
-    const words = story ? story.split(/\s+/).filter(w => w.length > 0).length : 0;
+    const words = countWords(story);
     document.getElementById('story-words').textContent = words;
     const targetScenes = document.getElementById('scenes-count-select').value;
     const segments = segmentStory(story, targetScenes);
-    state.storySegments = segments;
-    document.getElementById('story-scenes').textContent = segments.length;
+    const validation = validateSegments(segments);
+    state.storySegments = validation.segments;
+    state.segmentMeta = validation.meta;
+    document.getElementById('story-scenes').textContent = validation.segments.length;
+    renderSegmentsPreview(validation.meta, validation.warnings);
     updateCanonicalCharacter();
     updateGenerateBtn();
 }
@@ -977,21 +1215,21 @@ function updateStoryPreview() {
 // ══════════════════════════════════════════════════════════════════
 const STORY_PRESETS = [
     { label: '🐻 L\'ourson et la fête',
-      text: 'Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie. Un matin, il décida d\'organiser une grande fête avec tous ses amis. Il invita la petite lapine rose et le poussin jaune. Ensemble, ils préparèrent des gâteaux et décorèrent la prairie avec des ballons colorés. Quand le soleil se coucha, ils dansèrent et chantèrent toute la nuit sous les étoiles. L\'ourson était le plus heureux des oursons.' },
+      text: 'Il était une fois un petit ourson bleu turquoise qui vivait dans une prairie fleurie toute douce, entourée de marguerites et de coquelicots. Chaque matin, l\'ourson ouvrait grand ses yeux ronds et brillants pour saluer le soleil chaud qui caressait l\'herbe. Un beau matin, il décida d\'organiser une grande fête joyeuse avec tous ses amis de la prairie verdoyante. Il invita la petite lapine rose aux longues oreilles et le poussin jaune au chapeau de paille, puis prépara des invitations dessinées avec soin. Ensemble, ils préparèrent des gâteaux moelleux, des jus de fruits pétillants et décorèrent la prairie avec des ballons colorés qui dansaient dans le vent léger. Ils installèrent aussi une longue table en bois clair couverte de fleurs. Quand le soleil se coucha doucement derrière la colline, ils dansèrent et chantèrent toute la soirée sous les étoiles scintillantes. Des lucioles vinrent même se joindre à la fête pour éclairer la prairie. L\'ourson bleu turquoise était le plus heureux des oursons, le cœur rempli de lumière, de musique et d\'amitié sincère.' },
     { label: '🐲 Le dragon aux bulles',
-      text: 'Il était une fois un petit dragon prénommé Barnabé. Contrairement à tous les autres dragons, Barnabé ne crachait pas de feu. Quand il essayait, il ne sortait que des bulles de savon colorées. Ses frères se moquaient de lui. Un après-midi, un grand nuage noir cacha le soleil et la forêt devint sombre. Barnabé souffla une gigantesque bulle qui captura les rayons du soleil. Elles illuminèrent toute la forêt. Depuis ce jour, Barnabé est le dragon le plus populaire du royaume.' },
+      text: 'Il était une fois un petit dragon prénommé Barnabé qui vivait dans une forêt enchantée aux arbres ronds et lumineux. Contrairement à tous les autres dragons, Barnabé ne crachait pas de feu brûlant. Quand il essayait de souffler très fort, il ne sortait que des bulles de savon colorées, douces et joyeuses qui flottaient entre les feuilles. Ses frères se moquaient parfois de lui, mais Barnabé gardait toujours un grand sourire bienveillant et des yeux dorés pleins de douceur. Un après-midi, un grand nuage gris cacha un peu le soleil et la forêt devint moins brillante, ce qui inquiéta les petits animaux. Barnabé prit une grande inspiration, battit légèrement des ailes rondes, et souffla une gigantesque bulle magique qui captura les rayons dorés du soleil. Les bulles illuminèrent toute la forêt et firent danser les lucioles au-dessus de la mousse. Les oiseaux recommencèrent à chanter et les fleurs relevèrent leurs pétales. Depuis ce jour, Barnabé est le dragon le plus populaire du royaume, admiré pour sa gentillesse et sa lumière. Les enfants venaient chaque soir écouter ses histoires sous les étoiles, assis près des arbres magiques.' },
     { label: '🌻 La fleur magique',
-      text: 'Dans un jardin ensoleillé, une petite fleur magique poussait au milieu des tournesols. Chaque matin, elle chantait pour réveiller les abeilles. Un jour, un papillon bleu vint lui rendre visite. Ils devinrent les meilleurs amis du monde. Ensemble, ils firent danser tout le jardin.' },
+      text: 'Dans un jardin ensoleillé rempli de tournesols géants, une petite fleur magique poussait au milieu des herbes douces. Chaque matin, elle chantait une mélodie légère pour réveiller les abeilles laborieuses et les papillons curieux. Sa voix était douce comme une brise d\'été et faisait sourire tout le jardin. Un jour, un papillon bleu aux ailes brillantes vint lui rendre visite et s\'assit délicatement sur un pétale. Ils parlèrent longtemps de la lumière, du vent et des rêves colorés. Très vite, ils devinrent les meilleurs amis du monde. Ensemble, ils firent danser les tournesols, rire les abeilles et scintiller toute la prairie jusqu\'au coucher du soleil.' },
     { label: '🐤 Le poussin perdu',
-      text: 'Un petit poussin jaune s\'éloigna de sa maman pour explorer la ferme. Il rencontra un chaton qui jouait avec une pelote de laine. Le chaton lui proposa de l\'aider à retrouver sa maman. Ils traversèrent la grange et le potager. Finalement, ils retrouvèrent la maman poule près de l\'étang. Le poussin promit de ne plus jamais s\'éloigner.' },
+      text: 'Un petit poussin jaune au chapeau de paille s\'éloigna un instant de sa maman pour explorer la ferme joyeuse. Il traversa l\'herbe verte, regarda la grange rouge et écouta le vent dans le potager. Bientôt, il rencontra un chaton doux qui jouait avec une pelote de laine colorée près du chemin. Le chaton lui proposa gentiment de l\'aider à retrouver sa maman poule. Ensemble, ils marchèrent entre les salades, contournèrent la grange et suivirent le bruit de l\'eau. Finalement, ils retrouvèrent la maman poule près de l\'étang lumineux. Le poussin promit de ne plus jamais s\'éloigner trop loin, puis ils rentrèrent tous les trois en chantant.' },
     { label: '🌈 La licorne joyeuse',
-      text: 'Au sommet d\'une colline arc-en-ciel vivait une petite licorne rose. Elle aimait danser sous la pluie de paillettes. Un jour, elle rencontra un ourson bleu qui cherchait des amis. La licorne lui apprit à danser. Ils firent la fête ensemble jusqu\'au coucher du soleil.' },
+      text: 'Au sommet d\'une colline arc-en-ciel vivait une petite licorne rose à la crinière multicolore. Elle aimait danser sous une pluie de paillettes douces qui tombaient comme de la magie légère. Un jour, elle rencontra un ourson bleu turquoise qui cherchait des amis pour jouer dans l\'herbe haute. La licorne lui sourit et lui apprit une danse simple, pleine de rires et de lumière. Ils tournèrent, sautillèrent et firent briller la colline de toutes les couleurs. Ensuite, ils partagèrent un goûter de nuages sucrés en regardant le ciel. Ils firent la fête ensemble jusqu\'au coucher du soleil doré, le cœur léger et heureux.' },
     { label: '🎈 Les ballons magiques',
-      text: 'Dans un village coloré, un petit garçon trouva une boîte de ballons magiques. Chaque ballon l\'emmenait dans un endroit merveilleux. Le premier ballon l\'emmena dans une forêt de bonbons. Le deuxième, au sommet d\'une montagne de nuages. Quand il rentra chez lui, il raconta tout à ses amis. Ensemble, ils firent une grande fête avec les ballons.' },
+      text: 'Dans un village coloré aux maisons pastel, un petit garçon joyeux trouva une boîte de ballons magiques près du jardin. Chaque ballon pouvait l\'emmener dans un endroit merveilleux et parfaitement sûr pour les enfants. Le premier ballon l\'emmena dans une forêt de bonbons brillants où les arbres sentaient la fraise. Le deuxième ballon le porta au sommet d\'une montagne de nuages tout doux comme des oreillers. Là-haut, il vit des oiseaux chanteurs et des étoiles qui ripostaient en riant. Quand il rentra chez lui, il raconta tout à ses amis avec de grands gestes. Ensemble, ils firent une grande fête avec les ballons magiques dans la rue pavée du village.' },
     { label: '🐰 La lapine courageuse',
-      text: 'Une petite lapine rose vivait dans un terrier au bord de la forêt. Elle avait peur du noir, mais elle voulait aider ses amis. Un soir, elle partit chercher des lucioles pour éclairer le terrier. Sur le chemin, elle rencontra un hibou sage qui l\'accompagna. Grâce à leur aide, elle rapporta plein de lumières. Toute la forêt brilla cette nuit-là.' },
+      text: 'Une petite lapine rose aux longues oreilles vivait dans un terrier douillet au bord de la forêt enchantée. Elle avait un peu peur du noir, mais elle voulait vraiment aider ses amis. Un soir, elle partit chercher des lucioles pour éclairer le terrier et rassurer tout le monde. Sur le chemin moussu, elle rencontra un hibou sage et bienveillant qui décida de l\'accompagner. Grâce à leur aide, elle rapporta plein de petites lumières douces qui dansaient dans l\'air. Toute la forêt brilla cette nuit-là d\'une lueur chaude et amicale. La lapine comprit qu\'être courageuse, c\'était avancer avec un ami et un grand sourire.' },
     { label: '🌟 Le voyage dans les étoiles',
-      text: 'Un petit renard rêvait de voyager dans les étoiles. Un soir, une fusée magique atterrit dans son jardin. Il monta à bord et décolla vers la lune. Là-haut, il rencontra des étoiles qui chantaient. Elles lui apprirent une chanson magique. Le renard rentra chez lui en chantant, le cœur rempli de bonheur.' }
+      text: 'Un petit renard espiègle à la queue touffue rêvait de voyager dans les étoiles depuis son jardin fleuri. Un soir, une fusée magique aux formes rondes atterrit tout doucement près des tournesols. Il monta à bord avec prudence et décolla vers une lune souriante et pastel. Là-haut, il rencontra des étoiles qui chantaient des mélodies légères et amicales. Elles lui apprirent une chanson magique pour apporter du bonheur sur la Terre. Le renard rentra chez lui en chantant, le cœur rempli de lumière. Depuis ce jour, chaque nuit, il regarde le ciel et murmure sa chanson aux enfants qui s\'endorment.' }
 ];
 
 // ══════════════════════════════════════════════════════════════════
@@ -1044,68 +1282,80 @@ const CHARACTER_PROMPTS = {
 
 const NEGATIVE_PROMPT = 'scary, dark, deformed, text, watermark, realistic, creepy, sharp shadows, sudden movements, distortion, extra limbs, uncanny valley, harsh contrast, cold colors, sad, angry, violent, blurry, low quality, bad anatomy';
 
-function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
-    const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
+function getLockedCharacterPrompt() {
     let charPrompt = state.canonicalCharacter;
     if (!charPrompt) {
-        const selectedChar = CHARACTER_PROMPTS[state.characters];
-        charPrompt = selectedChar || 'un personnage principal adorable et attachant';
+        charPrompt = CHARACTER_PROMPTS[state.characters] || 'un personnage principal adorable et attachant, design Pixar doux';
     }
+    return charPrompt;
+}
 
-    const bloc1 = 'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still';
-    const bloc2 = 'MAIN CHARACTER (must be IDENTICAL in every scene, same face, same colors, same proportions, same details): ' + charPrompt;
-    const bloc3 = 'SCENE ACTION: ' + sceneText;
-    const bloc4 = 'STYLE: ' + theme.prompt;
+function getLockedEnvironmentPrompt() {
+    return state.canonicalEnvironment || buildCanonicalEnvironment(state.story || '');
+}
 
+function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
+    const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
+    const charPrompt = getLockedCharacterPrompt();
+    const envPrompt = getLockedEnvironmentPrompt();
+
+    const bloc1 = 'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still, same production design continuity';
+    const bloc2 = 'CHARACTER LOCK (scene ' + (sceneIndex + 1) + '/' + totalScenes + ' — MUST match every other scene exactly, same face, colors, proportions, accessories): ' + charPrompt;
+    const bloc3 = 'ENVIRONMENT LOCK (same world continuity, do not redesign the location): ' + envPrompt;
+    const bloc4 = 'SCENE ACTION (keep character + environment locks): ' + sceneText;
+    const bloc5 = 'STYLE LOCK: ' + theme.prompt;
+
+    // Angles variés mais éclairage volontairement stable pour la continuité décor
     const cameraAngles = [
         'medium shot, character centered, cinematic composition',
-        'wide establishing shot, character in environment context',
-        'close-up portrait, character face and expression detailed',
-        'three-quarter view, character slightly turned, dynamic angle',
-        'low angle looking up at character, epic yet friendly',
-        'high angle looking down, character appears small and cute'
-    ];
-    const lightingMoods = [
-        'warm golden hour lighting, soft shadows, magical glow',
-        'bright midday sunlight, vibrant colors, cheerful atmosphere',
-        'soft diffused morning light, pastel tones, peaceful',
-        'warm afternoon light with soft rays, cozy feeling',
-        'golden sunset glow, warm orange and pink tones'
+        'wide establishing shot, same environment visible behind character',
+        'close-up portrait, character face detailed, background still recognizable',
+        'three-quarter view, character slightly turned, same location cues',
+        'friendly low angle, epic yet cute, same setting',
+        'gentle high angle, character cute and small, same setting'
     ];
     const camIndex = sceneIndex % cameraAngles.length;
-    const lightIndex = sceneIndex % lightingMoods.length;
-    const bloc5 = 'CAMERA: ' + cameraAngles[camIndex] + '. LIGHTING: ' + lightingMoods[lightIndex];
-    const bloc6 = 'vertical portrait format 9:16, high detail, smooth rendering, vibrant saturated colors, child-friendly, no text, no watermark, no scary elements, no realistic humans. Avoid: ' + NEGATIVE_PROMPT;
+    const bloc6 = 'CAMERA: ' + cameraAngles[camIndex] + '. LIGHTING LOCK: warm consistent golden daylight, soft shadows, same time of day as all scenes, magical but stable glow';
+    const bloc7 = 'vertical portrait 9:16, high detail, smooth render, vibrant soft colors, child-friendly, no text, no watermark, no scary elements, no realistic humans, no character redesign. Avoid: ' + NEGATIVE_PROMPT;
 
-    const parts = [bloc1, bloc2, bloc3, bloc4, bloc5, bloc6];
+    const parts = [bloc1, bloc2, bloc3, bloc4, bloc5, bloc6, bloc7];
 
     if (previousContext) {
-        parts.push('Continuing from previous scene for visual consistency: ' + previousContext);
+        parts.push('VISUAL CONTINUITY from previous scene (same character identity + same environment grammar): ' + previousContext);
+    }
+    if (sceneIndex > 0) {
+        parts.push('This is scene ' + (sceneIndex + 1) + ' of one continuous short film — keep art direction locked.');
     }
 
     return parts.join('. ');
 }
 
-function buildVideoPrompt(sceneText, sceneIndex, totalScenes) {
+function buildVideoPrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
-    let charPrompt = state.canonicalCharacter;
-    if (!charPrompt) {
-        charPrompt = CHARACTER_PROMPTS[state.characters] || 'le personnage principal';
-    }
+    const charPrompt = getLockedCharacterPrompt();
+    const envPrompt = getLockedEnvironmentPrompt();
+    const wordCount = countWords(sceneText);
+    const targetSeconds = 10;
 
     const parts = [];
-    parts.push('VOICE DIRECTION (STRICT — must be IDENTICAL in every scene): use a warm, soft, gentle, friendly, childlike French voice. Same pitch, same pace, same tone as all other scenes of this story.');
-    parts.push('Animate this exact image as the starting frame. The character must remain IDENTICAL: same face, same colors, same identity.');
-    parts.push('SCENE: ' + sceneText);
-    parts.push('CHARACTER: ' + charPrompt);
-    parts.push('STYLE: ' + theme.prompt);
-    parts.push('Simple rhythmic joyful animation — gentle movements, breathing, blinking, subtle sway.');
-    parts.push('CRITICAL AUDIO RULE: The voiceover must say the exact SCENE text in French, complete and natural. DO NOT cut the audio mid-word or mid-sentence.');
+    parts.push('DURATION ENFORCEMENT (MANDATORY): produce a FULL ' + targetSeconds + '-second clip (not 3s, not 5s). Use the entire duration. num_frames must be fully utilized. Do not end early.');
+    parts.push('AUDIO COMPLETENESS (MANDATORY): French voiceover must speak the COMPLETE scene text naturally to the last word. NEVER cut mid-word or mid-sentence. Pace the narration to fill ~' + targetSeconds + 's (' + wordCount + ' words). If needed, slow gently with warm pauses — never truncate.');
+    parts.push('VOICE LOCK (STRICT — identical every scene): warm, soft, gentle, friendly, childlike French voice. Same pitch, same pace, same tone across the whole film.');
+    parts.push('Animate this exact image as the starting frame. Keep identity locked for the whole shot.');
+    parts.push('CHARACTER LOCK: ' + charPrompt);
+    parts.push('ENVIRONMENT LOCK: ' + envPrompt);
+    parts.push('SCENE NARRATION TEXT (say ALL of this in French): ' + sceneText);
+    parts.push('STYLE LOCK: ' + theme.prompt);
+    parts.push('Motion: simple rhythmic joyful animation — breathing, blinking, subtle sway, gentle gestures timed across the full ' + targetSeconds + 's.');
+    if (previousContext) {
+        parts.push('VISUAL CONTINUITY with previous scene: ' + previousContext);
+    }
+    parts.push('Scene ' + (sceneIndex + 1) + '/' + totalScenes + ' of one continuous story — same character, same world.');
     parts.push('Bright saturated but soft colors, high quality 3D render, smooth 24fps, Pixar style, vertical 9:16.');
     parts.push('Safe for children, COPPA compliant, no text, no watermarks, no scary elements.');
-    parts.push('The final 0.8 seconds smoothly fade out — natural peaceful ending. No abrupt cut.');
-    parts.push('NEGATIVE PROMPT: ' + NEGATIVE_PROMPT);
-    return parts.join('. ');
+    parts.push('ENDING: final 0.8–1.0 second smooth fade out after the LAST spoken word — peaceful ending, no abrupt cut, no frozen stump.');
+    parts.push('NEGATIVE PROMPT: truncated audio, early cutoff, short clip under 8 seconds, character redesign, environment redesign, ' + NEGATIVE_PROMPT);
+    return parts.join(' ');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1497,6 +1747,13 @@ async function generateAllScenes() {
     state.scenes = scenes;
     renderQueue();
 
+    const precheck = validateSegments(scenes.map(s => s.text));
+    if (precheck.warnings.length) {
+        log('⚠ Validation découpage : ' + precheck.warnings.length + ' alerte(s)');
+        precheck.warnings.slice(0, 5).forEach(w => log('  · ' + w));
+    }
+    log('Personnage lock : ' + (state.canonicalCharacter || '').slice(0, 120) + '…');
+    log('Décor lock : ' + (state.canonicalEnvironment || '').slice(0, 120) + '…');
     log('═══ ÉTAPE 1 : Images Pollinations (' + scenes.length + ' scènes) ═══');
     setStatus('Étape 1/2 : génération des images…');
 
@@ -1514,8 +1771,8 @@ async function generateAllScenes() {
             scene.imageDataUri = imageDataUri;
             scene.thumbnail = await generateThumbnail(imageDataUri);
             scene.status = 'image-done';
-            previousContext = scene.text.slice(0, 150);
-            log('[Scène ' + (i + 1) + '] Image ✓');
+            previousContext = scene.text.slice(0, 180);
+            log('[Scène ' + (i + 1) + '] Image ✓ (' + countWords(scene.text) + ' mots, ~' + estimateSegmentDurationSec(scene.text) + 's)');
         } catch (e) {
             log('[Scène ' + (i + 1) + '] Image échouée : ' + e.message);
             scene.status = 'failed';
@@ -1529,9 +1786,10 @@ async function generateAllScenes() {
     if (state.stopRequested) return;
 
     const validScenes = scenes.filter(s => s.imageDataUri && s.status === 'image-done');
-    log('═══ ÉTAPE 2 : Vidéos Agnes (' + validScenes.length + ' scènes) ═══');
+    log('═══ ÉTAPE 2 : Vidéos Agnes (' + validScenes.length + ' scènes × ~10s) ═══');
     setStatus('Étape 2/2 : génération des vidéos…');
 
+    let previousVideoContext = '';
     for (let i = 0; i < validScenes.length; i++) {
         if (state.stopRequested) break;
         const scene = validScenes[i];
@@ -1540,8 +1798,8 @@ async function generateAllScenes() {
         renderQueue();
 
         try {
-            setStatus('Vidéo ' + (i + 1) + '/' + validScenes.length + ' (Agnes)…');
-            const prompt = buildVideoPrompt(scene.text, scene.index, scenes.length);
+            setStatus('Vidéo ' + (i + 1) + '/' + validScenes.length + ' (Agnes 10s)…');
+            const prompt = buildVideoPrompt(scene.text, scene.index, scenes.length, previousVideoContext);
             const videoId = await createVideoTask(scene.imageDataUri, prompt);
             scene.videoId = videoId;
             scene.startTime = Date.now();
@@ -1549,6 +1807,7 @@ async function generateAllScenes() {
             renderQueue();
 
             await pollSceneVideo(scene);
+            previousVideoContext = scene.text.slice(0, 180);
 
         } catch (e) {
             if (e.message === 'Arrêt demandé') break;
@@ -2260,6 +2519,13 @@ function renderStyles() {
         el.addEventListener('click', () => {
             state.selectedTheme = el.dataset.theme;
             renderStyles();
+            // Rafraîchir le décor verrouillé selon le thème
+            const envEl = document.getElementById('canonical-environment');
+            if (envEl && document.activeElement !== envEl) {
+                state.canonicalEnvironment = buildCanonicalEnvironment(state.story || '');
+                envEl.value = state.canonicalEnvironment;
+                try { localStorage.setItem(CANONICAL_ENV_STORAGE, state.canonicalEnvironment); } catch (e) { /* ignore */ }
+            }
         });
     });
 }
@@ -2524,6 +2790,10 @@ async function runDiagnostic() {
         state.canonicalCharacter = e.target.value;
         try { localStorage.setItem(CANONICAL_CHAR_STORAGE, e.target.value); } catch (err) {}
     });
+    document.getElementById('canonical-environment')?.addEventListener('input', e => {
+        state.canonicalEnvironment = e.target.value;
+        try { localStorage.setItem(CANONICAL_ENV_STORAGE, e.target.value); } catch (err) {}
+    });
 
     document.getElementById('music-volume')?.addEventListener('input', e => {
         state.musicVolume = parseInt(e.target.value, 10) / 100;
@@ -2560,6 +2830,12 @@ async function runDiagnostic() {
             state.canonicalCharacter = savedChar;
             const ta = document.getElementById('canonical-character');
             if (ta) ta.value = savedChar;
+        }
+        const savedEnv = localStorage.getItem(CANONICAL_ENV_STORAGE);
+        if (savedEnv) {
+            state.canonicalEnvironment = savedEnv;
+            const ea = document.getElementById('canonical-environment');
+            if (ea) ea.value = savedEnv;
         }
     } catch (e) {}
 
