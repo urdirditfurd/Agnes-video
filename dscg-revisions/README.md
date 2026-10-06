@@ -1,30 +1,37 @@
-# DSCG 1 — Suivi des révisions (Gantt Excel)
+# DSCG 1 — Suivi des révisions sur l'année (Gantt)
 
-Classeur Excel pour planifier et suivre les révisions du **DSCG** avec un **diagramme de Gantt** hebdomadaire.
+Classeur Excel pour **ne pas se perdre** dans tes révisions tout au long de l'année en **alternance** (pas un planning de bachotage).
 
-## Fichier
+## Contexte prévu
+
+- **Période** : octobre 2026 → octobre 2027
+- **Rythme** : 3 j. cours / 2 j. entreprise
+- **Congés** : 1 semaine en décembre + 3 semaines l'été
+- **Charge perso** : ~6 h de révision / semaine (hors cours)
+
+## Fichiers
 
 - `DSCG1_Revisions_Gantt.xlsx` — classeur prêt à l'emploi
-- `generer_gantt_dscg.py` — script de régénération (Python + openpyxl)
+- `generer_gantt_dscg.py` — script de régénération
 
 ## Onglets
 
 | Onglet | Rôle |
 |--------|------|
-| Mode d'emploi | Mode d'emploi rapide |
-| Paramètres | Date de début, date d'examen, heures / semaine |
-| Planning Gantt | Saisie des thèmes + barres Gantt automatiques |
-| Tableau de bord | KPI, progression par UE, graphique des statuts |
-| Bibliothèque UE | Idées de thèmes par unité d'enseignement |
+| Mode d'emploi | Prise en main |
+| Mon rythme | Semaine type alternance + congés |
+| Paramètres | Dates, heures / semaine, délai entre passages |
+| Planning Gantt | Fil rouge mensuel + alertes + maîtrise |
+| Tableau de bord | Où tu en es par UE |
+| Bibliothèque UE | Idées de thèmes à ajouter |
 
-## Utilisation rapide
+## Routine dimanche (5 min)
 
-1. Ouvre `DSCG1_Revisions_Gantt.xlsx` dans Excel ou LibreOffice Calc.
-2. Renseigne **Paramètres** (date de début + date d'examen).
-3. Dans **Planning Gantt**, ajuste les thèmes, dates et **% d'avancement**.
-4. Les barres et le statut se mettent à jour automatiquement.
+1. Filtre **Alerte ≠ OK**
+2. Choisis **2 thèmes max** pour la semaine
+3. Après chaque séance : Maîtrise + Dernière rév. + Nb passages + Étape
 
-## Régénérer le fichier
+## Régénérer
 
 ```bash
 pip install openpyxl
