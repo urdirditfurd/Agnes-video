@@ -234,6 +234,89 @@
     .segment-card .seg-meta .warn-label { color: var(--orange); }
     .segment-card .seg-text { color: var(--ink-dim); }
     .prompt-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
+
+    .resume-banner {
+        display: none; margin-bottom: 1rem; padding: 0.9rem 1rem;
+        border-radius: 14px; border: 2px solid var(--blue);
+        background: linear-gradient(135deg, #e8f4ff, #fff4e8);
+    }
+    .resume-banner.visible { display: block; }
+    .resume-banner h3 { margin: 0 0 0.35rem; font-size: 0.95rem; color: var(--blue); }
+    .resume-banner p { margin: 0.15rem 0; font-size: 0.8rem; color: var(--ink-dim); }
+    .resume-banner .resume-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
+    .resume-banner button {
+        border: none; border-radius: 10px; padding: 0.55rem 0.85rem;
+        font-family: inherit; font-weight: 700; font-size: 0.8rem; cursor: pointer;
+    }
+    .btn-resume { background: var(--green); color: #fff; }
+    .btn-resume-del { background: #ffe8e8; color: #c0392b; }
+    .btn-resume-close { background: #fff; border: 2px solid var(--border) !important; color: var(--ink-dim); }
+
+    .duration-target {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.45rem; margin: 0.8rem 0 0.4rem;
+    }
+    .duration-target label {
+        display: flex; gap: 0.45rem; align-items: flex-start;
+        padding: 0.55rem 0.65rem; border: 2px solid var(--border); border-radius: 12px;
+        background: #fff; cursor: pointer; font-size: 0.78rem; line-height: 1.3;
+    }
+    .duration-target label.selected { border-color: var(--pink); background: var(--panel-2); }
+    .duration-target input { margin-top: 0.15rem; accent-color: var(--pink); }
+    .length-meter {
+        margin-top: 0.55rem; padding: 0.55rem 0.7rem; border-radius: 10px;
+        font-size: 0.78rem; border: 1.5px solid var(--border); background: #fff;
+    }
+    .length-meter.ok { border-color: var(--green); background: #f0fff6; color: #1a7a45; }
+    .length-meter.warn { border-color: var(--orange); background: #fff8f0; color: #a85b00; }
+    .length-meter.bad { border-color: #e74c3c; background: #fff0f0; color: #c0392b; }
+    .enrich-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+    .btn-enrich, .btn-enrich-cancel {
+        border: none; border-radius: 12px; padding: 0.7rem 1rem;
+        font-family: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+    }
+    .btn-enrich { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; }
+    .btn-enrich:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-enrich-cancel { display: none; background: #fff; border: 2px solid var(--border); color: var(--ink-dim); }
+    .btn-enrich-cancel.visible { display: inline-block; }
+
+    .film-dashboard {
+        display: none; margin: 1rem 0; padding: 1rem;
+        border-radius: 16px; border: 2px solid var(--purple);
+        background: linear-gradient(180deg, #f7f0ff, #fffaf2);
+    }
+    .film-dashboard.visible { display: block; }
+    .film-dashboard h3 { margin: 0 0 0.7rem; font-size: 1rem; color: var(--purple); }
+    .dash-row { font-size: 0.8rem; margin: 0.35rem 0; color: var(--ink); }
+    .dash-bar {
+        height: 10px; background: #eee; border-radius: 999px; overflow: hidden; margin-top: 0.25rem;
+    }
+    .dash-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--pink), var(--orange)); width: 0%; transition: width 0.3s; }
+    .dash-bar.videos > span { background: linear-gradient(90deg, var(--blue), var(--green)); }
+    .dash-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.85rem; }
+    .dash-actions button {
+        border: none; border-radius: 10px; padding: 0.55rem 0.8rem;
+        font-family: inherit; font-weight: 700; font-size: 0.78rem; cursor: pointer;
+        background: #fff; border: 2px solid var(--border);
+    }
+    .dash-actions .primary { background: var(--green); color: #fff; border-color: var(--green); }
+    .dash-actions .danger { background: #ffe8e8; color: #c0392b; border-color: #ffc9c9; }
+
+    .enrich-modal {
+        display: none; position: fixed; inset: 0; z-index: 9999;
+        background: rgba(40, 20, 40, 0.45); align-items: center; justify-content: center; padding: 1rem;
+    }
+    .enrich-modal.visible { display: flex; }
+    .enrich-modal-card {
+        background: #fffaf2; border-radius: 18px; padding: 1.4rem 1.2rem; max-width: 420px; width: 100%;
+        text-align: center; border: 2px solid var(--purple); box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    }
+    .enrich-spinner {
+        width: 42px; height: 42px; margin: 0 auto 0.9rem; border-radius: 50%;
+        border: 4px solid #f0d8ff; border-top-color: var(--purple); animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     .prompt-preset {
         padding: 0.45rem 0.85rem; border-radius: 20px;
         border: 2px solid var(--border); background: #fff;
@@ -422,6 +505,10 @@
     <input type="password" class="api-key-input" id="api-key-input"
            placeholder="Collez votre clé API Agnes (sk-...)" autocomplete="off" spellcheck="false">
     <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé Agnes</button>
+    <label class="control-label" style="margin:0.8rem 0 0.35rem;">🔑 Clé Mistral (optionnel, enrichissement)</label>
+    <input type="password" class="api-key-input" id="mistral-key-input"
+           placeholder="Clé Mistral (fallback enrichissement)" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn" id="mistral-save-btn" style="background:linear-gradient(135deg,#7c5cff,#5b8cff);">Enregistrer la clé Mistral</button>
     <div class="api-status-line" id="api-status-line">
         <span class="status-dot"></span>
         <span id="api-status-text">Aucune clé API enregistrée</span>
@@ -448,6 +535,25 @@
     </div>
 </div>
 
+<div class="resume-banner" id="resume-banner">
+    <h3>🎬 Film en cours de génération détecté</h3>
+    <p id="resume-title">—</p>
+    <p id="resume-meta">—</p>
+    <div class="resume-actions">
+        <button type="button" class="btn-resume" id="resume-continue-btn">▶ Reprendre</button>
+        <button type="button" class="btn-resume-del" id="resume-delete-btn">🗑 Supprimer</button>
+        <button type="button" class="btn-resume-close" id="resume-close-btn">✕ Fermer</button>
+    </div>
+</div>
+
+<div class="enrich-modal" id="enrich-modal" aria-hidden="true">
+    <div class="enrich-modal-card">
+        <div class="enrich-spinner"></div>
+        <div id="enrich-modal-text" style="font-weight:700; color:var(--purple); margin-bottom:0.6rem;">L'IA développe votre histoire…</div>
+        <button type="button" id="enrich-modal-cancel" style="border:2px solid var(--border); background:#fff; border-radius:10px; padding:0.55rem 0.9rem; font-family:inherit; font-weight:700; cursor:pointer;">Annuler</button>
+    </div>
+</div>
+
 <div class="section open" id="section-prompt">
     <div class="section-header" data-toggle="section-prompt">
         <span class="section-title">📖 Votre histoire <span class="badge soft">obligatoire</span></span>
@@ -455,17 +561,30 @@
     </div>
     <div class="section-body">
         <div class="section-content">
+            <div class="control-label" style="margin-bottom:0.35rem;">🎯 Durée cible du film</div>
+            <div class="duration-target" id="duration-target">
+                <label data-min="1"><input type="radio" name="target-duration" value="1"> <span><strong>1 minute</strong><br>6 scènes · ~130 mots</span></label>
+                <label data-min="3"><input type="radio" name="target-duration" value="3"> <span><strong>3 minutes</strong><br>18 scènes · ~400 mots</span></label>
+                <label data-min="5"><input type="radio" name="target-duration" value="5"> <span><strong>5 minutes</strong><br>30 scènes · ~660 mots</span></label>
+                <label data-min="10" class="selected"><input type="radio" name="target-duration" value="10" checked> <span><strong>10 minutes</strong><br>65 scènes · ~1300 mots</span></label>
+                <label data-min="15"><input type="radio" name="target-duration" value="15"> <span><strong>15 minutes</strong><br>90 scènes · ~2000 mots</span></label>
+            </div>
             <textarea class="prompt-main" id="main-prompt"
-                placeholder="Écrivez votre histoire pour enfants. L'IA la découpera en scènes cohérentes."></textarea>
+                placeholder="Collez une histoire courte : l'IA peut l'enrichir pour atteindre la durée cible, puis la découper en scènes."></textarea>
             <div class="prompt-presets" id="prompt-presets"></div>
             <div class="story-counter">
                 <span>📝 <strong id="story-words">0</strong> mots</span>
                 <span>🎬 <strong id="story-scenes">0</strong> scènes</span>
                 <span>⏱️ ~<strong id="story-duration">0</strong>s estimées</span>
             </div>
+            <div class="length-meter" id="length-meter">📊 Entrez une histoire pour estimer la durée</div>
+            <div class="enrich-actions">
+                <button type="button" class="btn-enrich" id="enrich-btn" style="display:none;">✨ Enrichir l'histoire avec l'IA</button>
+                <button type="button" class="btn-enrich-cancel" id="enrich-cancel-btn">↺ Annuler l'enrichissement</button>
+            </div>
             <div class="segments-preview" id="segments-preview"></div>
             <div class="prompt-main-hint">
-                💡 Segments 80–180 mots pour remplir ~10s Agnes. Personnage + décor verrouillés automatiquement.
+                💡 Choisissez une durée cible. Une histoire courte peut être enrichie automatiquement (3 actes).
             </div>
         </div>
     </div>
@@ -487,6 +606,24 @@
     </div>
 </div>
 
+<div class="film-dashboard" id="film-dashboard">
+    <h3 id="dash-title">🎬 Génération en cours</h3>
+    <div class="dash-row">Images : <strong id="dash-images-label">0/0</strong>
+        <div class="dash-bar"><span id="dash-images-bar"></span></div>
+    </div>
+    <div class="dash-row">Vidéos : <strong id="dash-videos-label">0/0</strong>
+        <div class="dash-bar videos"><span id="dash-videos-bar"></span></div>
+    </div>
+    <div class="dash-row">Durée est. : <strong id="dash-duration">—</strong></div>
+    <div class="dash-row">Temps écoulé : <strong id="dash-elapsed">—</strong> · restant : <strong id="dash-eta">—</strong></div>
+    <div class="dash-row" id="dash-save-status">💾 Sauvegarde auto activée</div>
+    <div class="dash-actions">
+        <button type="button" class="primary" id="dash-pause-btn">⏸ Pause</button>
+        <button type="button" id="dash-later-btn">🔄 Reprendre plus tard</button>
+        <button type="button" class="danger" id="dash-abandon-btn">❌ Abandonner</button>
+    </div>
+</div>
+
 <div class="section" id="section-tech">
     <div class="section-header" data-toggle="section-tech">
         <span class="section-title">⚙️ Réglages du film</span>
@@ -499,17 +636,21 @@
                 <select id="duration-select">
                     <option value="121">5 secondes</option>
                     <option value="153">6,4 secondes</option>
-                    <option value="241" selected>10 secondes (recommandé)</option>
+                    <option value="241">10 secondes</option>
+                    <option value="289" selected>12 secondes (recommandé long-métrage)</option>
                 </select>
             </div>
             <div class="control-row">
                 <label class="control-label">Nombre de scènes cible</label>
                 <select id="scenes-count-select">
-                    <option value="auto" selected>🤖 Automatique</option>
+                    <option value="auto" selected>🤖 Automatique (selon durée cible)</option>
                     <option value="3">3 scènes</option>
-                    <option value="5">5 scènes</option>
-                    <option value="7">7 scènes</option>
+                    <option value="6">6 scènes</option>
                     <option value="10">10 scènes</option>
+                    <option value="18">18 scènes</option>
+                    <option value="30">30 scènes</option>
+                    <option value="65">65 scènes</option>
+                    <option value="90">90 scènes</option>
                 </select>
             </div>
             <div class="control-row">
@@ -687,11 +828,32 @@ const CROSSFADE_DURATION = 0.3;
 const SERVER_URL = 'https://51-254-135-158.sslip.io';
 const SERVER_API_KEY = 'kids-studio-secret-change-me'; // à changer
 
+const DEFAULT_VOICE_SIGNATURE = 'French female child-like narrator voice, age 8-10, warm and soft timbre, 210 words per minute pace, gentle rising intonation on questions, slight smile in the tone, consistent breathiness, calm and reassuring. This voice is LOCKED and must be IDENTICAL in every scene of the film.';
+
+const FILM_DURATION_PRESETS = {
+    1:  { minutes: 1,  scenes: 6,  words: 130 },
+    3:  { minutes: 3,  scenes: 18, words: 400 },
+    5:  { minutes: 5,  scenes: 30, words: 660 },
+    10: { minutes: 10, scenes: 65, words: 1300 },
+    15: { minutes: 15, scenes: 90, words: 2000 }
+};
+
+const AGNES_TARGET_FRAMES = 289; // ~12.04s @ 24fps
+const AGNES_MIN_ACCEPTABLE_SEC = 8;
+const AGNES_MAX_RETRIES_PER_SCENE = 1;
+const ASSEMBLE_BLOCK_SIZE = 10;
+const MAX_IN_PROGRESS_FILMS = 3;
+const MISTRAL_KEY_STORAGE = 'kids_story_mistral_key';
+const IDB_NAME = 'KidsStoryStudioDB';
+const IDB_STORE = 'films';
+const IDB_VERSION = 1;
+
 const state = {
     story: '', storySegments: [], scenes: [],
-    isRunning: false, stopRequested: false, completed: 0, failed: 0,
+    isRunning: false, stopRequested: false, paused: false, completed: 0, failed: 0,
     selectedTheme: 'pixar-3d', characters: 'custom',
-    durationFrames: 241, targetScenes: 'auto',
+    durationFrames: AGNES_TARGET_FRAMES, targetScenes: 'auto',
+    targetDurationMinutes: 10,
     audioFile: null, audioObjectUrl: null, audioBpm: null, audioDuration: 0,
     finalFilmBlob: null, finalFilmUrl: null, isAssembling: false,
     lastPollinationsCall: 0,
@@ -702,8 +864,407 @@ const state = {
     crossfadeDuration: 0.3,
     autoAssemble: true,
     autoDownload: true,
-    addTitleCard: true
+    addTitleCard: true,
+    voiceSignature: DEFAULT_VOICE_SIGNATURE,
+    currentFilmId: null,
+    filmStartedAt: null,
+    originalStoryBeforeEnrich: null,
+    idbAvailable: true,
+    resumeCandidate: null,
+    enrichAbort: null
 };
+
+// ══════════════════════════════════════════════════════════════════
+// INDEXEDDB — persistance & reprise long-métrage
+// ══════════════════════════════════════════════════════════════════
+let idbDb = null;
+
+function openKidsStoryDB() {
+    return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+            state.idbAvailable = false;
+            reject(new Error('IndexedDB indisponible'));
+            return;
+        }
+        const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)) {
+                const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+                store.createIndex('status', 'status', { unique: false });
+                store.createIndex('updatedAt', 'updatedAt', { unique: false });
+            }
+        };
+        req.onsuccess = () => { idbDb = req.result; state.idbAvailable = true; resolve(idbDb); };
+        req.onerror = () => { state.idbAvailable = false; reject(req.error || new Error('IndexedDB error')); };
+    });
+}
+
+async function ensureDB() {
+    if (idbDb) return idbDb;
+    return openKidsStoryDB();
+}
+
+function sceneForStorage(scene) {
+    // Ne pas persister imageDataUri pleine rés. (trop lourd) — thumbnails + videoUrl + videoId suffisent pour reprendre
+    return {
+        index: scene.index,
+        text: scene.text,
+        imageDataUri: null,
+        thumbnail: scene.thumbnail || null,
+        videoUrl: scene.videoUrl || null,
+        videoDurationSec: scene.videoDurationSec != null ? scene.videoDurationSec : (scene.durationSec != null ? scene.durationSec : null),
+        videoId: scene.videoId || null,
+        status: scene.status,
+        retries: scene.retries || 0,
+        error: scene.error || null,
+        progress: scene.progress || null,
+        // flag pour savoir qu'une image était en mémoire
+        hadImage: !!(scene.imageDataUri)
+    };
+}
+
+function buildFilmRecord(statusOverride) {
+    return {
+        id: state.currentFilmId || ('film_' + Date.now()),
+        createdAt: state.filmStartedAt || Date.now(),
+        updatedAt: Date.now(),
+        status: statusOverride || (state.isRunning ? 'in_progress' : 'in_progress'),
+        story: state.story,
+        targetDurationMinutes: state.targetDurationMinutes,
+        canonicalCharacter: state.canonicalCharacter,
+        canonicalEnvironment: state.canonicalEnvironment,
+        theme: state.selectedTheme,
+        seed: state.seed,
+        durationFrames: state.durationFrames,
+        voiceSignature: state.voiceSignature,
+        scenes: (state.scenes || []).map(sceneForStorage),
+        finalFilmBlob: null
+    };
+}
+
+async function saveFilmToIndexedDB(statusOverride) {
+    if (!state.idbAvailable || !state.currentFilmId) return false;
+    try {
+        const db = await ensureDB();
+        const film = buildFilmRecord(statusOverride);
+        // Limiter à MAX_IN_PROGRESS_FILMS
+        const all = await listFilmsFromIndexedDB();
+        const others = all.filter(f => f.id !== film.id && f.status === 'in_progress')
+            .sort((a, b) => b.updatedAt - a.updatedAt);
+        if (others.length >= MAX_IN_PROGRESS_FILMS) {
+            for (const old of others.slice(MAX_IN_PROGRESS_FILMS - 1)) {
+                await deleteFilmFromIndexedDB(old.id);
+            }
+        }
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put(film);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+        const el = document.getElementById('dash-save-status');
+        if (el) el.textContent = '💾 Sauvegardé · ' + new Date().toLocaleTimeString();
+        return true;
+    } catch (e) {
+        console.warn('IndexedDB save fail', e);
+        const el = document.getElementById('dash-save-status');
+        if (el) el.textContent = '⚠️ Sauvegarde impossible (' + (e.message || 'IndexedDB') + ')';
+        return false;
+    }
+}
+
+async function listFilmsFromIndexedDB() {
+    if (!state.idbAvailable) return [];
+    try {
+        const db = await ensureDB();
+        return await new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readonly');
+            const req = tx.objectStore(IDB_STORE).getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        return [];
+    }
+}
+
+async function deleteFilmFromIndexedDB(id) {
+    if (!state.idbAvailable || !id) return;
+    const db = await ensureDB();
+    await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+function formatTimeAgo(ts) {
+    const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (sec < 60) return 'à l\'instant';
+    if (sec < 3600) return 'il y a ' + Math.floor(sec / 60) + ' min';
+    if (sec < 86400) return 'il y a ' + Math.floor(sec / 3600) + 'h';
+    return 'il y a ' + Math.floor(sec / 86400) + 'j';
+}
+
+function formatDurationHuman(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return h + 'h ' + m + 'min';
+    if (m > 0) return m + ' min ' + s + 's';
+    return s + 's';
+}
+
+async function showResumeBannerIfNeeded() {
+    const banner = document.getElementById('resume-banner');
+    if (!banner) return;
+    const films = (await listFilmsFromIndexedDB()).filter(f => f.status === 'in_progress')
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+    if (!films.length) {
+        banner.classList.remove('visible');
+        state.resumeCandidate = null;
+        return;
+    }
+    const film = films[0];
+    state.resumeCandidate = film;
+    const done = (film.scenes || []).filter(s => s.status === 'done').length;
+    const total = (film.scenes || []).length || 0;
+    document.getElementById('resume-title').textContent =
+        '"' + (film.story || '').slice(0, 60) + ((film.story || '').length > 60 ? '…' : '') + '" — ' + done + '/' + total + ' scènes';
+    document.getElementById('resume-meta').textContent =
+        'Dernière mise à jour : ' + formatTimeAgo(film.updatedAt) + ' · cible ' + (film.targetDurationMinutes || '?') + ' min';
+    banner.classList.add('visible');
+}
+
+function updateFilmDashboard() {
+    const dash = document.getElementById('film-dashboard');
+    if (!dash) return;
+    if (!state.isRunning && !state.paused && !(state.scenes || []).length) {
+        dash.classList.remove('visible');
+        return;
+    }
+    dash.classList.add('visible');
+    const total = state.scenes.length || 0;
+    const imagesDone = state.scenes.filter(s => s.imageDataUri || s.status === 'image-done' || s.status === 'creating' || s.status === 'processing' || s.status === 'done' || s.hadImage).length;
+    // more accurate:
+    const imgOk = state.scenes.filter(s => ['image-done','creating','processing','done'].includes(s.status) || s.imageDataUri).length;
+    const vidOk = state.scenes.filter(s => s.status === 'done').length;
+    const targetMin = state.targetDurationMinutes || 10;
+    const estSec = state.scenes.reduce((sum, s) => sum + (s.durationSec || s.videoDurationSec || ((state.durationFrames || AGNES_TARGET_FRAMES) / FRAME_RATE)), 0);
+    const doneDur = state.scenes.filter(s => s.status === 'done').reduce((sum, s) => sum + (s.durationSec || s.videoDurationSec || 0), 0);
+
+    document.getElementById('dash-title').textContent = '🎬 "' + (state.story || '').slice(0, 42) + ((state.story || '').length > 42 ? '…' : '') + '"';
+    document.getElementById('dash-images-label').textContent = imgOk + '/' + total + ' (' + (total ? Math.round(imgOk / total * 100) : 0) + '%)';
+    document.getElementById('dash-videos-label').textContent = vidOk + '/' + total + ' (' + (total ? Math.round(vidOk / total * 100) : 0) + '%)';
+    document.getElementById('dash-images-bar').style.width = (total ? (imgOk / total * 100) : 0) + '%';
+    document.getElementById('dash-videos-bar').style.width = (total ? (vidOk / total * 100) : 0) + '%';
+    document.getElementById('dash-duration').textContent = formatDurationHuman(doneDur) + ' / ' + targetMin + ' min';
+
+    const started = state.filmStartedAt || Date.now();
+    const elapsed = (Date.now() - started) / 1000;
+    document.getElementById('dash-elapsed').textContent = formatDurationHuman(elapsed);
+    let eta = '—';
+    if (vidOk > 0 && vidOk < total) {
+        const per = elapsed / vidOk;
+        eta = formatDurationHuman(per * (total - vidOk));
+    }
+    document.getElementById('dash-eta').textContent = eta;
+    const pauseBtn = document.getElementById('dash-pause-btn');
+    if (pauseBtn) pauseBtn.textContent = state.paused ? '▶ Reprendre' : '⏸ Pause';
+}
+
+async function persistCheckpoint() {
+    updateFilmDashboard();
+    await saveFilmToIndexedDB('in_progress');
+}
+
+function getTargetPreset() {
+    return FILM_DURATION_PRESETS[state.targetDurationMinutes] || FILM_DURATION_PRESETS[10];
+}
+
+function getMistralKey() {
+    try { return (localStorage.getItem(MISTRAL_KEY_STORAGE) || '').trim(); } catch (e) { return ''; }
+}
+
+function saveMistralKey() {
+    const input = document.getElementById('mistral-key-input');
+    const key = (input && input.value || '').trim();
+    if (!key) {
+        localStorage.removeItem(MISTRAL_KEY_STORAGE);
+        showToast('Clé Mistral supprimée', 'warn');
+        return;
+    }
+    localStorage.setItem(MISTRAL_KEY_STORAGE, key);
+    showToast('Clé Mistral enregistrée ✓', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ENRICHISSEMENT HISTOIRE (Agnes chat → Pollinations text → Mistral)
+// ══════════════════════════════════════════════════════════════════
+function buildEnrichPrompt(story, targetWords, targetScenes) {
+    const perAct = Math.round(targetWords / 3);
+    const wordsPerScene = Math.max(15, Math.round(targetWords / targetScenes));
+    return 'Tu es un auteur de contes pour enfants (3-7 ans).\n'
+        + 'Voici une histoire courte :\n' + story + '\n\n'
+        + 'Développe-la en exactement ' + targetWords + ' mots, en 3 actes :\n'
+        + '- Acte 1 (' + perAct + ' mots) : présentation du personnage, du décor, et d\'un problème doux\n'
+        + '- Acte 2 (' + perAct + ' mots) : péripéties, rencontres, petites résolutions progressives\n'
+        + '- Acte 3 (' + perAct + ' mots) : résolution finale, retour au calme, morale joyeuse\n\n'
+        + 'Contraintes STRICTES :\n'
+        + '- Garde le MÊME personnage principal du début à la fin (nom, couleur, apparence identiques)\n'
+        + '- Garde le MÊME décor principal\n'
+        + '- Style : doux, joyeux, phrases de 10-15 mots maximum\n'
+        + '- Vocabulaire simple, imagé, adapté aux 3-7 ans\n'
+        + '- Découpe en ' + targetScenes + ' paragraphes de ~' + wordsPerScene + ' mots chacun\n'
+        + '- Chaque paragraphe = UNE scène visuelle autonome et claire\n'
+        + '- Pas de violence, pas de peur, pas de tristesse prolongée\n'
+        + '- COPPA compliant\n'
+        + '- Pas de titres, pas de numérotation, pas de didascalies\n'
+        + '- Retourne UNIQUEMENT le texte final continu';
+}
+
+async function enrichViaAgnesChat(prompt, signal) {
+    const key = getAgnesKey();
+    if (!key) throw new Error('Pas de clé Agnes');
+    const res = await fetch(AGNES_API_BASE + '/chat/completions', {
+        method: 'POST',
+        signal: signal,
+        headers: {
+            'Authorization': 'Bearer ' + key,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'agnes-chat-1',
+            messages: [
+                { role: 'system', content: 'Tu écris uniquement le conte demandé, sans préambule.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.7
+        })
+    });
+    if (!res.ok) throw new Error('Agnes chat HTTP ' + res.status);
+    const data = await res.json();
+    const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!text || text.trim().length < 80) throw new Error('Réponse Agnes chat vide');
+    return text.trim();
+}
+
+async function enrichViaPollinationsText(prompt, signal) {
+    let lastErr = null;
+    for (let i = 0; i < 2; i++) {
+        try {
+            const url = 'https://text.pollinations.ai/' + encodeURIComponent(prompt);
+            const controller = new AbortController();
+            const t = setTimeout(() => controller.abort(), 60000);
+            if (signal) {
+                signal.addEventListener('abort', () => controller.abort(), { once: true });
+            }
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(t);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const text = (await res.text()).trim();
+            if (text.length < 80) throw new Error('Texte trop court');
+            return text;
+        } catch (e) {
+            lastErr = e;
+            await sleep(1500);
+        }
+    }
+    throw lastErr || new Error('Pollinations text échoué');
+}
+
+async function enrichViaMistral(prompt, signal) {
+    const key = getMistralKey();
+    if (!key) throw new Error('Pas de clé Mistral');
+    const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        signal: signal,
+        headers: {
+            'Authorization': 'Bearer ' + key,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'mistral-small-latest',
+            messages: [
+                { role: 'system', content: 'Tu écris uniquement le conte demandé, sans préambule.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.7
+        })
+    });
+    if (!res.ok) throw new Error('Mistral HTTP ' + res.status);
+    const data = await res.json();
+    const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!text || text.trim().length < 80) throw new Error('Réponse Mistral vide');
+    return text.trim();
+}
+
+async function enrichStoryWithAI() {
+    const story = (document.getElementById('main-prompt').value || '').trim();
+    if (!story) { showToast('Écrivez d\'abord une histoire', 'error'); return; }
+    const preset = getTargetPreset();
+    const prompt = buildEnrichPrompt(story, preset.words, preset.scenes);
+    state.originalStoryBeforeEnrich = story;
+    state.enrichAbort = new AbortController();
+    const modal = document.getElementById('enrich-modal');
+    const btn = document.getElementById('enrich-btn');
+    const cancelBtn = document.getElementById('enrich-cancel-btn');
+    document.getElementById('enrich-modal-text').textContent = 'L\'IA développe votre histoire en ~' + preset.words + ' mots…';
+    modal.classList.add('visible');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enrichissement en cours…'; }
+
+    let result = null;
+    let used = '';
+    try {
+        try {
+            result = await enrichViaAgnesChat(prompt, state.enrichAbort.signal);
+            used = 'Agnes chat';
+        } catch (e1) {
+            log('Enrichissement Agnes chat : ' + e1.message + ' → fallback Pollinations');
+            try {
+                result = await enrichViaPollinationsText(prompt, state.enrichAbort.signal);
+                used = 'Pollinations text';
+            } catch (e2) {
+                log('Enrichissement Pollinations : ' + e2.message + ' → fallback Mistral');
+                result = await enrichViaMistral(prompt, state.enrichAbort.signal);
+                used = 'Mistral';
+            }
+        }
+        document.getElementById('main-prompt').value = result;
+        if (cancelBtn) cancelBtn.classList.add('visible');
+        updateStoryPreview();
+        showToast('Histoire enrichie via ' + used + ' ✓ — éditez si besoin', 'success', 4500);
+        log('✅ Enrichissement OK via ' + used + ' (' + countWords(result) + ' mots)');
+    } catch (e) {
+        if (e.name === 'AbortError') showToast('Enrichissement annulé', 'warn');
+        else {
+            showToast('Enrichissement échoué : ' + e.message, 'error', 6000);
+            log('❌ Enrichissement : ' + e.message);
+        }
+    } finally {
+        modal.classList.remove('visible');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '✨ Enrichir l\'histoire avec l\'IA';
+        }
+        state.enrichAbort = null;
+        updateStoryPreview();
+    }
+}
+
+function cancelEnrichmentRestore() {
+    if (!state.originalStoryBeforeEnrich) return;
+    document.getElementById('main-prompt').value = state.originalStoryBeforeEnrich;
+    state.originalStoryBeforeEnrich = null;
+    document.getElementById('enrich-cancel-btn')?.classList.remove('visible');
+    updateStoryPreview();
+    showToast('Histoire originale restaurée', 'warn');
+}
+
+
 
 // ══════════════════════════════════════════════════════════════════
 // TOAST
@@ -853,6 +1414,17 @@ document.addEventListener('visibilitychange', async () => {
         await activateWakeLock();
         updateWakeStatus();
     }
+    if (document.visibilityState === 'hidden' && state.currentFilmId) {
+        try { await saveFilmToIndexedDB('in_progress'); } catch (e) { /* ignore */ }
+    }
+});
+
+window.addEventListener('beforeunload', (e) => {
+    if (state.isRunning || state.isAssembling) {
+        e.preventDefault();
+        e.returnValue = 'Une génération est en cours. La progression sera sauvegardée.';
+        try { saveFilmToIndexedDB('in_progress'); } catch (err) { /* ignore */ }
+    }
 });
 
 async function ensureWakeLockActive() {
@@ -866,11 +1438,20 @@ async function ensureWakeLockActive() {
 // ══════════════════════════════════════════════════════════════════
 // DÉCOUPAGE INTELLIGENT (optimisé narration Agnes ~10s)
 // ══════════════════════════════════════════════════════════════════
-const MIN_SEGMENT_WORDS = 80;
-const MAX_SEGMENT_WORDS = 180;
-const TARGET_SEGMENT_WORDS = 120;
-/** Rythme narration enfant ~2.2 mots/s → vise ~10s de voix */
+// Pour films courts on vise ~80-120 mots/scène ; pour long-métrage (~20 mots/scène)
+// la durée Agnes est comblée par animation visuelle (289 frames ≈ 12s).
+let MIN_SEGMENT_WORDS = 80;
+let MAX_SEGMENT_WORDS = 180;
+let TARGET_SEGMENT_WORDS = 120;
 const NARRATION_WORDS_PER_SEC = 2.2;
+
+function refreshSegmentWordTargets() {
+    const preset = (typeof getTargetPreset === 'function') ? getTargetPreset() : { words: 1300, scenes: 65 };
+    const per = Math.max(18, Math.round(preset.words / preset.scenes));
+    TARGET_SEGMENT_WORDS = per;
+    MIN_SEGMENT_WORDS = Math.max(18, Math.floor(per * 0.7));
+    MAX_SEGMENT_WORDS = Math.max(MIN_SEGMENT_WORDS + 10, Math.ceil(per * 1.6));
+}
 
 function countWords(text) {
     if (!text) return 0;
@@ -1197,28 +1778,47 @@ function updateStoryPreview() {
     const storyEl = document.getElementById('main-prompt');
     const story = storyEl.value.trim();
     state.story = story;
+    refreshSegmentWordTargets();
     const words = countWords(story);
     document.getElementById('story-words').textContent = words;
-    const targetScenes = document.getElementById('scenes-count-select').value;
+    const preset = getTargetPreset();
+    let targetScenes = document.getElementById('scenes-count-select').value;
+    if (targetScenes === 'auto') targetScenes = String(preset.scenes);
     const segments = segmentStory(story, targetScenes);
     const validation = validateSegments(segments);
     state.storySegments = validation.segments;
     state.segmentMeta = validation.meta;
     document.getElementById('story-scenes').textContent = validation.segments.length;
+    const estSec = validation.segments.length * ((state.durationFrames || AGNES_TARGET_FRAMES) / FRAME_RATE);
+    const durEl = document.getElementById('story-duration');
+    if (durEl) durEl.textContent = String(Math.round(estSec));
     renderSegmentsPreview(validation.meta, validation.warnings);
     updateCanonicalCharacter();
     updateGenerateBtn();
 
-    const shortCount = validation.meta.filter(m => m.short).length;
+    // Détecteur longueur vs durée cible
+    const meter = document.getElementById('length-meter');
+    const enrichBtn = document.getElementById('enrich-btn');
+    const ratio = preset.words ? (words / preset.words) : 0;
+    const estMin = Math.max(0.1, Math.round((estSec / 60) * 10) / 10);
+    if (meter) {
+        meter.classList.remove('ok', 'warn', 'bad');
+        let cls = 'bad', icon = '❌', msg = 'Trop court';
+        if (ratio >= 0.9) { cls = 'ok'; icon = '✅'; msg = 'Longueur suffisante'; }
+        else if (ratio >= 0.5) { cls = 'warn'; icon = '⚠️'; msg = 'Peut être enrichi'; }
+        meter.classList.add(cls);
+        meter.innerHTML = '📊 <strong>' + words + '</strong> mots · ~' + estMin + ' min estimées · <strong>' + validation.segments.length + '</strong> scènes<br>'
+            + icon + ' ' + msg + ' — pour ' + preset.minutes + ' min, cible ~' + preset.words + ' mots / ' + preset.scenes + ' scènes';
+    }
+    if (enrichBtn) {
+        enrichBtn.style.display = (words > 0 && ratio < 0.9) ? 'inline-block' : 'none';
+    }
+
     const hint = document.querySelector('.prompt-main-hint');
     if (hint) {
-        if (shortCount > 0) {
-            hint.textContent = '⚠ ' + shortCount + ' scène(s) < ' + MIN_SEGMENT_WORDS + ' mots — allonge le texte ou laisse la fusion auto. Cible : 80–180 mots / ~10s Agnes.';
-        } else if (validation.segments.length > 0) {
-            hint.textContent = '✅ ' + validation.segments.length + ' scène(s) prêtes (80–180 mots) · personnage + décor verrouillés · durée Agnes ~10s.';
-        } else {
-            hint.textContent = '💡 Segments 80–180 mots pour remplir ~10s Agnes. Personnage + décor verrouillés automatiquement.';
-        }
+        hint.textContent = validation.segments.length
+            ? ('✅ ' + validation.segments.length + ' scènes · ~' + Math.round(estSec) + 's Agnes · locks personnage/décor actifs')
+            : '💡 Choisissez une durée cible. Une histoire courte peut être enrichie automatiquement (3 actes).';
     }
 }
 
@@ -1344,40 +1944,42 @@ function buildVideoPrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const charPrompt = getLockedCharacterPrompt();
     const envPrompt = getLockedEnvironmentPrompt();
     const wordCount = countWords(sceneText);
-    const targetSeconds = Math.max(8, Math.round((state.durationFrames || 241) / FRAME_RATE));
+    const frames = state.durationFrames || AGNES_TARGET_FRAMES;
+    const targetSeconds = Math.round((frames / FRAME_RATE) * 100) / 100;
+    const voice = state.voiceSignature || DEFAULT_VOICE_SIGNATURE;
     const shortScene = wordCount < MIN_SEGMENT_WORDS;
 
     const parts = [];
-    parts.push('DURATION ENFORCEMENT (MANDATORY): produce a FULL ' + targetSeconds + '-second clip (not 3s, not 5s). Use every frame until the end. Do not end early.');
-    parts.push('AUDIO COMPLETENESS (MANDATORY): French voiceover must speak the COMPLETE scene text naturally to the LAST word. NEVER cut mid-word or mid-sentence. Pace narration to fill ~' + targetSeconds + 's (' + wordCount + ' words).');
+    parts.push('VOICE LOCK INITIAL: ' + voice);
+    parts.push('MANDATORY CLIP LENGTH: exactly ' + frames + ' frames at 24fps = ' + targetSeconds + ' seconds. The clip MUST NOT end before ' + targetSeconds + ' seconds. If the narration finishes early, continue visual animation (breathing, blinking, gentle environment motion) until ' + targetSeconds + 's, then hold the final frame for 0.5s and perform a smooth fade out. Do NOT truncate mid-sentence. Do NOT truncate mid-word. Do NOT produce a clip shorter than 11 seconds under any circumstance.');
+    parts.push('AUDIO COMPLETENESS (MANDATORY): French voiceover must speak the COMPLETE scene text naturally to the LAST word. NEVER cut mid-word or mid-sentence.');
     if (shortScene) {
-        parts.push('PACING BOOST: scene text is short — speak slowly, add gentle warm pauses between sentences, stretch timing to fill the full ' + targetSeconds + 's without inventing new plot.');
+        parts.push('PACING BOOST: short narration — speak slowly with gentle pauses, then keep animating silently until full ' + targetSeconds + 's.');
     }
-    parts.push('VOICE LOCK (STRICT — identical every scene): warm, soft, gentle, friendly, childlike French voice. Same pitch, same pace, same tone across the whole film.');
     parts.push('Animate this exact image as the starting frame. Keep identity locked for the whole shot.');
-    // Character lock repeated twice (début)
     parts.push('CHARACTER LOCK: ' + charPrompt);
     parts.push('CHARACTER LOCK REPEAT: ' + charPrompt);
     parts.push('ENVIRONMENT LOCK: ' + envPrompt);
     parts.push('ENVIRONMENT LOCK REPEAT: ' + envPrompt);
+    parts.push('VOICE LOCK REMINDER: ' + voice);
     parts.push('SCENE NARRATION TEXT (say ALL of this in French, complete): ' + sceneText);
     parts.push('STYLE LOCK: ' + theme.prompt);
     parts.push('Motion across full duration: breathing, blinking, subtle sway, gentle gestures timed over ' + targetSeconds + 's.');
     if (previousContext) {
         parts.push('VISUAL CONTINUITY with previous scene (same character + same world): ' + previousContext);
     }
-    parts.push('Scene ' + (sceneIndex + 1) + '/' + totalScenes + ' of one continuous story — same character, same world.');
+    parts.push('Scene ' + (sceneIndex + 1) + '/' + totalScenes + ' of one continuous story — same character, same world, same voice.');
     parts.push('Bright saturated but soft colors, high quality 3D render, smooth 24fps, Pixar style, vertical 9:16.');
     parts.push('Safe for children, COPPA compliant, no text, no watermarks, no scary elements.');
-    parts.push('ENDING: after the LAST spoken word, hold 0.8–1.0s then smooth fade out — no abrupt cut.');
-    // Character/env lock repeated at the end (anti-oubli modèle)
+    parts.push('ENDING: after the LAST spoken word, continue motion if needed, hold 0.5s, then smooth fade out — no abrupt cut.');
     parts.push('FINAL CHARACTER LOCK: ' + compactLock(charPrompt, 240));
     parts.push('FINAL ENVIRONMENT LOCK: ' + compactLock(envPrompt, 200));
-    parts.push('NEGATIVE PROMPT: truncated audio, early cutoff, short clip under 8 seconds, character redesign, environment redesign, ' + NEGATIVE_PROMPT);
+    parts.push('FINAL VOICE LOCK: ' + voice);
+    parts.push('NEGATIVE PROMPT: truncated audio, early cutoff, short clip under 11 seconds, character redesign, environment redesign, voice drift, ' + NEGATIVE_PROMPT);
     return parts.join(' ');
 }
 
-// ══════════════════════════════════════════════════════════════════
+// ════
 // CLÉS API
 // ══════════════════════════════════════════════════════════════════
 function getAgnesKey() { try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); } catch (e) { return ''; } }
@@ -1679,8 +2281,8 @@ async function apiFetch(url, options = {}, label = 'API') {
 }
 
 async function createVideoTask(imageDataUri, prompt) {
-    // 241 frames @ 24fps ≈ 10s (durée recommandée Kids Story)
-    const frames = state.durationFrames || 241;
+    // 289 frames @ 24fps ≈ 12.04s (marge anti-troncature)
+    const frames = state.durationFrames || AGNES_TARGET_FRAMES;
     const body = {
         model: MODEL_VIDEO,
         prompt: prompt,
@@ -1755,118 +2357,198 @@ async function pollVideo(videoId, onProgress) {
 // ══════════════════════════════════════════════════════════════════
 // PIPELINE PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
-async function generateAllScenes() {
-    const scenes = state.storySegments.map((text, i) => ({
-        index: i,
-        text: text,
-        imageDataUri: null,
-        thumbnail: null,
-        videoUrl: null,
-        status: 'pending',
-        error: null
-    }));
+async function generateAllScenes(options) {
+    options = options || {};
+    const resumeMode = !!options.resume;
 
-    state.scenes = scenes;
+    if (!resumeMode || !state.scenes.length) {
+        const scenes = state.storySegments.map((text, i) => ({
+            index: i,
+            text: text,
+            imageDataUri: null,
+            thumbnail: null,
+            videoUrl: null,
+            videoId: null,
+            status: 'pending',
+            error: null,
+            retries: 0,
+            progress: null,
+            durationSec: null,
+            videoDurationSec: null
+        }));
+        state.scenes = scenes;
+    } else {
+        // Reprise : garder scènes existantes, régénérer images manquantes si besoin
+        for (const scene of state.scenes) {
+            if (scene.status === 'done' && scene.videoUrl) continue;
+            if ((scene.status === 'creating' || scene.status === 'processing') && scene.videoId && !scene.videoUrl) continue;
+            if (scene.status === 'image-done' && !scene.imageDataUri) {
+                // Image non persistée → à régénérer
+                scene.status = 'pending';
+            }
+            if (scene.status === 'generating-image') scene.status = 'pending';
+        }
+    }
+
     renderQueue();
+    updateFilmDashboard();
 
-    const precheck = validateSegments(scenes.map(s => s.text));
+    const precheck = validateSegments(state.scenes.map(s => s.text));
     if (precheck.warnings.length) {
         log('⚠ Validation découpage : ' + precheck.warnings.length + ' alerte(s)');
         precheck.warnings.slice(0, 5).forEach(w => log('  · ' + w));
     }
     log('Personnage lock : ' + (state.canonicalCharacter || '').slice(0, 120) + '…');
     log('Décor lock : ' + (state.canonicalEnvironment || '').slice(0, 120) + '…');
-    log('═══ ÉTAPE 1 : Images Pollinations (' + scenes.length + ' scènes) ═══');
+    log('Voice lock : ' + (state.voiceSignature || '').slice(0, 80) + '…');
+    log('═══ ÉTAPE 1 : Images Pollinations (' + state.scenes.length + ' scènes) ═══');
     setStatus('Étape 1/2 : génération des images…');
+    await persistCheckpoint();
 
     let previousContext = '';
-    for (let i = 0; i < scenes.length; i++) {
+    for (let i = 0; i < state.scenes.length; i++) {
+        while (state.paused && !state.stopRequested) {
+            setStatus('⏸ En pause — cliquez Reprendre');
+            await sleep(500);
+        }
         if (state.stopRequested) break;
-        const scene = scenes[i];
+        const scene = state.scenes[i];
+
+        // Skip si déjà image ou au-delà
+        if (scene.imageDataUri || ['image-done','creating','processing','done'].includes(scene.status)) {
+            if (scene.text) previousContext = scene.text.slice(0, 180);
+            continue;
+        }
+        if (scene.status === 'failed' && scene.error && scene.error.indexOf('Image:') === 0) {
+            // permettre retry image
+        }
+
         scene.status = 'generating-image';
         renderQueue();
+        updateFilmDashboard();
 
         try {
-            setStatus('Image ' + (i + 1) + '/' + scenes.length + ' (Pollinations)…');
-            const prompt = buildImagePrompt(scene.text, i, scenes.length, previousContext);
+            setStatus('Image ' + (i + 1) + '/' + state.scenes.length + ' (Pollinations)…');
+            const prompt = buildImagePrompt(scene.text, i, state.scenes.length, previousContext);
             const imageDataUri = await generateImageWithPollinations(prompt, 5);
             scene.imageDataUri = imageDataUri;
             scene.thumbnail = await generateThumbnail(imageDataUri);
             scene.status = 'image-done';
+            scene.error = null;
             previousContext = scene.text.slice(0, 180);
-            log('[Scène ' + (i + 1) + '] Image ✓ (' + countWords(scene.text) + ' mots, ~' + estimateSegmentDurationSec(scene.text) + 's)');
+            log('[Scène ' + (i + 1) + '] Image ✓ (' + countWords(scene.text) + ' mots)');
+            await persistCheckpoint();
         } catch (e) {
             log('[Scène ' + (i + 1) + '] Image échouée : ' + e.message);
             scene.status = 'failed';
             scene.error = 'Image: ' + e.message;
             state.failed++;
+            await persistCheckpoint();
         }
         renderQueue();
         updateGenerateBtn();
+        updateFilmDashboard();
     }
 
-    if (state.stopRequested) return;
+    if (state.stopRequested) {
+        await persistCheckpoint();
+        return;
+    }
 
-    const validScenes = scenes.filter(s => s.imageDataUri && s.status === 'image-done');
-    log('═══ ÉTAPE 2 : Vidéos Agnes (' + validScenes.length + ' scènes × ~10s) ═══');
+    // Phase vidéo : scènes avec image, ou videoId à reprendre, hors done
+    const videoCandidates = state.scenes.filter(s =>
+        s.status === 'done' ? false :
+        (s.imageDataUri || s.videoId || s.status === 'image-done' || s.status === 'creating' || s.status === 'processing')
+    );
+    log('═══ ÉTAPE 2 : Vidéos Agnes (' + videoCandidates.length + ' scènes × ~12s) ═══');
     setStatus('Étape 2/2 : génération des vidéos…');
 
     let previousVideoContext = '';
-    for (let i = 0; i < validScenes.length; i++) {
+    for (let i = 0; i < state.scenes.length; i++) {
+        while (state.paused && !state.stopRequested) {
+            setStatus('⏸ En pause — cliquez Reprendre');
+            await sleep(500);
+        }
         if (state.stopRequested) break;
-        const scene = validScenes[i];
-
-        scene.status = 'creating';
-        renderQueue();
+        const scene = state.scenes[i];
+        if (scene.status === 'done' && scene.videoUrl) {
+            previousVideoContext = scene.text.slice(0, 180);
+            continue;
+        }
+        if (!scene.imageDataUri && !scene.videoId) continue;
+        if (scene.status === 'failed' && scene.error && scene.error.indexOf('Image:') === 0) continue;
 
         try {
-            setStatus('Vidéo ' + (i + 1) + '/' + validScenes.length + ' (Agnes 10s)…');
-            const prompt = buildVideoPrompt(scene.text, scene.index, scenes.length, previousVideoContext);
+            // Reprise poll si videoId déjà connu
+            if (scene.videoId && (scene.status === 'creating' || scene.status === 'processing' || scene.status === 'image-done')) {
+                scene.status = 'processing';
+                setStatus('Reprise poll vidéo ' + (i + 1) + '/' + state.scenes.length + '…');
+                renderQueue();
+                await persistCheckpoint();
+                await pollSceneVideo(scene);
+                if (scene.status === 'done') previousVideoContext = scene.text.slice(0, 180);
+                continue;
+            }
+
+            if (!scene.imageDataUri) {
+                log('[Scène ' + (i + 1) + '] Pas d\'image en mémoire — régénération…');
+                scene.status = 'generating-image';
+                const promptImg = buildImagePrompt(scene.text, i, state.scenes.length, previousVideoContext);
+                scene.imageDataUri = await generateImageWithPollinations(promptImg, 5);
+                scene.thumbnail = await generateThumbnail(scene.imageDataUri);
+                scene.status = 'image-done';
+                await persistCheckpoint();
+            }
+
+            scene.status = 'creating';
+            renderQueue();
+            updateFilmDashboard();
+            setStatus('Vidéo ' + (i + 1) + '/' + state.scenes.length + ' (Agnes ~12s)…');
+            const prompt = buildVideoPrompt(scene.text, scene.index, state.scenes.length, previousVideoContext);
             const videoId = await createVideoTask(scene.imageDataUri, prompt);
             scene.videoId = videoId;
             scene.startTime = Date.now();
             scene.status = 'processing';
             renderQueue();
+            await persistCheckpoint();
 
             await pollSceneVideo(scene);
-            previousVideoContext = scene.text.slice(0, 180);
+            if (scene.status === 'done') previousVideoContext = scene.text.slice(0, 180);
 
         } catch (e) {
             if (e.message === 'Arrêt demandé') break;
             if (e.message === 'AGNES_AUTH_INVALID') {
                 log('❌ Clé Agnes invalide (HTTP 401 Invalid token)');
                 showToast('Clé Agnes invalide — colle une nouvelle clé sk-… puis réessaie', 'error', 8000);
-                setStatus('Clé Agnes invalide — régénère-la sur platform.agnes-ai.com');
+                setStatus('Clé Agnes invalide');
                 scene.status = 'failed';
                 scene.error = 'Vidéo: clé Agnes invalide';
                 state.failed++;
-                // Marquer le reste comme non tenté pour éviter 14× 401
-                for (let j = i + 1; j < validScenes.length; j++) {
-                    if (validScenes[j].status === 'image-done' || validScenes[j].status === 'pending') {
-                        validScenes[j].status = 'failed';
-                        validScenes[j].error = 'Vidéo: annulée (clé Agnes invalide)';
-                        state.failed++;
-                    }
-                }
-                renderQueue();
+                await persistCheckpoint();
                 break;
             }
             log('[Scène ' + (scene.index + 1) + '] Vidéo échouée : ' + e.message);
             scene.status = 'failed';
             scene.error = 'Vidéo: ' + e.message;
             state.failed++;
+            await persistCheckpoint();
             renderQueue();
         }
 
-        if (i < validScenes.length - 1 && !state.stopRequested) {
+        // Pause intervalle Agnes avant prochaine création
+        const remaining = state.scenes.slice(i + 1).some(s => s.status !== 'done' && (s.imageDataUri || s.status === 'image-done' || s.status === 'pending'));
+        if (remaining && !state.stopRequested) {
             const waitSec = Math.ceil(createIntervalMs / 1000);
             for (let r = waitSec; r > 0; r--) {
                 if (state.stopRequested) break;
-                setStatus('Pause avant scène ' + (i + 2) + '/' + validScenes.length + ' — ' + r + 's');
+                while (state.paused && !state.stopRequested) await sleep(500);
+                setStatus('Pause avant scène suivante — ' + r + 's');
                 await sleep(1000);
             }
         }
+        updateFilmDashboard();
     }
+    await persistCheckpoint();
 }
 
 async function probeVideoDuration(videoUrl) {
@@ -1901,9 +2583,14 @@ async function probeVideoDuration(videoUrl) {
 
 async function pollSceneVideo(scene) {
     try {
+        // Reprise : si videoId existe déjà, tenter le poll avant de recréer
+        if (!scene.videoId) {
+            throw new Error('videoId manquant');
+        }
         const videoUrl = await pollVideo(scene.videoId, (prog) => {
             scene.progress = prog;
             renderQueue();
+            updateFilmDashboard();
         });
         scene.status = 'done';
         scene.videoUrl = videoUrl;
@@ -1912,16 +2599,41 @@ async function pollSceneVideo(scene) {
 
         const duration = await probeVideoDuration(videoUrl);
         scene.durationSec = duration;
-        const targetSec = Math.max(8, Math.round((state.durationFrames || 241) / FRAME_RATE));
-        if (duration != null && duration < targetSec * 0.75) {
-            log('⚠ [Scène ' + (scene.index + 1) + '] clip court : ' + duration.toFixed(1) + 's (cible ~' + targetSec + 's)');
+        scene.videoDurationSec = duration;
+        const targetSec = (state.durationFrames || AGNES_TARGET_FRAMES) / FRAME_RATE;
+
+        if (duration != null && duration < AGNES_MIN_ACCEPTABLE_SEC
+            && (scene.retries || 0) < AGNES_MAX_RETRIES_PER_SCENE) {
+            scene.retries = (scene.retries || 0) + 1;
+            scene.status = 'pending';
+            scene.videoId = null;
+            scene.videoUrl = null;
+            scene.error = 'Retry: durée ' + duration.toFixed(1) + 's < ' + AGNES_MIN_ACCEPTABLE_SEC + 's';
+            state.completed = Math.max(0, state.completed - 1);
+            log('Scène ' + (scene.index + 1) + ' trop courte (' + duration.toFixed(1) + 's) → retry ' + scene.retries + '/' + AGNES_MAX_RETRIES_PER_SCENE);
+            await persistCheckpoint();
+            await sleep(5000);
+            // Relancer création + poll
+            scene.status = 'creating';
+            const prompt = buildVideoPrompt(scene.text, scene.index, state.scenes.length, '');
+            if (!scene.imageDataUri) throw new Error('Image absente pour retry — reprenez apres regeneration image');
+            scene.videoId = await createVideoTask(scene.imageDataUri, prompt);
+            scene.status = 'processing';
+            await persistCheckpoint();
+            return pollSceneVideo(scene);
+        }
+
+        if (duration != null && duration < AGNES_MIN_ACCEPTABLE_SEC) {
+            log('⚠️ Scène ' + (scene.index + 1) + ' acceptée par défaut après retry (' + duration.toFixed(1) + 's)');
+            scene.error = 'Clip court: ' + duration.toFixed(1) + 's';
             scene.progress = 'Court ' + duration.toFixed(1) + 's';
-            showToast('Scène ' + (scene.index + 1) + ' trop courte (' + duration.toFixed(1) + 's)', 'warn', 4000);
+            showToast('Scène ' + (scene.index + 1) + ' courte (' + duration.toFixed(1) + 's) — étirement FFmpeg possible', 'warn', 4000);
         } else if (duration != null) {
             log('[Scène ' + (scene.index + 1) + '] Vidéo ✓ ' + duration.toFixed(1) + 's');
             scene.progress = duration.toFixed(1) + 's';
         }
 
+        await persistCheckpoint();
         renderQueue();
         updateGenerateBtn();
         addToGallery(videoUrl, scene.index + 1);
@@ -1936,12 +2648,13 @@ async function pollSceneVideo(scene) {
             scene.error = 'Vidéo: ' + e.message;
             state.failed++;
         }
+        await persistCheckpoint();
         renderQueue();
         updateGenerateBtn();
     }
 }
 
-// ══════════════════════════════════════════════════════════════════
+// ═// ══════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════
 // MONTAGE AUTOMATIQUE — CŒUR DU SYSTÈME
 // ══════════════════════════════════════════════════════════════════
@@ -2297,6 +3010,16 @@ async function fileToDataUrl(file) {
     });
 }
 
+
+function formatYoutubeChapter(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return String(h) + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    return String(m) + ':' + String(s).padStart(2, '0');
+}
+
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
 
@@ -2331,8 +3054,23 @@ async function assembleFinalFilm() {
 
         const musicDataUrl = state.audioFile ? await fileToDataUrl(state.audioFile) : null;
         progressFill.style.width = '40%';
-        statusEl.textContent = 'Montage FFmpeg sur le serveur…';
+        const totalBlocks = Math.ceil(doneScenes.length / ASSEMBLE_BLOCK_SIZE);
+        statusEl.textContent = 'Montage FFmpeg par blocs (' + totalBlocks + ' bloc' + (totalBlocks > 1 ? 's' : '') + ' de ' + ASSEMBLE_BLOCK_SIZE + ')…';
+        log('Assemblage incrémental : ' + doneScenes.length + ' scènes → ' + totalBlocks + ' blocs');
 
+        const chapterTitles = [];
+        for (let b = 0; b < totalBlocks; b++) {
+            const slice = doneScenes.slice(b * ASSEMBLE_BLOCK_SIZE, (b + 1) * ASSEMBLE_BLOCK_SIZE);
+            const firstWords = (slice[0] && slice[0].text || '').split(/\s+/).slice(0, 6).join(' ');
+            if (b === 0) chapterTitles.push('Introduction');
+            else if (b === totalBlocks - 1) chapterTitles.push('Finale');
+            else chapterTitles.push(firstWords || ('Chapitre ' + (b + 1)));
+            statusEl.textContent = 'Bloc ' + (b + 1) + '/' + totalBlocks + ' préparé (scènes ' + (b * ASSEMBLE_BLOCK_SIZE + 1) + '-' + (b * ASSEMBLE_BLOCK_SIZE + slice.length) + ')…';
+            progressFill.style.width = (40 + Math.round((b + 1) / totalBlocks * 15)) + '%';
+            await sleep(30);
+        }
+
+        statusEl.textContent = 'Envoi au VPS — assemblage FFmpeg…';
         const response = await fetch(SERVER_URL + '/api/assemble', {
             method: 'POST',
             headers: {
@@ -2345,7 +3083,10 @@ async function assembleFinalFilm() {
                 musicVolume: state.musicVolume,
                 addTitleCard: state.addTitleCard,
                 crossfadeDuration: state.crossfadeDuration,
-                titleText: (state.story || '').slice(0, 80).replace(/[.!?].*$/, '') || 'Une histoire animée'
+                titleText: (state.story || '').slice(0, 80).replace(/[.!?].*$/, '') || 'Une histoire animée',
+                blockSize: ASSEMBLE_BLOCK_SIZE,
+                stretchShortClips: true,
+                chapterTitles: chapterTitles
             })
         });
 
@@ -2353,6 +3094,16 @@ async function assembleFinalFilm() {
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.success || !result.url) {
             throw new Error(result.error || ('HTTP ' + response.status));
+        }
+        if (result.chapters && result.chapters.length) {
+            log('Chapitrage YouTube :');
+            result.chapters.forEach(ch => log('  ' + formatYoutubeChapter(ch.start) + ' ' + ch.title));
+            try {
+                const tagsEl = document.getElementById('meta-description');
+                if (tagsEl && tagsEl.value.indexOf('CHAPITRES') < 0) {
+                    tagsEl.value += '\n\nCHAPITRES :\n' + result.chapters.map(ch => formatYoutubeChapter(ch.start) + ' ' + ch.title).join('\n');
+                }
+            } catch (e) { /* ignore */ }
         }
 
         const remoteUrl = SERVER_URL + result.url;
@@ -2400,6 +3151,10 @@ async function assembleFinalFilm() {
             + ' — conservé dans le navigateur';
         log('✅ Film local prêt (' + sizeMo + ') — téléchargement disponible');
         showToast('Film monté ✓ ' + sizeMo, 'success', 5000);
+        await saveFilmToIndexedDB('completed');
+        state.currentFilmId = null;
+        document.getElementById('film-dashboard')?.classList.remove('visible');
+        await showResumeBannerIfNeeded();
         try { finalFilmEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ }
 
         // Téléchargement auto (activé par défaut) pour ne pas perdre le montage
@@ -2678,6 +3433,47 @@ function displayYouTubeMetadata() {
 // ══════════════════════════════════════════════════════════════════
 // WORKFLOW PRINCIPAL
 // ══════════════════════════════════════════════════════════════════
+async function finishGenerationCycle() {
+    const doneScenes = state.scenes.filter(s => s.status === 'done').length;
+    const failedScenes = state.scenes.filter(s => s.status === 'failed').length;
+
+    state.isRunning = false;
+    state.paused = false;
+    document.getElementById('stop-btn').classList.remove('visible');
+    updateGenerateBtn();
+    updateFilmDashboard();
+
+    if (state.stopRequested) {
+        await saveFilmToIndexedDB('in_progress');
+        showToast('Génération mise en pause — vous pourrez reprendre plus tard', 'warn', 4500);
+        await showResumeBannerIfNeeded();
+        state.stopRequested = false;
+        return;
+    }
+
+    const summary = doneScenes + '/' + state.scenes.length + ' scènes réussies' +
+        (failedScenes > 0 ? ' (' + failedScenes + ' échec(s))' : '');
+    setStatus(summary);
+    await sleep(1500);
+    setStatus(null);
+
+    if (doneScenes > 0) {
+        document.getElementById('assemble-btn').classList.add('visible');
+        displayYouTubeMetadata();
+        showToast(doneScenes + ' scène' + (doneScenes > 1 ? 's' : '') + ' prête' + (doneScenes > 1 ? 's' : ''), 'success');
+        if (state.autoAssemble) {
+            log('═══ ASSEMBLAGE AUTOMATIQUE ACTIVÉ ═══');
+            await sleep(1000);
+            await assembleFinalFilm();
+        } else {
+            await saveFilmToIndexedDB('in_progress');
+        }
+    } else {
+        showToast('Aucune scène générée', 'error');
+        await saveFilmToIndexedDB('abandoned');
+    }
+}
+
 async function startGeneration() {
     if (state.isRunning || !state.storySegments.length) return;
     if (!getAgnesKey()) {
@@ -2689,9 +3485,14 @@ async function startGeneration() {
     if (canonicalEl && canonicalEl.value.trim()) {
         state.canonicalCharacter = canonicalEl.value.trim();
     }
+    const envEl = document.getElementById('canonical-environment');
+    if (envEl && envEl.value.trim()) {
+        state.canonicalEnvironment = envEl.value.trim();
+    }
 
     state.isRunning = true;
     state.stopRequested = false;
+    state.paused = false;
     state.completed = 0;
     state.failed = 0;
     state.scenes = [];
@@ -2699,7 +3500,10 @@ async function startGeneration() {
     state.finalFilmUrl = null;
     state.lastPollinationsCall = 0;
     state.seed = parseInt(document.getElementById('seed-input').value, 10) || 42;
+    state.durationFrames = parseInt(document.getElementById('duration-select').value, 10) || AGNES_TARGET_FRAMES;
     createIntervalMs = CREATE_INTERVAL_MIN;
+    state.currentFilmId = 'film_' + Date.now();
+    state.filmStartedAt = Date.now();
 
     document.getElementById('gallery-grid').innerHTML = '';
     document.getElementById('gallery').style.display = 'none';
@@ -2709,54 +3513,130 @@ async function startGeneration() {
     document.getElementById('stop-btn').classList.add('visible');
     document.getElementById('generate-btn').disabled = true;
     document.getElementById('meta-panel').style.display = 'none';
+    document.getElementById('resume-banner')?.classList.remove('visible');
 
     await ensureWakeLockActive();
-    log('═══ DÉMARRAGE ═══');
+    log('═══ DÉMARRAGE LONG-MÉTRAGE ═══');
+    log('Cible : ' + state.targetDurationMinutes + ' min · ' + state.storySegments.length + ' scènes · ' + state.durationFrames + ' frames/clip');
     log('Personnage : ' + state.canonicalCharacter.slice(0, 100) + '…');
-    log('Intervalle Agnes : ' + (createIntervalMs / 1000) + 's');
+    log('Film ID : ' + state.currentFilmId);
+    await persistCheckpoint();
 
     try {
-        await generateAllScenes();
+        await generateAllScenes({ resume: false });
     } catch (e) {
         log('Erreur : ' + e.message);
     }
+    await finishGenerationCycle();
+}
 
-    const doneScenes = state.scenes.filter(s => s.status === 'done').length;
-    const failedScenes = state.scenes.filter(s => s.status === 'failed').length;
-
-    state.isRunning = false;
-    state.stopRequested = false;
-    document.getElementById('stop-btn').classList.remove('visible');
-    updateGenerateBtn();
-
-    const summary = doneScenes + '/' + state.scenes.length + ' scènes réussies' +
-        (failedScenes > 0 ? ' (' + failedScenes + ' échec(s))' : '');
-    setStatus(summary);
-    await sleep(2000);
-    setStatus(null);
-
-    if (doneScenes > 0) {
-        document.getElementById('assemble-btn').classList.add('visible');
-        displayYouTubeMetadata();
-        showToast(doneScenes + ' scène' + (doneScenes > 1 ? 's' : '') + ' prête' + (doneScenes > 1 ? 's' : ''), 'success');
-
-        // ═══════════════════════════════════════════════════════════
-        // ✨ ASSEMBLAGE AUTOMATIQUE
-        // ═══════════════════════════════════════════════════════════
-        if (state.autoAssemble && !state.stopRequested) {
-            log('═══ ASSEMBLAGE AUTOMATIQUE ACTIVÉ ═══');
-            await sleep(1500);
-            await assembleFinalFilm();
-        }
-    } else {
-        showToast('Aucune scène générée', 'error');
+async function resumeFilmFromIndexedDB(film) {
+    if (!film || state.isRunning) return;
+    if (!getAgnesKey()) {
+        showToast('Ajoutez votre clé Agnes pour reprendre', 'error');
+        return;
     }
+
+    state.currentFilmId = film.id;
+    state.filmStartedAt = film.createdAt || Date.now();
+    state.story = film.story || '';
+    state.targetDurationMinutes = film.targetDurationMinutes || 10;
+    state.canonicalCharacter = film.canonicalCharacter || '';
+    state.canonicalEnvironment = film.canonicalEnvironment || '';
+    state.selectedTheme = film.theme || state.selectedTheme;
+    state.seed = film.seed || 42;
+    state.durationFrames = film.durationFrames || AGNES_TARGET_FRAMES;
+    state.voiceSignature = film.voiceSignature || DEFAULT_VOICE_SIGNATURE;
+    state.scenes = (film.scenes || []).map(s => Object.assign({}, s, {
+        imageDataUri: null, // non persisté
+        retries: s.retries || 0
+    }));
+    state.storySegments = state.scenes.map(s => s.text);
+    state.completed = state.scenes.filter(s => s.status === 'done').length;
+    state.failed = state.scenes.filter(s => s.status === 'failed').length;
+    state.paused = false;
+    state.stopRequested = false;
+    state.isRunning = true;
+
+    document.getElementById('main-prompt').value = state.story;
+    const charEl = document.getElementById('canonical-character');
+    if (charEl) charEl.value = state.canonicalCharacter;
+    const envEl = document.getElementById('canonical-environment');
+    if (envEl) envEl.value = state.canonicalEnvironment;
+    const seedEl = document.getElementById('seed-input');
+    if (seedEl) seedEl.value = state.seed;
+    const durEl = document.getElementById('duration-select');
+    if (durEl) durEl.value = String(state.durationFrames);
+    document.querySelectorAll('input[name="target-duration"]').forEach(r => {
+        r.checked = String(state.targetDurationMinutes) === r.value;
+        r.closest('label')?.classList.toggle('selected', r.checked);
+    });
+    document.getElementById('resume-banner')?.classList.remove('visible');
+    document.getElementById('stop-btn').classList.add('visible');
+    document.getElementById('generate-btn').disabled = true;
+    renderStyles();
+    updateStoryPreview();
+    renderQueue();
+    updateFilmDashboard();
+
+    // Restaurer galerie des vidéos déjà faites
+    const grid = document.getElementById('gallery-grid');
+    if (grid) {
+        grid.innerHTML = '';
+        state.scenes.filter(s => s.status === 'done' && s.videoUrl).forEach(s => addToGallery(s.videoUrl, s.index + 1));
+    }
+
+    await ensureWakeLockActive();
+    log('═══ REPRISE FILM ' + film.id + ' ═══');
+    log('Progression : ' + state.completed + '/' + state.scenes.length + ' scènes');
+    try {
+        await generateAllScenes({ resume: true });
+    } catch (e) {
+        log('Erreur reprise : ' + e.message);
+    }
+    await finishGenerationCycle();
 }
 
 function stopGeneration() {
     if (!state.isRunning && !state.isAssembling) return;
     state.stopRequested = true;
-    setStatus('Arrêt en cours…');
+    state.paused = false;
+    setStatus('Arrêt / sauvegarde en cours…');
+}
+
+function togglePauseGeneration() {
+    if (!state.isRunning) return;
+    state.paused = !state.paused;
+    updateFilmDashboard();
+    showToast(state.paused ? 'Pause activée' : 'Reprise', state.paused ? 'warn' : 'success');
+}
+
+async function pauseForLater() {
+    if (!state.isRunning) {
+        await showResumeBannerIfNeeded();
+        return;
+    }
+    state.stopRequested = true;
+    state.paused = false;
+    setStatus('Sauvegarde pour reprise ultérieure…');
+    showToast('Vous pourrez reprendre ce film plus tard', 'warn', 4000);
+}
+
+async function abandonCurrentFilm() {
+    if (!confirm('Abandonner ce film en cours ? Cette action est définitive.')) return;
+    state.stopRequested = true;
+    state.paused = false;
+    if (state.currentFilmId) {
+        await saveFilmToIndexedDB('abandoned');
+        await deleteFilmFromIndexedDB(state.currentFilmId);
+    }
+    state.currentFilmId = null;
+    state.isRunning = false;
+    document.getElementById('film-dashboard')?.classList.remove('visible');
+    document.getElementById('stop-btn').classList.remove('visible');
+    updateGenerateBtn();
+    await showResumeBannerIfNeeded();
+    showToast('Film abandonné', 'warn');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2888,6 +3768,46 @@ async function runDiagnostic() {
     document.getElementById('generate-btn')?.addEventListener('click', startGeneration);
     document.getElementById('wake-toggle-btn')?.addEventListener('click', toggleWakeLock);
 
+    // Long-métrage : durée cible, enrichissement, reprise IndexedDB
+    document.querySelectorAll('input[name="target-duration"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            state.targetDurationMinutes = parseInt(radio.value, 10) || 10;
+            document.querySelectorAll('#duration-target label').forEach(l => l.classList.remove('selected'));
+            radio.closest('label')?.classList.add('selected');
+            refreshSegmentWordTargets();
+            updateStoryPreview();
+        });
+    });
+    document.getElementById('enrich-btn')?.addEventListener('click', enrichStoryWithAI);
+    document.getElementById('enrich-cancel-btn')?.addEventListener('click', cancelEnrichmentRestore);
+    document.getElementById('enrich-modal-cancel')?.addEventListener('click', () => {
+        if (state.enrichAbort) state.enrichAbort.abort();
+    });
+    document.getElementById('mistral-save-btn')?.addEventListener('click', saveMistralKey);
+    try {
+        const mk = getMistralKey();
+        const mi = document.getElementById('mistral-key-input');
+        if (mi && mk) mi.value = mk;
+    } catch (e) { /* ignore */ }
+
+    document.getElementById('resume-continue-btn')?.addEventListener('click', async () => {
+        if (state.resumeCandidate) await resumeFilmFromIndexedDB(state.resumeCandidate);
+    });
+    document.getElementById('resume-delete-btn')?.addEventListener('click', async () => {
+        if (!state.resumeCandidate) return;
+        if (!confirm('Supprimer ce film sauvegardé ?')) return;
+        await deleteFilmFromIndexedDB(state.resumeCandidate.id);
+        state.resumeCandidate = null;
+        await showResumeBannerIfNeeded();
+        showToast('Film supprimé', 'warn');
+    });
+    document.getElementById('resume-close-btn')?.addEventListener('click', () => {
+        document.getElementById('resume-banner')?.classList.remove('visible');
+    });
+    document.getElementById('dash-pause-btn')?.addEventListener('click', togglePauseGeneration);
+    document.getElementById('dash-later-btn')?.addEventListener('click', pauseForLater);
+    document.getElementById('dash-abandon-btn')?.addEventListener('click', abandonCurrentFilm);
+
     try {
         wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
         const savedChar = localStorage.getItem(CANONICAL_CHAR_STORAGE);
@@ -2918,8 +3838,19 @@ async function runDiagnostic() {
     renderStoryPresets();
     renderStyles();
     renderQueue();
+    refreshSegmentWordTargets();
     updateStoryPreview();
-    log('Kids Story Studio prêt — montage automatique activé ✨');
+
+    openKidsStoryDB().then(() => {
+        showResumeBannerIfNeeded();
+        log('Kids Story Studio prêt — long-métrage + IndexedDB ✨');
+    }).catch(() => {
+        state.idbAvailable = false;
+        const el = document.getElementById('dash-save-status');
+        if (el) el.textContent = '⚠️ IndexedDB indisponible — mode sans persistance';
+        showToast('IndexedDB indisponible : pas de reprise auto', 'warn', 5000);
+        log('Kids Story Studio prêt — mode dégradé sans IndexedDB');
+    });
 })();
 </script>
 
