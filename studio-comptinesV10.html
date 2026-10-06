@@ -1208,6 +1208,18 @@ function updateStoryPreview() {
     renderSegmentsPreview(validation.meta, validation.warnings);
     updateCanonicalCharacter();
     updateGenerateBtn();
+
+    const shortCount = validation.meta.filter(m => m.short).length;
+    const hint = document.querySelector('.prompt-main-hint');
+    if (hint) {
+        if (shortCount > 0) {
+            hint.textContent = '⚠ ' + shortCount + ' scène(s) < ' + MIN_SEGMENT_WORDS + ' mots — allonge le texte ou laisse la fusion auto. Cible : 80–180 mots / ~10s Agnes.';
+        } else if (validation.segments.length > 0) {
+            hint.textContent = '✅ ' + validation.segments.length + ' scène(s) prêtes (80–180 mots) · personnage + décor verrouillés · durée Agnes ~10s.';
+        } else {
+            hint.textContent = '💡 Segments 80–180 mots pour remplir ~10s Agnes. Personnage + décor verrouillés automatiquement.';
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1294,38 +1306,35 @@ function getLockedEnvironmentPrompt() {
     return state.canonicalEnvironment || buildCanonicalEnvironment(state.story || '');
 }
 
+/** Version courte pour Pollinations (limite URL) — garde l'essentiel des locks */
+function compactLock(text, maxLen) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (t.length <= maxLen) return t;
+    return t.slice(0, maxLen - 1).replace(/\s+\S*$/, '') + '…';
+}
+
 function buildImagePrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const theme = JOYFUL_THEMES.find(t => t.id === state.selectedTheme) || JOYFUL_THEMES[0];
-    const charPrompt = getLockedCharacterPrompt();
-    const envPrompt = getLockedEnvironmentPrompt();
+    const charPrompt = compactLock(getLockedCharacterPrompt(), 280);
+    const envPrompt = compactLock(getLockedEnvironmentPrompt(), 220);
+    const action = compactLock(sceneText, 220);
 
-    const bloc1 = 'professional children\'s book illustration, masterpiece quality, extremely detailed, award-winning 3D animated film still, same production design continuity';
-    const bloc2 = 'CHARACTER LOCK (scene ' + (sceneIndex + 1) + '/' + totalScenes + ' — MUST match every other scene exactly, same face, colors, proportions, accessories): ' + charPrompt;
-    const bloc3 = 'ENVIRONMENT LOCK (same world continuity, do not redesign the location): ' + envPrompt;
-    const bloc4 = 'SCENE ACTION (keep character + environment locks): ' + sceneText;
-    const bloc5 = 'STYLE LOCK: ' + theme.prompt;
-
-    // Angles variés mais éclairage volontairement stable pour la continuité décor
-    const cameraAngles = [
-        'medium shot, character centered, cinematic composition',
-        'wide establishing shot, same environment visible behind character',
-        'close-up portrait, character face detailed, background still recognizable',
-        'three-quarter view, character slightly turned, same location cues',
-        'friendly low angle, epic yet cute, same setting',
-        'gentle high angle, character cute and small, same setting'
+    // Ordre critique: locks d'abord (tronqués en dernier par l'URL)
+    const parts = [
+        'kids film still, Pixar 3D, soft colors, vertical 9:16',
+        'CHARACTER LOCK REPEAT: ' + charPrompt,
+        'ENVIRONMENT LOCK REPEAT: ' + envPrompt,
+        'SCENE: ' + action,
+        'STYLE: ' + compactLock(theme.prompt, 140),
+        'same character face/colors/proportions as every scene, same location continuity, warm golden daylight',
+        'no text, no watermark, child-safe. Avoid: ' + compactLock(NEGATIVE_PROMPT, 120)
     ];
-    const camIndex = sceneIndex % cameraAngles.length;
-    const bloc6 = 'CAMERA: ' + cameraAngles[camIndex] + '. LIGHTING LOCK: warm consistent golden daylight, soft shadows, same time of day as all scenes, magical but stable glow';
-    const bloc7 = 'vertical portrait 9:16, high detail, smooth render, vibrant soft colors, child-friendly, no text, no watermark, no scary elements, no realistic humans, no character redesign. Avoid: ' + NEGATIVE_PROMPT;
-
-    const parts = [bloc1, bloc2, bloc3, bloc4, bloc5, bloc6, bloc7];
 
     if (previousContext) {
-        parts.push('VISUAL CONTINUITY from previous scene (same character identity + same environment grammar): ' + previousContext);
+        parts.push('continuity from previous: ' + compactLock(previousContext, 100));
     }
-    if (sceneIndex > 0) {
-        parts.push('This is scene ' + (sceneIndex + 1) + ' of one continuous short film — keep art direction locked.');
-    }
+    parts.push('REMINDER CHARACTER LOCK: ' + compactLock(charPrompt, 120));
+    parts.push('REMINDER ENVIRONMENT LOCK: ' + compactLock(envPrompt, 100));
 
     return parts.join('. ');
 }
@@ -1335,25 +1344,35 @@ function buildVideoPrompt(sceneText, sceneIndex, totalScenes, previousContext) {
     const charPrompt = getLockedCharacterPrompt();
     const envPrompt = getLockedEnvironmentPrompt();
     const wordCount = countWords(sceneText);
-    const targetSeconds = 10;
+    const targetSeconds = Math.max(8, Math.round((state.durationFrames || 241) / FRAME_RATE));
+    const shortScene = wordCount < MIN_SEGMENT_WORDS;
 
     const parts = [];
-    parts.push('DURATION ENFORCEMENT (MANDATORY): produce a FULL ' + targetSeconds + '-second clip (not 3s, not 5s). Use the entire duration. num_frames must be fully utilized. Do not end early.');
-    parts.push('AUDIO COMPLETENESS (MANDATORY): French voiceover must speak the COMPLETE scene text naturally to the last word. NEVER cut mid-word or mid-sentence. Pace the narration to fill ~' + targetSeconds + 's (' + wordCount + ' words). If needed, slow gently with warm pauses — never truncate.');
+    parts.push('DURATION ENFORCEMENT (MANDATORY): produce a FULL ' + targetSeconds + '-second clip (not 3s, not 5s). Use every frame until the end. Do not end early.');
+    parts.push('AUDIO COMPLETENESS (MANDATORY): French voiceover must speak the COMPLETE scene text naturally to the LAST word. NEVER cut mid-word or mid-sentence. Pace narration to fill ~' + targetSeconds + 's (' + wordCount + ' words).');
+    if (shortScene) {
+        parts.push('PACING BOOST: scene text is short — speak slowly, add gentle warm pauses between sentences, stretch timing to fill the full ' + targetSeconds + 's without inventing new plot.');
+    }
     parts.push('VOICE LOCK (STRICT — identical every scene): warm, soft, gentle, friendly, childlike French voice. Same pitch, same pace, same tone across the whole film.');
     parts.push('Animate this exact image as the starting frame. Keep identity locked for the whole shot.');
+    // Character lock repeated twice (début)
     parts.push('CHARACTER LOCK: ' + charPrompt);
+    parts.push('CHARACTER LOCK REPEAT: ' + charPrompt);
     parts.push('ENVIRONMENT LOCK: ' + envPrompt);
-    parts.push('SCENE NARRATION TEXT (say ALL of this in French): ' + sceneText);
+    parts.push('ENVIRONMENT LOCK REPEAT: ' + envPrompt);
+    parts.push('SCENE NARRATION TEXT (say ALL of this in French, complete): ' + sceneText);
     parts.push('STYLE LOCK: ' + theme.prompt);
-    parts.push('Motion: simple rhythmic joyful animation — breathing, blinking, subtle sway, gentle gestures timed across the full ' + targetSeconds + 's.');
+    parts.push('Motion across full duration: breathing, blinking, subtle sway, gentle gestures timed over ' + targetSeconds + 's.');
     if (previousContext) {
-        parts.push('VISUAL CONTINUITY with previous scene: ' + previousContext);
+        parts.push('VISUAL CONTINUITY with previous scene (same character + same world): ' + previousContext);
     }
     parts.push('Scene ' + (sceneIndex + 1) + '/' + totalScenes + ' of one continuous story — same character, same world.');
     parts.push('Bright saturated but soft colors, high quality 3D render, smooth 24fps, Pixar style, vertical 9:16.');
     parts.push('Safe for children, COPPA compliant, no text, no watermarks, no scary elements.');
-    parts.push('ENDING: final 0.8–1.0 second smooth fade out after the LAST spoken word — peaceful ending, no abrupt cut, no frozen stump.');
+    parts.push('ENDING: after the LAST spoken word, hold 0.8–1.0s then smooth fade out — no abrupt cut.');
+    // Character/env lock repeated at the end (anti-oubli modèle)
+    parts.push('FINAL CHARACTER LOCK: ' + compactLock(charPrompt, 240));
+    parts.push('FINAL ENVIRONMENT LOCK: ' + compactLock(envPrompt, 200));
     parts.push('NEGATIVE PROMPT: truncated audio, early cutoff, short clip under 8 seconds, character redesign, environment redesign, ' + NEGATIVE_PROMPT);
     return parts.join(' ');
 }
@@ -1484,18 +1503,19 @@ async function generateImageWithPollinations(prompt, retries = 4) {
     }
     state.lastPollinationsCall = Date.now();
 
-    // Prompt plus court = moins de 402 / timeouts
-    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1200));
+    // Prompt compact + locks en tête (évite de perdre le personnage/décor si tronqué)
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1600));
     let lastError = null;
 
     for (let attempt = 0; attempt < retries; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
         const model = POLLINATIONS_FREE_MODELS[attempt % POLLINATIONS_FREE_MODELS.length];
         const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
-        // Pas d'enhance=true (payant) ; nologo optionnel
+        // Seed stable entre scènes (même identité visuelle) ; +attempt seulement en retry
+        const seed = state.seed + attempt;
         const url = POLLINATIONS_BASE + encodedPrompt +
             '?width=720&height=1280&model=' + model +
-            '&nologo=true&seed=' + (state.seed + attempt) +
+            '&nologo=true&seed=' + seed +
             '&_=' + cacheBuster;
 
         try {
@@ -1659,11 +1679,13 @@ async function apiFetch(url, options = {}, label = 'API') {
 }
 
 async function createVideoTask(imageDataUri, prompt) {
+    // 241 frames @ 24fps ≈ 10s (durée recommandée Kids Story)
+    const frames = state.durationFrames || 241;
     const body = {
         model: MODEL_VIDEO,
         prompt: prompt,
         image: imageDataUri,
-        num_frames: state.durationFrames,
+        num_frames: frames,
         frame_rate: FRAME_RATE
     };
     const res = await apiFetch(AGNES_API_BASE + '/videos', {
@@ -1847,6 +1869,36 @@ async function generateAllScenes() {
     }
 }
 
+async function probeVideoDuration(videoUrl) {
+    return new Promise((resolve) => {
+        try {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.muted = true;
+            video.playsInline = true;
+            const cleanup = () => {
+                video.removeAttribute('src');
+                try { video.load(); } catch (e) { /* ignore */ }
+            };
+            const timer = setTimeout(() => { cleanup(); resolve(null); }, 12000);
+            video.onloadedmetadata = () => {
+                clearTimeout(timer);
+                const d = video.duration;
+                cleanup();
+                resolve(Number.isFinite(d) ? d : null);
+            };
+            video.onerror = () => {
+                clearTimeout(timer);
+                cleanup();
+                resolve(null);
+            };
+            video.src = videoUrl;
+        } catch (e) {
+            resolve(null);
+        }
+    });
+}
+
 async function pollSceneVideo(scene) {
     try {
         const videoUrl = await pollVideo(scene.videoId, (prog) => {
@@ -1857,6 +1909,19 @@ async function pollSceneVideo(scene) {
         scene.videoUrl = videoUrl;
         scene.progress = 'Terminé';
         state.completed++;
+
+        const duration = await probeVideoDuration(videoUrl);
+        scene.durationSec = duration;
+        const targetSec = Math.max(8, Math.round((state.durationFrames || 241) / FRAME_RATE));
+        if (duration != null && duration < targetSec * 0.75) {
+            log('⚠ [Scène ' + (scene.index + 1) + '] clip court : ' + duration.toFixed(1) + 's (cible ~' + targetSec + 's)');
+            scene.progress = 'Court ' + duration.toFixed(1) + 's';
+            showToast('Scène ' + (scene.index + 1) + ' trop courte (' + duration.toFixed(1) + 's)', 'warn', 4000);
+        } else if (duration != null) {
+            log('[Scène ' + (scene.index + 1) + '] Vidéo ✓ ' + duration.toFixed(1) + 's');
+            scene.progress = duration.toFixed(1) + 's';
+        }
+
         renderQueue();
         updateGenerateBtn();
         addToGallery(videoUrl, scene.index + 1);
