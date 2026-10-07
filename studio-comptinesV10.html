@@ -807,8 +807,9 @@ const MODEL_VIDEO = 'agnes-video-v2.0';
 const FRAME_RATE = 24;
 
 let createIntervalMs = 90000;
-const CREATE_INTERVAL_MIN = 90000;
+const CREATE_INTERVAL_MIN = 75000; // 75s — suffisant si le poll précédent a déjà consommé le cooldown
 const CREATE_INTERVAL_MAX = 150000;
+let lastAgnesCreateAt = 0;
 
 const POLL_INTERVAL_SEC = 10;
 const MAX_POLL_ATTEMPTS = 100;
@@ -2091,14 +2092,45 @@ function classifyError(error) {
 // ══════════════════════════════════════════════════════════════════
 // POLLINATIONS
 // ══════════════════════════════════════════════════════════════════
-// Modèles gratuits uniquement — gptimage/qwen/grok + enhance=true provoquent souvent HTTP 402
-const POLLINATIONS_FREE_MODELS = ['flux', 'turbo'];
+// Ordre : turbo d'abord (gratuit fiable). flux souvent en 402 → blacklist session.
+const POLLINATIONS_FREE_MODELS = ['turbo', 'flux'];
+const pollinationsBlockedModels = {}; // model -> timestamp blacklist
+let pollinationsPreferredModel = 'turbo';
+
+function getPollinationsModels() {
+    const now = Date.now();
+    const available = POLLINATIONS_FREE_MODELS.filter(m => {
+        const until = pollinationsBlockedModels[m] || 0;
+        return until < now;
+    });
+    if (!available.length) return POLLINATIONS_FREE_MODELS.slice();
+    // Prefer last working model first
+    const preferred = pollinationsPreferredModel;
+    if (preferred && available.indexOf(preferred) >= 0) {
+        return [preferred].concat(available.filter(m => m !== preferred));
+    }
+    return available;
+}
+
+function blacklistPollinationsModel(model, minutes) {
+    const mins = minutes || 120;
+    pollinationsBlockedModels[model] = Date.now() + mins * 60 * 1000;
+    log('⛔ Pollinations [' + model + '] ignoré pour ' + mins + ' min (quota/402)');
+    if (pollinationsPreferredModel === model) {
+        const next = POLLINATIONS_FREE_MODELS.find(m => m !== model);
+        if (next) pollinationsPreferredModel = next;
+    }
+}
 
 async function generateImageWithPollinations(prompt, retries = 4) {
     const now = Date.now();
     const elapsed = now - state.lastPollinationsCall;
-    if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
-        const wait = POLLINATIONS_MIN_INTERVAL_MS - elapsed;
+    // Intervalle plus court si on est déjà sur turbo (moins de 402 inutiles)
+    const minInterval = pollinationsPreferredModel === 'turbo'
+        ? Math.min(POLLINATIONS_MIN_INTERVAL_MS, 18000)
+        : POLLINATIONS_MIN_INTERVAL_MS;
+    if (elapsed < minInterval && state.lastPollinationsCall > 0) {
+        const wait = minInterval - elapsed;
         log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's');
         setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
         await sleep(wait);
@@ -2108,12 +2140,13 @@ async function generateImageWithPollinations(prompt, retries = 4) {
     // Prompt compact + locks en tête (évite de perdre le personnage/décor si tronqué)
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 1600));
     let lastError = null;
+    const models = getPollinationsModels();
 
     for (let attempt = 0; attempt < retries; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
-        const model = POLLINATIONS_FREE_MODELS[attempt % POLLINATIONS_FREE_MODELS.length];
+        // Tourne sur les modèles encore disponibles (skip flux blacklisté)
+        const model = models[attempt % models.length];
         const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
-        // Seed stable entre scènes (même identité visuelle) ; +attempt seulement en retry
         const seed = state.seed + attempt;
         const url = POLLINATIONS_BASE + encodedPrompt +
             '?width=720&height=1280&model=' + model +
@@ -2130,18 +2163,27 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             clearTimeout(timeoutId);
 
             if (res.status === 401 || res.status === 402) {
-                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota/payant) — pause 45s');
-                await sleep(45000);
-                state.lastPollinationsCall = Date.now();
+                // Ne PAS attendre 45s : passer immédiatement au modèle suivant
+                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota) → modèle suivant sans pause');
+                blacklistPollinationsModel(model, 180);
+                // Retirer aussi de la liste locale pour cette boucle
+                const idx = models.indexOf(model);
+                if (idx >= 0) models.splice(idx, 1);
+                if (!models.length) {
+                    log('Tous les modèles Pollinations en 402 — fallback local');
+                    break;
+                }
                 continue;
             }
             if (res.status === 429) {
-                await sleep([30, 50, 70][Math.min(attempt, 2)] * 1000);
+                const wait429 = [20, 35, 50][Math.min(attempt, 2)] * 1000;
+                log('Pollinations [' + model + '] 429 — pause ' + (wait429 / 1000) + 's');
+                await sleep(wait429);
                 state.lastPollinationsCall = Date.now();
                 continue;
             }
             if (res.status >= 500) {
-                await sleep([8, 15, 25][Math.min(attempt, 2)] * 1000);
+                await sleep([5, 10, 15][Math.min(attempt, 2)] * 1000);
                 continue;
             }
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2149,6 +2191,7 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             const blob = await res.blob();
             if (!blob.type.startsWith('image/')) throw new Error('Réponse non-image');
 
+            pollinationsPreferredModel = model;
             log('✅ Image générée avec ' + model);
             return await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -2160,7 +2203,7 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             if (e.name === 'AbortError') log('Pollinations [' + model + '] timeout');
             else { lastError = e; log('Pollinations [' + model + '] échec : ' + e.message); }
             if (attempt < retries - 1) {
-                await sleep(8000);
+                await sleep(4000);
                 state.lastPollinationsCall = Date.now();
             }
         }
@@ -2401,11 +2444,15 @@ async function generateAllScenes(options) {
     log('Personnage lock : ' + (state.canonicalCharacter || '').slice(0, 120) + '…');
     log('Décor lock : ' + (state.canonicalEnvironment || '').slice(0, 120) + '…');
     log('Voice lock : ' + (state.voiceSignature || '').slice(0, 80) + '…');
+    const estImgMin = Math.ceil(state.scenes.length * 0.4);
+    const estVidMin = Math.ceil(state.scenes.length * 1.5);
     log('═══ ÉTAPE 1 : Images Pollinations (' + state.scenes.length + ' scènes) ═══');
-    setStatus('Étape 1/2 : génération des images…');
+    log('⏱ Estimation : images ~' + estImgMin + ' min · vidéos Agnes ~' + estVidMin + ' min (API séquentielle)');
+    setStatus('Étape 1/2 : images 0/' + state.scenes.length + '…');
     await persistCheckpoint();
 
     let previousContext = '';
+    let imagesDone = state.scenes.filter(s => s.imageDataUri).length;
     for (let i = 0; i < state.scenes.length; i++) {
         while (state.paused && !state.stopRequested) {
             setStatus('⏸ En pause — cliquez Reprendre');
@@ -2428,7 +2475,7 @@ async function generateAllScenes(options) {
         updateFilmDashboard();
 
         try {
-            setStatus('Image ' + (i + 1) + '/' + state.scenes.length + ' (Pollinations)…');
+            setStatus('Étape 1/2 — Image ' + (i + 1) + '/' + state.scenes.length + ' (Pollinations turbo)…');
             const prompt = buildImagePrompt(scene.text, i, state.scenes.length, previousContext);
             const imageDataUri = await generateImageWithPollinations(prompt, 5);
             scene.imageDataUri = imageDataUri;
@@ -2436,7 +2483,8 @@ async function generateAllScenes(options) {
             scene.status = 'image-done';
             scene.error = null;
             previousContext = scene.text.slice(0, 180);
-            log('[Scène ' + (i + 1) + '] Image ✓ (' + countWords(scene.text) + ' mots)');
+            imagesDone++;
+            log('[Scène ' + (i + 1) + '] Image ✓ (' + countWords(scene.text) + ' mots) · ' + imagesDone + '/' + state.scenes.length);
             await persistCheckpoint();
         } catch (e) {
             log('[Scène ' + (i + 1) + '] Image échouée : ' + e.message);
@@ -2500,11 +2548,29 @@ async function generateAllScenes(options) {
                 await persistCheckpoint();
             }
 
+            // Respecte le cooldown Agnes uniquement sur le temps restant
+            if (lastAgnesCreateAt > 0) {
+                const since = Date.now() - lastAgnesCreateAt;
+                const leftover = createIntervalMs - since;
+                if (leftover > 1000) {
+                    const waitSec = Math.ceil(leftover / 1000);
+                    log('Cooldown Agnes : ' + waitSec + 's restantes');
+                    for (let r = waitSec; r > 0; r--) {
+                        if (state.stopRequested) break;
+                        while (state.paused && !state.stopRequested) await sleep(500);
+                        setStatus('Pause avant vidéo ' + (i + 1) + '/' + state.scenes.length + ' — ' + r + 's');
+                        await sleep(1000);
+                    }
+                }
+            }
+            if (state.stopRequested) break;
+
             scene.status = 'creating';
             renderQueue();
             updateFilmDashboard();
             setStatus('Vidéo ' + (i + 1) + '/' + state.scenes.length + ' (Agnes ~12s)…');
             const prompt = buildVideoPrompt(scene.text, scene.index, state.scenes.length, previousVideoContext);
+            lastAgnesCreateAt = Date.now();
             const videoId = await createVideoTask(scene.imageDataUri, prompt);
             scene.videoId = videoId;
             scene.startTime = Date.now();
@@ -2535,17 +2601,6 @@ async function generateAllScenes(options) {
             renderQueue();
         }
 
-        // Pause intervalle Agnes avant prochaine création
-        const remaining = state.scenes.slice(i + 1).some(s => s.status !== 'done' && (s.imageDataUri || s.status === 'image-done' || s.status === 'pending'));
-        if (remaining && !state.stopRequested) {
-            const waitSec = Math.ceil(createIntervalMs / 1000);
-            for (let r = waitSec; r > 0; r--) {
-                if (state.stopRequested) break;
-                while (state.paused && !state.stopRequested) await sleep(500);
-                setStatus('Pause avant scène suivante — ' + r + 's');
-                await sleep(1000);
-            }
-        }
         updateFilmDashboard();
     }
     await persistCheckpoint();
@@ -3502,6 +3557,7 @@ async function startGeneration() {
     state.seed = parseInt(document.getElementById('seed-input').value, 10) || 42;
     state.durationFrames = parseInt(document.getElementById('duration-select').value, 10) || AGNES_TARGET_FRAMES;
     createIntervalMs = CREATE_INTERVAL_MIN;
+    lastAgnesCreateAt = 0;
     state.currentFilmId = 'film_' + Date.now();
     state.filmStartedAt = Date.now();
 
