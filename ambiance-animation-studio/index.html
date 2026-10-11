@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Ambiance Animation Studio — Boucles apaisantes 10s</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230c1418'/%3E%3Ccircle cx='32' cy='36' r='12' fill='%23e8a85c'/%3E%3Cpath d='M20 28c4-8 20-8 24 0' stroke='%23a8c4c8' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="lib/ffmpeg/ffmpeg.js"></script>
+<script src="lib/ffmpeg/util.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg0:#0a1216;--bg1:#122026;--bg2:#1a2e36;--ink:#e8f0f2;--ink-dim:#9db0b6;
+  --accent:#e8a85c;--accent-dim:#c4893f;--teal:#5eb3a8;--error:#e07070;--ok:#6cbc8a;
+  --border:rgba(168,196,200,.18);--radius:14px;--font:"Outfit",sans-serif;--display:"Fraunces",serif;
+}
+html,body{min-height:100%;background:radial-gradient(1200px 600px at 20% -10%,#1a3038 0%,var(--bg0) 55%),
+  linear-gradient(160deg,#0c181c 0%,#0a1216 100%);color:var(--ink);font-family:var(--font);line-height:1.45}
+body{max-width:760px;margin:0 auto;padding:1.25rem 1rem 5rem}
+header{margin-bottom:1.25rem}
+.brand{font-family:var(--display);font-size:clamp(1.8rem,5vw,2.45rem);font-weight:700;letter-spacing:-.02em;
+  background:linear-gradient(120deg,#f2d2a2,#e8a85c 45%,#7ec8be);-webkit-background-clip:text;background-clip:text;color:transparent}
+.subtitle{color:var(--ink-dim);font-size:.92rem;margin-top:.35rem;max-width:36rem}
+.version-pill{display:inline-block;margin-top:.65rem;padding:.28rem .7rem;border-radius:999px;font-size:.72rem;font-weight:600;
+  border:1px solid var(--border);background:rgba(94,179,168,.12);color:var(--teal)}
+.info-banner{background:linear-gradient(135deg,rgba(94,179,168,.12),rgba(232,168,92,.08));border:1px solid var(--border);
+  border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:1rem;font-size:.86rem;color:var(--ink-dim)}
+.info-banner strong{color:var(--ink)}
+.badge-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.55rem}
+.badge-soft{font-size:.7rem;font-weight:600;padding:.22rem .55rem;border-radius:999px;border:1px solid var(--border)}
+.badge-soft.teal{background:rgba(94,179,168,.15);color:var(--teal)}
+.badge-soft.amber{background:rgba(232,168,92,.15);color:var(--accent)}
+.section{border:1px solid var(--border);border-radius:var(--radius);background:rgba(18,32,38,.72);margin-bottom:.85rem;overflow:hidden}
+.section-header{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1rem;cursor:pointer;user-select:none}
+.section-title{font-weight:600;font-size:.95rem}
+.badge{font-size:.68rem;font-weight:700;padding:.15rem .45rem;border-radius:6px;background:rgba(232,168,92,.18);color:var(--accent);margin-left:.35rem}
+.chevron{color:var(--ink-dim);transition:transform .2s}
+.section.open .chevron{transform:rotate(180deg)}
+.section-body{display:none;border-top:1px solid var(--border)}
+.section.open .section-body{display:block}
+.section-content{padding:1rem}
+.control-row{margin-bottom:.95rem}
+.control-label{display:block;font-size:.78rem;font-weight:600;color:var(--ink-dim);margin-bottom:.35rem;letter-spacing:.02em;text-transform:uppercase}
+select,textarea,input[type="text"],input[type="password"]{width:100%;padding:.7rem .8rem;border-radius:10px;border:1px solid var(--border);
+  background:rgba(12,20,24,.85);color:var(--ink);font:inherit;outline:none}
+select:focus,textarea:focus{border-color:var(--teal)}
+.hint-text{font-size:.75rem;color:var(--ink-dim);margin-top:.35rem}
+.upload-zone{position:relative;border:1.5px dashed rgba(168,196,200,.35);border-radius:var(--radius);padding:1.25rem 1rem;text-align:center;
+  background:rgba(12,20,24,.45);cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:.85rem}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(232,168,92,.06)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-icon{font-size:1.6rem;margin-bottom:.35rem}
+.upload-text{font-weight:600;font-size:.95rem}
+.upload-hint{font-size:.75rem;color:var(--ink-dim);margin-top:.25rem}
+.upload-filename{margin-top:.55rem;font-size:.78rem;color:var(--teal);font-weight:600}
+.image-preview{display:none;max-width:100%;max-height:220px;margin:.75rem auto 0;border-radius:10px;object-fit:contain;background:#000}
+.image-preview.visible{display:block}
+.remove-btn{margin-top:.55rem;padding:.4rem .8rem;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--ink-dim);
+  font:inherit;font-size:.78rem;cursor:pointer}
+.slider-row{display:grid;gap:.35rem;margin-bottom:.85rem}
+.slider-row input[type=range]{width:100%;accent-color:var(--accent)}
+.slider-meta{display:flex;justify-content:space-between;font-size:.75rem;color:var(--ink-dim)}
+.density-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem}
+.density-btn{padding:.55rem;border-radius:10px;border:1px solid var(--border);background:rgba(12,20,24,.7);color:var(--ink-dim);
+  font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
+.density-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(232,168,92,.12)}
+.custom-effects{display:none;grid-template-columns:1fr 1fr;gap:.4rem .7rem;margin-top:.6rem}
+.custom-effects.visible{display:grid}
+.check-row{display:flex;align-items:center;gap:.45rem;font-size:.82rem;color:var(--ink-dim)}
+.check-row input{accent-color:var(--accent);width:1rem;height:1rem}
+.volume-control{margin-top:.75rem;text-align:left}
+.volume-control label{font-size:.75rem;color:var(--ink-dim)}
+.bpm-display{margin-top:.55rem;font-size:.78rem;color:var(--ink-dim);display:none}
+.bpm-display.visible{display:block}
+.bpm-value{color:var(--accent);font-weight:700}
+.btn-row{display:grid;gap:.65rem;margin:1rem 0}
+.btn-primary,.btn-export,.btn-stop{width:100%;padding:.95rem 1rem;border:none;border-radius:12px;font:inherit;font-weight:700;
+  font-size:.95rem;cursor:pointer;transition:transform .15s,opacity .15s}
+.btn-primary{background:linear-gradient(135deg,var(--teal),#3d8f86);color:#061214}
+.btn-export{background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:#1a1208;display:none}
+.btn-export.visible{display:block}
+.btn-stop{background:rgba(224,112,112,.15);color:var(--error);border:1px solid rgba(224,112,112,.4);display:none}
+.btn-stop.visible{display:block}
+.btn-primary:disabled,.btn-export:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary:not(:disabled):hover,.btn-export:not(:disabled):hover{transform:translateY(-1px)}
+.stage{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:#050a0c;margin:1rem 0;display:none}
+.stage.visible{display:block}
+.stage-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+#preview-canvas{width:100%;height:100%;display:block;object-fit:contain}
+.stage-label{padding:.55rem .85rem;font-size:.75rem;color:var(--ink-dim);border-top:1px solid var(--border)}
+.progress-wrap{display:none;margin:.7rem 0}
+.progress-wrap.visible{display:block}
+.progress-bar{height:8px;border-radius:999px;background:rgba(168,196,200,.12);overflow:hidden}
+.progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--teal),var(--accent));transition:width .2s}
+.progress-meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink-dim);margin-top:.35rem}
+#toast{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%) translateY(120%);z-index:50;
+  min-width:min(420px,92vw);padding:.75rem 1rem;border-radius:12px;background:#152228;border:1px solid var(--border);
+  box-shadow:0 12px 40px rgba(0,0,0,.45);display:flex;gap:.6rem;align-items:flex-start;transition:transform .25s;font-size:.85rem}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.error{border-color:rgba(224,112,112,.5)}
+#toast.warn{border-color:rgba(232,168,92,.5)}
+#toast.success{border-color:rgba(108,188,138,.5)}
+#file-protocol-banner,#server-down-banner{display:none;background:#5a1a1a;border:2px solid var(--error);border-radius:var(--radius);
+  padding:1rem 1.15rem;margin-bottom:1rem;font-size:.88rem;line-height:1.5}
+.console-box{margin-top:1rem;padding:.75rem;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,.35);
+  font-family:ui-monospace,monospace;font-size:.68rem;color:var(--ink-dim);max-height:160px;overflow:auto;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 class="brand">Ambiance Animation Studio</h1>
+  <p class="subtitle">Uploadez n’importe quelle image — seuls les effets d’ambiance bougent, lentement et doucement. Cadre 100&nbsp;% fixe.</p>
+  <span class="version-pill">v1.0 · canvas multi-calques · export 10s</span>
+</header>
+
+<div id="file-protocol-banner">
+  <strong style="color:var(--error);display:block;margin-bottom:.4rem;">HTML ouvert en file://</strong>
+  Lancez <code>demarrer.bat</code> / <code>demarrer.sh</code> puis ouvrez <code>http://127.0.0.1:8765/</code>
+</div>
+<div id="server-down-banner">
+  <strong style="color:var(--error);display:block;margin-bottom:.4rem;">Serveur local arrêté</strong>
+  Relancez <code>demarrer.bat</code> et rechargez la page (ne fermez pas la fenêtre serveur).
+</div>
+
+<div class="info-banner">
+  <div class="badge-row">
+    <span class="badge-soft teal">Sans Agnes / Pollinations</span>
+    <span class="badge-soft amber">FFmpeg.wasm local</span>
+  </div>
+  <strong>Démarrage :</strong> lancez <code>demarrer.bat</code> (Windows) ou <code>./demarrer.sh</code> — laissez la fenêtre ouverte — puis ouvrez
+  <code>http://127.0.0.1:8765/</code>. Ne double-cliquez pas le HTML.<br><br>
+  <strong>Principe :</strong> image de base figée + calques procéduraux (vapeur, pluie, feu…). Prévisualisez, puis exportez une boucle MP4 de 10&nbsp;s.
+</div>
+
+<div class="section open" id="section-image">
+  <div class="section-header" data-toggle="section-image">
+    <span class="section-title">Image de base <span class="badge">requis</span></span>
+    <span class="chevron">▼</span>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="upload-zone image-zone" id="image-zone">
+      <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
+      <div class="upload-icon">🖼️</div>
+      <div class="upload-text">Votre image de base (mascotte, décor, scène)</div>
+      <div class="upload-hint">JPEG, PNG ou WebP — le cadre restera parfaitement fixe</div>
+      <div class="upload-filename" id="image-filename" style="display:none;"></div>
+      <img id="image-preview" class="image-preview" alt="Aperçu">
+      <button type="button" class="remove-btn" id="image-remove-btn" style="display:none;">Retirer l’image</button>
+    </div>
+  </div></div>
+</div>
+
+<div class="section open" id="section-ambiance">
+  <div class="section-header" data-toggle="section-ambiance">
+    <span class="section-title">Ambiance &amp; réglages</span>
+    <span class="chevron">▼</span>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="control-row">
+      <label class="control-label" for="ambiance-select">Sélecteur d’ambiance</label>
+      <select id="ambiance-select">
+        <option value="onsen">🛁 Onsen Japonais</option>
+        <option value="rain">🌧️ Pluie Douce</option>
+        <option value="fire">🔥 Feu de Cheminée</option>
+        <option value="ocean">🌊 Océan Calme</option>
+        <option value="forest">🌲 Forêt Enchantée</option>
+        <option value="cafe">☕ Café Cocooning</option>
+        <option value="custom">✨ Personnalisé</option>
+      </select>
+      <p class="hint-text" id="ambiance-hint">Vapeur + neige + ondulation eau + bulles — mouvements lents.</p>
+    </div>
+
+    <div class="custom-effects" id="custom-effects">
+      <label class="check-row"><input type="checkbox" data-fx="steam" checked> Vapeur</label>
+      <label class="check-row"><input type="checkbox" data-fx="snow" checked> Neige</label>
+      <label class="check-row"><input type="checkbox" data-fx="rain"> Pluie</label>
+      <label class="check-row"><input type="checkbox" data-fx="water" checked> Ondulation</label>
+      <label class="check-row"><input type="checkbox" data-fx="bubbles"> Bulles</label>
+      <label class="check-row"><input type="checkbox" data-fx="fire"> Feu / braises</label>
+      <label class="check-row"><input type="checkbox" data-fx="leaves"> Feuilles</label>
+      <label class="check-row"><input type="checkbox" data-fx="particles"> Lucioles</label>
+      <label class="check-row"><input type="checkbox" data-fx="mist"> Brume</label>
+      <label class="check-row"><input type="checkbox" data-fx="glow"> Lueur</label>
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-meta"><span>Vitesse des particules</span><span id="speed-value">1.0×</span></div>
+      <input type="range" id="speed-slider" min="0.5" max="2" step="0.05" value="1">
+    </div>
+    <div class="control-row">
+      <label class="control-label">Densité des effets</label>
+      <div class="density-row">
+        <button type="button" class="density-btn" data-density="low">Faible</button>
+        <button type="button" class="density-btn active" data-density="medium">Moyen</button>
+        <button type="button" class="density-btn" data-density="high">Fort</button>
+      </div>
+    </div>
+    <div class="slider-row">
+      <div class="slider-meta"><span>Intensité de l’ondulation</span><span id="ripple-value">50%</span></div>
+      <input type="range" id="ripple-slider" min="0" max="100" step="1" value="50">
+    </div>
+  </div></div>
+</div>
+
+<div class="section open" id="section-audio">
+  <div class="section-header" data-toggle="section-audio">
+    <span class="section-title">Audio <span class="badge">optionnel</span></span>
+    <span class="chevron">▼</span>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="upload-zone" id="audio-zone">
+      <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
+      <div class="upload-icon">🎵</div>
+      <div class="upload-text">Musique libre de droits (MP3 / WAV)</div>
+      <div class="upload-hint">Mixée dans l’export 10s si présente</div>
+      <div class="upload-filename" id="audio-filename" style="display:none;"></div>
+      <div class="bpm-display" id="bpm-display">Tempo détecté : <span class="bpm-value" id="bpm-value">—</span> BPM</div>
+      <audio id="audio-preview" controls style="display:none;width:100%;margin-top:.55rem;"></audio>
+      <button type="button" class="remove-btn" id="audio-remove-btn" style="display:none;">Retirer la musique</button>
+      <div class="volume-control" onclick="event.stopPropagation()">
+        <label for="music-volume">Volume musique</label>
+        <input type="range" id="music-volume" min="0" max="100" value="70">
+        <div class="slider-meta"><span></span><span id="music-volume-value">70%</span></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div class="btn-row">
+  <button type="button" class="btn-primary" id="preview-btn" disabled>🎬 Prévisualiser l’animation</button>
+  <button type="button" class="btn-export" id="export-btn">⬇️ Exporter vidéo 10s (MP4)</button>
+  <button type="button" class="btn-stop" id="stop-btn">Arrêter</button>
+</div>
+
+<div class="stage" id="stage">
+  <div class="stage-wrap">
+    <canvas id="preview-canvas" width="1280" height="720"></canvas>
+  </div>
+  <div class="stage-label" id="stage-label">Aperçu — cadre fixe · effets uniquement</div>
+</div>
+
+<div class="progress-wrap" id="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="progress-meta"><span id="progress-pct">0%</span><span id="progress-eta">ETA —</span></div>
+  <div id="progress-status" style="font-size:.78rem;color:var(--ink-dim);margin-top:.35rem;text-align:center;"></div>
+</div>
+
+<div class="console-box" id="console-box"></div>
+
+<div id="toast"><span id="toast-icon">✓</span><span id="toast-text"></span></div>
+
+<script>
+(function () {
+'use strict';
+
+const W = 1280;
+const H = 720;
+const EXPORT_SEC = 10;
+const EXPORT_FPS = 30;
+const IDB_NAME = 'AmbianceAnimationStudioV1';
+const IDB_STORE = 'state';
+const IDB_VERSION = 1;
+const FFMPEG_LIB_BASE = new URL('lib/ffmpeg/', window.location.href).href;
+
+const AMBIANCE_PRESETS = {
+  onsen: {
+    label: 'Onsen Japonais',
+    hint: 'Vapeur + neige + ondulation eau + bulles — mouvements lents.',
+    layers: { steam: true, snow: true, water: true, bubbles: true, mist: true, glow: false, rain: false, fire: false, leaves: false, particles: false }
+  },
+  rain: {
+    label: 'Pluie Douce',
+    hint: 'Gouttes, brume et éclairs lointains très subtils.',
+    layers: { rain: true, mist: true, glow: true, water: false, steam: false, snow: false, bubbles: false, fire: false, leaves: false, particles: false }
+  },
+  fire: {
+    label: 'Feu de Cheminée',
+    hint: 'Flammes douces, braises montantes et fumée.',
+    layers: { fire: true, mist: true, glow: true, steam: false, snow: false, rain: false, water: false, bubbles: false, leaves: false, particles: true }
+  },
+  ocean: {
+    label: 'Océan Calme',
+    hint: 'Vagues d’écume, reflets et légère brume.',
+    layers: { water: true, mist: true, particles: true, glow: true, steam: false, snow: false, rain: false, bubbles: true, fire: false, leaves: false }
+  },
+  forest: {
+    label: 'Forêt Enchantée',
+    hint: 'Lucioles, feuilles tombantes et brume.',
+    layers: { particles: true, leaves: true, mist: true, glow: true, steam: false, snow: false, rain: false, water: false, bubbles: false, fire: false }
+  },
+  cafe: {
+    label: 'Café Cocooning',
+    hint: 'Vapeur de tasse, pluie sur la fenêtre, lueur chaude.',
+    layers: { steam: true, rain: true, glow: true, mist: true, snow: false, water: false, bubbles: false, fire: false, leaves: false, particles: false }
+  },
+  custom: {
+    label: 'Personnalisé',
+    hint: 'Cochez les calques que vous souhaitez superposer.',
+    layers: { steam: true, snow: true, water: true, bubbles: false, rain: false, fire: false, leaves: false, particles: false, mist: false, glow: false }
+  }
+};
+
+const DENSITY_MULT = { low: 0.55, medium: 1, high: 1.65 };
+
+const state = {
+  userImage: null,
+  userImageDataURL: null,
+  userImageEl: null,
+  audioFile: null,
+  audioObjectUrl: null,
+  audioBpm: null,
+  musicVolume: 0.7,
+  ambianceId: 'onsen',
+  customLayers: Object.assign({}, AMBIANCE_PRESETS.custom.layers),
+  speed: 1,
+  density: 'medium',
+  ripple: 0.5,
+  previewing: false,
+  exporting: false,
+  stopRequested: false,
+  rafId: 0,
+  layers: null,
+  t0: 0,
+  ffmpegInstance: null,
+  ffmpegLoaded: false,
+  ffmpegBlobURLs: null,
+  ffmpegPrefetchPromise: null,
+  ffmpegProgressHandler: null,
+  serverReachable: true,
+  exportBlob: null
+};
+
+const canvas = document.getElementById('preview-canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+let toastTimer = null;
+
+function log(msg) {
+  const box = document.getElementById('console-box');
+  const line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  box.textContent = (box.textContent ? box.textContent + '\n' : '') + line;
+  box.scrollTop = box.scrollHeight;
+  console.log('[AmbianceAnim]', msg);
+}
+
+function showToast(message, type, duration) {
+  type = type || 'success';
+  duration = duration || 2800;
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-icon').textContent = type === 'error' ? '✕' : type === 'warn' ? '!' : '✓';
+  document.getElementById('toast-text').textContent = message;
+  toast.className = type + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { toast.classList.remove('show'); }, duration);
+}
+
+function isFileProtocol() { return location.protocol === 'file:'; }
+function isFFmpegAvailable() {
+  return typeof FFmpegWASM !== 'undefined' && typeof FFmpegUtil !== 'undefined';
+}
+
+function activeLayers() {
+  if (state.ambianceId === 'custom') return state.customLayers;
+  return (AMBIANCE_PRESETS[state.ambianceId] || AMBIANCE_PRESETS.onsen).layers;
+}
+
+function densityFactor() { return DENSITY_MULT[state.density] || 1; }
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+// ── IndexedDB ────────────────────────────────────────────────────
+function openDB() {
+  return new Promise(function (resolve, reject) {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = function () {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = function () { resolve(req.result); };
+    req.onerror = function () { reject(req.error); };
+  });
+}
+
+async function idbPut(key, value) {
+  const db = await openDB();
+  try {
+    await new Promise(function (resolve, reject) {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error); };
+    });
+  } finally { db.close(); }
+}
+
+async function idbGet(key) {
+  const db = await openDB();
+  try {
+    return await new Promise(function (resolve, reject) {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  } finally { db.close(); }
+}
+
+async function savePrefs() {
+  try {
+    await idbPut('prefs', {
+      ambianceId: state.ambianceId,
+      customLayers: state.customLayers,
+      speed: state.speed,
+      density: state.density,
+      ripple: state.ripple,
+      musicVolume: state.musicVolume,
+      savedAt: Date.now()
+    });
+  } catch (e) { /* ignore */ }
+}
+
+async function loadPrefs() {
+  try {
+    const p = await idbGet('prefs');
+    if (!p) return;
+    if (p.ambianceId && AMBIANCE_PRESETS[p.ambianceId]) state.ambianceId = p.ambianceId;
+    if (p.customLayers) state.customLayers = Object.assign({}, state.customLayers, p.customLayers);
+    if (typeof p.speed === 'number') state.speed = p.speed;
+    if (p.density) state.density = p.density;
+    if (typeof p.ripple === 'number') state.ripple = p.ripple;
+    if (typeof p.musicVolume === 'number') state.musicVolume = p.musicVolume;
+    log('Préférences restaurées');
+  } catch (e) { /* ignore */ }
+}
+
+// ── Layer factories ──────────────────────────────────────────────
+function countFor(base) {
+  return Math.max(1, Math.round(base * densityFactor()));
+}
+
+function createSteam(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(W * 0.15, W * 0.85),
+      y: rand(H * 0.45, H * 0.95),
+      r: rand(18, 55),
+      vy: rand(8, 22),
+      vx: rand(-6, 6),
+      a: rand(0.04, 0.12),
+      phase: rand(0, Math.PI * 2)
+    });
+  }
+  return arr;
+}
+
+function createSnow(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(0, W), y: rand(-H, H),
+      r: rand(1.2, 3.8),
+      vy: rand(12, 28),
+      sway: rand(8, 22),
+      phase: rand(0, Math.PI * 2),
+      a: rand(0.35, 0.85)
+    });
+  }
+  return arr;
+}
+
+function createRain(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(0, W), y: rand(-H, H),
+      len: rand(12, 28),
+      vy: rand(280, 420),
+      thick: rand(1, 1.8),
+      a: rand(0.18, 0.4)
+    });
+  }
+  return arr;
+}
+
+function createBubbles(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(W * 0.2, W * 0.8),
+      y: rand(H * 0.4, H + 40),
+      r: rand(3, 10),
+      vy: rand(14, 36),
+      amp: rand(6, 18),
+      phase: rand(0, Math.PI * 2),
+      a: rand(0.2, 0.45)
+    });
+  }
+  return arr;
+}
+
+function createFire(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(W * 0.28, W * 0.72),
+      y: rand(H * 0.62, H * 0.95),
+      r: rand(10, 34),
+      life: rand(0, 1),
+      speed: rand(0.25, 0.55),
+      hue: rand(18, 42)
+    });
+  }
+  return arr;
+}
+
+function createEmbers(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(W * 0.3, W * 0.7),
+      y: rand(H * 0.5, H),
+      r: rand(1, 2.6),
+      vy: rand(20, 55),
+      vx: rand(-10, 10),
+      a: rand(0.4, 0.9)
+    });
+  }
+  return arr;
+}
+
+function createLeaves(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(0, W), y: rand(-H, H),
+      s: rand(6, 14),
+      vy: rand(16, 34),
+      rot: rand(0, Math.PI * 2),
+      vr: rand(-0.6, 0.6),
+      sway: rand(10, 30),
+      phase: rand(0, Math.PI * 2),
+      color: Math.random() > 0.5 ? 'rgba(180,120,60,0.7)' : 'rgba(90,140,70,0.65)'
+    });
+  }
+  return arr;
+}
+
+function createParticles(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(0, W), y: rand(0, H),
+      r: rand(1.2, 3.5),
+      vx: rand(-8, 8),
+      vy: rand(-6, 6),
+      phase: rand(0, Math.PI * 2),
+      pulse: rand(0.6, 1.4),
+      a: rand(0.25, 0.7)
+    });
+  }
+  return arr;
+}
+
+function createMist(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push({
+      x: rand(-W * 0.2, W),
+      y: rand(H * 0.2, H * 0.9),
+      w: rand(220, 480),
+      h: rand(60, 140),
+      vx: rand(4, 12) * (Math.random() > 0.5 ? 1 : -1),
+      a: rand(0.03, 0.09)
+    });
+  }
+  return arr;
+}
+
+function rebuildLayers() {
+  const L = activeLayers();
+  const d = densityFactor();
+  state.layers = {
+    steam: L.steam ? createSteam(countFor(18)) : [],
+    snow: L.snow ? createSnow(countFor(55)) : [],
+    rain: L.rain ? createRain(countFor(70)) : [],
+    bubbles: L.bubbles ? createBubbles(countFor(16)) : [],
+    fire: L.fire ? createFire(countFor(22)) : [],
+    embers: L.fire ? createEmbers(countFor(28)) : [],
+    leaves: L.leaves ? createLeaves(countFor(18)) : [],
+    particles: L.particles ? createParticles(countFor(30)) : [],
+    mist: L.mist ? createMist(countFor(6)) : [],
+    glow: !!L.glow,
+    water: !!L.water,
+    lightning: !!(L.rain && d >= 1),
+    _d: d
+  };
+}
+
+// ── Drawing ──────────────────────────────────────────────────────
+function drawBase() {
+  ctx.fillStyle = '#0c1418';
+  ctx.fillRect(0, 0, W, H);
+  if (state.userImageEl) {
+    // contain fit, centered — no zoom animation
+    const img = state.userImageEl;
+    const ir = img.naturalWidth / img.naturalHeight;
+    const cr = W / H;
+    let dw, dh, dx, dy;
+    if (ir > cr) { dw = W; dh = W / ir; dx = 0; dy = (H - dh) / 2; }
+    else { dh = H; dw = H * ir; dx = (W - dw) / 2; dy = 0; }
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+}
+
+function drawWaterOverlay(t) {
+  const intensity = state.ripple;
+  if (intensity <= 0.01) return;
+  const bandTop = H * 0.52;
+  const waves = 5;
+  for (let i = 0; i < waves; i++) {
+    const y = bandTop + (H - bandTop) * (i / waves);
+    const amp = (4 + intensity * 14) * (0.4 + i / waves);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    for (let x = 0; x <= W; x += 8) {
+      const yy = y + Math.sin(x * 0.012 + t * 0.9 + i) * amp * 0.35
+        + Math.sin(x * 0.03 - t * 0.5 + i * 1.7) * amp * 0.2;
+      ctx.lineTo(x, yy);
+    }
+    ctx.strokeStyle = 'rgba(160,210,220,' + (0.04 + intensity * 0.08) + ')';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  // soft caustic blobs
+  const n = Math.round(8 * densityFactor());
+  for (let i = 0; i < n; i++) {
+    const x = (Math.sin(t * 0.3 + i * 1.7) * 0.5 + 0.5) * W;
+    const y = bandTop + ((Math.cos(t * 0.25 + i) * 0.5 + 0.5) * (H - bandTop));
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 40 + intensity * 50);
+    g.addColorStop(0, 'rgba(180,230,240,' + (0.04 + intensity * 0.06) + ')');
+    g.addColorStop(1, 'rgba(180,230,240,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, 50 + intensity * 40, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawSteam(arr, dt, t) {
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.y -= p.vy * state.speed * dt;
+    p.x += Math.sin(t * 0.7 + p.phase) * p.vx * dt;
+    p.r += 6 * dt;
+    p.a *= 1 - 0.35 * dt;
+    if (p.y + p.r < 0 || p.a < 0.015) {
+      p.x = rand(W * 0.15, W * 0.85);
+      p.y = rand(H * 0.55, H * 0.98);
+      p.r = rand(18, 45);
+      p.a = rand(0.05, 0.12);
+    }
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    g.addColorStop(0, 'rgba(230,240,245,' + p.a + ')');
+    g.addColorStop(1, 'rgba(230,240,245,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawSnow(arr, dt, t) {
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.y += p.vy * state.speed * dt;
+    p.x += Math.sin(t * 0.8 + p.phase) * p.sway * dt;
+    if (p.y > H + 4) { p.y = -4; p.x = rand(0, W); }
+    ctx.globalAlpha = p.a;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawRain(arr, dt) {
+  ctx.strokeStyle = 'rgba(190,210,220,0.55)';
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.y += p.vy * state.speed * dt;
+    p.x += 18 * state.speed * dt;
+    if (p.y > H) { p.y = -p.len; p.x = rand(0, W); }
+    ctx.globalAlpha = p.a;
+    ctx.lineWidth = p.thick;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x - 3, p.y + p.len);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBubbles(arr, dt, t) {
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.y -= p.vy * state.speed * dt;
+    p.x += Math.sin(t * 1.1 + p.phase) * p.amp * dt;
+    if (p.y < -10) { p.y = H + 10; p.x = rand(W * 0.2, W * 0.8); }
+    ctx.strokeStyle = 'rgba(200,230,240,' + p.a + ')';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(220,240,250,' + (p.a * 0.25) + ')';
+    ctx.beginPath();
+    ctx.arc(p.x - p.r * 0.3, p.y - p.r * 0.3, p.r * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawFire(arr, dt) {
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.life += p.speed * state.speed * dt;
+    if (p.life > 1) {
+      p.life = 0;
+      p.x = rand(W * 0.3, W * 0.7);
+      p.y = rand(H * 0.68, H * 0.95);
+      p.r = rand(10, 32);
+    }
+    const rise = p.life * 70;
+    const scale = 1 - p.life * 0.7;
+    const a = (1 - p.life) * 0.55;
+    const x = p.x + Math.sin(p.life * 8 + i) * 8;
+    const y = p.y - rise;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, p.r * scale);
+    g.addColorStop(0, 'hsla(' + p.hue + ',95%,60%,' + a + ')');
+    g.addColorStop(0.5, 'hsla(' + (p.hue + 15) + ',90%,45%,' + (a * 0.5) + ')');
+    g.addColorStop(1, 'hsla(' + p.hue + ',90%,30%,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(x, y, p.r * 0.55 * scale, p.r * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawEmbers(arr, dt) {
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.y -= p.vy * state.speed * dt;
+    p.x += p.vx * state.speed * dt;
+    p.a -= 0.15 * dt;
+    if (p.a <= 0 || p.y < H * 0.2) {
+      p.x = rand(W * 0.3, W * 0.7);
+      p.y = rand(H * 0.7, H);
+      p.a = rand(0.4, 0.9);
+    }
+    ctx.fillStyle = 'rgba(255,160,60,' + p.a + ')';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawLeaves(arr, dt, t) {
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.y += p.vy * state.speed * dt;
+    p.x += Math.sin(t * 0.7 + p.phase) * p.sway * dt;
+    p.rot += p.vr * state.speed * dt;
+    if (p.y > H + 20) { p.y = -20; p.x = rand(0, W); }
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, p.s, p.s * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawParticles(arr, dt, t) {
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.x += p.vx * state.speed * dt;
+    p.y += p.vy * state.speed * dt;
+    if (p.x < -10) p.x = W + 10;
+    if (p.x > W + 10) p.x = -10;
+    if (p.y < -10) p.y = H + 10;
+    if (p.y > H + 10) p.y = -10;
+    const pulse = 0.5 + 0.5 * Math.sin(t * p.pulse + p.phase);
+    const a = p.a * pulse;
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3);
+    g.addColorStop(0, 'rgba(200,255,180,' + a + ')');
+    g.addColorStop(1, 'rgba(200,255,180,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawMist(arr, dt) {
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    p.x += p.vx * state.speed * dt;
+    if (p.vx > 0 && p.x > W + 40) p.x = -p.w;
+    if (p.vx < 0 && p.x < -p.w) p.x = W + 40;
+    const g = ctx.createRadialGradient(p.x + p.w / 2, p.y, 0, p.x + p.w / 2, p.y, p.w * 0.55);
+    g.addColorStop(0, 'rgba(210,220,225,' + p.a + ')');
+    g.addColorStop(1, 'rgba(210,220,225,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(p.x + p.w / 2, p.y, p.w / 2, p.h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawGlow(t) {
+  const pulse = 0.5 + 0.5 * Math.sin(t * 0.9);
+  const cx = W * 0.5;
+  const cy = H * 0.62;
+  const g = ctx.createRadialGradient(cx, cy, 20, cx, cy, 220 + pulse * 40);
+  g.addColorStop(0, 'rgba(232,168,92,' + (0.08 + pulse * 0.06) + ')');
+  g.addColorStop(1, 'rgba(232,168,92,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawLightning(t) {
+  // rare soft flash
+  const cycle = (t * 0.15) % 8;
+  if (cycle > 7.7 && cycle < 7.85) {
+    ctx.fillStyle = 'rgba(220,230,255,0.08)';
+    ctx.fillRect(0, 0, W, H);
+  } else if (cycle > 7.9 && cycle < 7.95) {
+    ctx.fillStyle = 'rgba(220,230,255,0.05)';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function renderFrame(timeSec, dt) {
+  if (!state.layers) rebuildLayers();
+  const L = state.layers;
+  const t = timeSec;
+  drawBase();
+  if (L.water) drawWaterOverlay(t);
+  if (L.mist && L.mist.length) drawMist(L.mist, dt);
+  if (L.steam && L.steam.length) drawSteam(L.steam, dt, t);
+  if (L.snow && L.snow.length) drawSnow(L.snow, dt, t);
+  if (L.rain && L.rain.length) drawRain(L.rain, dt);
+  if (L.lightning) drawLightning(t);
+  if (L.bubbles && L.bubbles.length) drawBubbles(L.bubbles, dt, t);
+  if (L.fire && L.fire.length) drawFire(L.fire, dt);
+  if (L.embers && L.embers.length) drawEmbers(L.embers, dt);
+  if (L.leaves && L.leaves.length) drawLeaves(L.leaves, dt, t);
+  if (L.particles && L.particles.length) drawParticles(L.particles, dt, t);
+  if (L.glow) drawGlow(t);
+}
+
+// ── Preview loop ─────────────────────────────────────────────────
+let lastTs = 0;
+function previewLoop(ts) {
+  if (!state.previewing) return;
+  if (!lastTs) lastTs = ts;
+  const dt = clamp((ts - lastTs) / 1000, 0.001, 0.05);
+  lastTs = ts;
+  const timeSec = (ts - state.t0) / 1000;
+  renderFrame(timeSec, dt);
+  state.rafId = requestAnimationFrame(previewLoop);
+}
+
+function startPreview() {
+  if (!state.userImageEl) {
+    showToast('Uploadez d’abord une image', 'error');
+    return;
+  }
+  rebuildLayers();
+  state.previewing = true;
+  state.stopRequested = false;
+  state.t0 = performance.now();
+  lastTs = 0;
+  document.getElementById('stage').classList.add('visible');
+  document.getElementById('export-btn').classList.add('visible');
+  document.getElementById('stop-btn').classList.add('visible');
+  document.getElementById('stage-label').textContent =
+    'Aperçu · ' + (AMBIANCE_PRESETS[state.ambianceId] || {}).label + ' · cadre fixe';
+  state.rafId = requestAnimationFrame(previewLoop);
+  showToast('Prévisualisation en boucle', 'success');
+  log('Preview ON · ' + state.ambianceId);
+}
+
+function stopAll() {
+  state.stopRequested = true;
+  state.previewing = false;
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  state.rafId = 0;
+  document.getElementById('stop-btn').classList.remove('visible');
+  if (state.ffmpegInstance && state.exporting) {
+    try { state.ffmpegInstance.terminate(); } catch (e) { /* ignore */ }
+    state.ffmpegInstance = null;
+    state.ffmpegLoaded = false;
+  }
+  log('Arrêt');
+}
+
+// ── Image / audio upload ─────────────────────────────────────────
+function loadImageElement(dataURL) {
+  return new Promise(function (resolve, reject) {
+    const img = new Image();
+    img.onload = function () { resolve(img); };
+    img.onerror = function () { reject(new Error('Image illisible')); };
+    img.src = dataURL;
+  });
+}
+
+async function handleImageFile(file) {
+  if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+    showToast('Fichier image invalide', 'error');
+    return;
+  }
+  const dataURL = await new Promise(function (resolve, reject) {
+    const r = new FileReader();
+    r.onload = function () { resolve(r.result); };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+  const img = await loadImageElement(dataURL);
+  state.userImage = file;
+  state.userImageDataURL = dataURL;
+  state.userImageEl = img;
+  document.getElementById('image-filename').style.display = 'block';
+  document.getElementById('image-filename').textContent = file.name + ' · ' + img.naturalWidth + '×' + img.naturalHeight;
+  const prev = document.getElementById('image-preview');
+  prev.src = dataURL;
+  prev.classList.add('visible');
+  document.getElementById('image-remove-btn').style.display = 'inline-block';
+  document.getElementById('preview-btn').disabled = false;
+  rebuildLayers();
+  renderFrame(0, 0.016);
+  document.getElementById('stage').classList.add('visible');
+  document.getElementById('export-btn').classList.add('visible');
+  log('Image chargée · ' + file.name);
+  showToast('Image prête', 'success');
+}
+
+function clearImage() {
+  state.userImage = null;
+  state.userImageDataURL = null;
+  state.userImageEl = null;
+  document.getElementById('image-filename').style.display = 'none';
+  document.getElementById('image-preview').classList.remove('visible');
+  document.getElementById('image-remove-btn').style.display = 'none';
+  document.getElementById('preview-btn').disabled = true;
+  document.getElementById('export-btn').classList.remove('visible');
+  stopAll();
+}
+
+async function detectBPM(arrayBuffer) {
+  try {
+    const ctxA = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuf = await ctxA.decodeAudioData(arrayBuffer.slice(0));
+    const data = audioBuf.getChannelData(0);
+    const sampleRate = audioBuf.sampleRate;
+    const step = Math.floor(sampleRate / 100);
+    const energies = [];
+    for (let i = 0; i < data.length; i += step) {
+      let sum = 0;
+      for (let j = 0; j < step && i + j < data.length; j++) sum += Math.abs(data[i + j]);
+      energies.push(sum / step);
+    }
+    let peaks = 0;
+    const thr = energies.reduce(function (a, b) { return a + b; }, 0) / energies.length * 1.4;
+    for (let i = 1; i < energies.length - 1; i++) {
+      if (energies[i] > thr && energies[i] > energies[i - 1] && energies[i] >= energies[i + 1]) peaks++;
+    }
+    const duration = audioBuf.duration || 1;
+    const bpm = clamp(Math.round((peaks / duration) * 60 / 2), 60, 180);
+    await ctxA.close();
+    return bpm;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function handleAudioFile(file) {
+  if (!file) return;
+  if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+  state.audioFile = file;
+  state.audioObjectUrl = URL.createObjectURL(file);
+  document.getElementById('audio-filename').style.display = 'block';
+  document.getElementById('audio-filename').textContent = file.name;
+  document.getElementById('audio-remove-btn').style.display = 'inline-block';
+  const audio = document.getElementById('audio-preview');
+  audio.src = state.audioObjectUrl;
+  audio.style.display = 'block';
+  const buf = await file.arrayBuffer();
+  state.audioBpm = await detectBPM(buf);
+  const bpmEl = document.getElementById('bpm-display');
+  bpmEl.classList.add('visible');
+  document.getElementById('bpm-value').textContent = state.audioBpm || '—';
+  log('Audio · ' + file.name + (state.audioBpm ? ' · ~' + state.audioBpm + ' BPM' : ''));
+  showToast('Musique ajoutée', 'success');
+}
+
+function clearAudio() {
+  if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+  state.audioFile = null;
+  state.audioObjectUrl = null;
+  state.audioBpm = null;
+  document.getElementById('audio-filename').style.display = 'none';
+  document.getElementById('audio-remove-btn').style.display = 'none';
+  document.getElementById('bpm-display').classList.remove('visible');
+  const audio = document.getElementById('audio-preview');
+  audio.removeAttribute('src');
+  audio.style.display = 'none';
+}
+
+// ── FFmpeg helpers ───────────────────────────────────────────────
+function sleepMs(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+function formatFetchError(err) {
+  const msg = (err && err.message) ? String(err.message) : String(err || 'erreur');
+  if (/Failed to fetch|NetworkError|ERR_CONNECTION_REFUSED/i.test(msg)) {
+    return 'Serveur local arrêté (port 8765). Relancez demarrer.bat et rechargez.';
+  }
+  return msg;
+}
+
+async function probeServer() {
+  if (isFileProtocol()) { state.serverReachable = false; return false; }
+  try {
+    const res = await fetch(FFMPEG_LIB_BASE + 'ffmpeg.js?p=' + Date.now(), { cache: 'no-store' });
+    state.serverReachable = res.ok;
+  } catch (e) { state.serverReachable = false; }
+  document.getElementById('server-down-banner').style.display =
+    (!isFileProtocol() && !state.serverReachable) ? 'block' : 'none';
+  return state.serverReachable;
+}
+
+async function loadFFmpegAssetBuffer(filename) {
+  const cacheKey = 'ffmpeg-asset:' + filename;
+  try {
+    const cached = await idbGet(cacheKey);
+    if (cached instanceof ArrayBuffer && cached.byteLength > 1000) return cached;
+    if (cached && cached.buffer instanceof ArrayBuffer && cached.byteLength > 1000) {
+      return cached.buffer.slice(cached.byteOffset, cached.byteOffset + cached.byteLength);
+    }
+  } catch (e) { /* ignore */ }
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(FFMPEG_LIB_BASE + filename, { cache: 'force-cache' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const buf = await res.arrayBuffer();
+      try { await idbPut(cacheKey, buf); } catch (e) { /* ignore */ }
+      return buf;
+    } catch (e) {
+      lastErr = e;
+      await sleepMs(300 * attempt);
+    }
+  }
+  throw new Error(formatFetchError(lastErr));
+}
+
+async function ensureFFmpegBlobURLs(onProgress) {
+  if (state.ffmpegBlobURLs) return state.ffmpegBlobURLs;
+  if (state.ffmpegPrefetchPromise) return state.ffmpegPrefetchPromise;
+  state.ffmpegPrefetchPromise = (async function () {
+    if (onProgress) onProgress(5, 'Préchargement FFmpeg…');
+    const coreBuf = await loadFFmpegAssetBuffer('ffmpeg-core.js');
+    if (onProgress) onProgress(15, 'Préchargement ffmpeg-core.wasm…');
+    const wasmBuf = await loadFFmpegAssetBuffer('ffmpeg-core.wasm');
+    state.ffmpegBlobURLs = {
+      core: URL.createObjectURL(new Blob([coreBuf], { type: 'text/javascript' })),
+      wasm: URL.createObjectURL(new Blob([wasmBuf], { type: 'application/wasm' }))
+    };
+    return state.ffmpegBlobURLs;
+  })();
+  try { return await state.ffmpegPrefetchPromise; }
+  catch (e) { state.ffmpegPrefetchPromise = null; throw e; }
+}
+
+async function ensureFFmpegLoaded(onProgress) {
+  if (state.ffmpegLoaded && state.ffmpegInstance) return state.ffmpegInstance;
+  if (!isFFmpegAvailable()) {
+    throw new Error(isFileProtocol()
+      ? 'Ouvrez via demarrer.bat → http://127.0.0.1:8765/'
+      : 'lib/ffmpeg/ manquant');
+  }
+  const FFmpeg = FFmpegWASM.FFmpeg;
+  const ffmpeg = new FFmpeg();
+  ffmpeg.on('log', function (e) { if (e && e.message) log('ffmpeg: ' + e.message); });
+  ffmpeg.on('progress', function (e) {
+    if (typeof state.ffmpegProgressHandler === 'function') state.ffmpegProgressHandler(e);
+  });
+  const urls = await ensureFFmpegBlobURLs(onProgress);
+  await ffmpeg.load({ coreURL: urls.core, wasmURL: urls.wasm });
+  state.ffmpegInstance = ffmpeg;
+  state.ffmpegLoaded = true;
+  log('FFmpeg.wasm prêt');
+  return ffmpeg;
+}
+
+function pickRecorderMime() {
+  const types = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm'
+  ];
+  for (let i = 0; i < types.length; i++) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(types[i])) return types[i];
+  }
+  return '';
+}
+
+function setProgress(pct, msg, etaSec) {
+  const wrap = document.getElementById('progress-wrap');
+  wrap.classList.add('visible');
+  const c = clamp(Math.round(pct), 0, 100);
+  document.getElementById('progress-fill').style.width = c + '%';
+  document.getElementById('progress-pct').textContent = c + '%';
+  document.getElementById('progress-eta').textContent =
+    etaSec == null || etaSec < 0 ? 'ETA —' : ('ETA ~' + Math.round(etaSec) + 's');
+  if (msg) document.getElementById('progress-status').textContent = msg;
+}
+
+async function recordCanvasWebm(durationSec, onProgress) {
+  const mime = pickRecorderMime();
+  if (!mime) throw new Error('MediaRecorder WebM non supporté');
+  rebuildLayers();
+  const fps = EXPORT_FPS;
+  const stream = canvas.captureStream(fps);
+  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2500000 });
+  const chunks = [];
+  recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+  const done = new Promise(function (resolve, reject) {
+    recorder.onstop = function () { resolve(); };
+    recorder.onerror = function () { reject(new Error('MediaRecorder erreur')); };
+  });
+  recorder.start(Math.round(1000 / fps));
+  const start = performance.now();
+  const totalFrames = durationSec * fps;
+  let frameIndex = 0;
+  await new Promise(function (resolve) {
+    function tick() {
+      if (state.stopRequested) {
+        try { recorder.stop(); } catch (e) { /* ignore */ }
+        resolve();
+        return;
+      }
+      const t = frameIndex / fps;
+      renderFrame(t, 1 / fps);
+      frameIndex++;
+      if (onProgress) onProgress(5 + (frameIndex / totalFrames) * 45, 'Enregistrement canvas… ' + frameIndex + '/' + totalFrames);
+      if (frameIndex < totalFrames) {
+        const target = start + frameIndex * (1000 / fps);
+        setTimeout(tick, Math.max(0, target - performance.now()));
+      } else resolve();
+    }
+    tick();
+  });
+  if (recorder.state !== 'inactive') recorder.stop();
+  await done;
+  const blob = new Blob(chunks, { type: 'video/webm' });
+  if (blob.size < 500) throw new Error('Enregistrement vide');
+  return blob;
+}
+
+async function exportMp4() {
+  if (state.exporting) return;
+  if (!state.userImageEl) {
+    showToast('Uploadez une image', 'error');
+    return;
+  }
+  state.exporting = true;
+  state.stopRequested = false;
+  state.previewing = false;
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  document.getElementById('stop-btn').classList.add('visible');
+  document.getElementById('export-btn').disabled = true;
+  document.getElementById('preview-btn').disabled = true;
+
+  try {
+    setProgress(2, 'Préparation export 10s…');
+    const wasPreview = true;
+    rebuildLayers();
+    document.getElementById('stage').classList.add('visible');
+
+    const webm = await recordCanvasWebm(EXPORT_SEC, setProgress);
+    if (state.stopRequested) throw new Error('Arrêt demandé');
+    log('WebM · ' + webm.size + ' o');
+
+    setProgress(52, 'Chargement FFmpeg.wasm…');
+    const ffmpeg = await ensureFFmpegLoaded(setProgress);
+    const fetchFile = FFmpegUtil.fetchFile;
+    await ffmpeg.writeFile('in.webm', await fetchFile(webm));
+
+    const frames = EXPORT_SEC * EXPORT_FPS;
+    const phaseStart = performance.now();
+    state.ffmpegProgressHandler = function (e) {
+      if (!e) return;
+      const r = clamp(e.progress || 0, 0, 1);
+      const elapsed = (performance.now() - phaseStart) / 1000;
+      const eta = r > 0.05 ? elapsed / r - elapsed : -1;
+      setProgress(55 + r * 30, 'Conversion MP4… ' + Math.round(r * 100) + '%', eta);
+    };
+
+    const convertArgs = [
+      '-fflags', '+genpts',
+      '-i', 'in.webm',
+      '-vf', 'fps=' + EXPORT_FPS + ',setpts=N/' + EXPORT_FPS + '/TB,format=yuv420p',
+      '-frames:v', String(frames),
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+      '-an', '-movflags', '+faststart',
+      'video.mp4'
+    ];
+    log('convert: ffmpeg ' + convertArgs.join(' '));
+    await ffmpeg.exec(convertArgs);
+    state.ffmpegProgressHandler = null;
+    if (state.stopRequested) throw new Error('Arrêt demandé');
+
+    let outName = 'video.mp4';
+    if (state.audioFile) {
+      setProgress(88, 'Mixage audio…');
+      await ffmpeg.writeFile('audio.in', await fetchFile(state.audioFile));
+      const vol = clamp(state.musicVolume, 0.05, 1);
+      const mixArgs = [
+        '-i', 'video.mp4',
+        '-stream_loop', '-1', '-i', 'audio.in',
+        '-map', '0:v:0', '-map', '1:a:0',
+        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
+        '-filter:a', 'volume=' + vol.toFixed(2),
+        '-t', String(EXPORT_SEC), '-shortest', '-movflags', '+faststart',
+        'out.mp4'
+      ];
+      try {
+        await ffmpeg.exec(mixArgs);
+        outName = 'out.mp4';
+      } catch (mixErr) {
+        log('Mix volume échoué — retry sans filtre');
+        await ffmpeg.exec([
+          '-i', 'video.mp4', '-stream_loop', '-1', '-i', 'audio.in',
+          '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
+          '-t', String(EXPORT_SEC), '-shortest', 'out.mp4'
+        ]);
+        outName = 'out.mp4';
+      }
+    }
+
+    setProgress(95, 'Lecture fichier…');
+    const data = await ffmpeg.readFile(outName);
+    const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    const blob = new Blob([buffer], { type: 'video/mp4' });
+    state.exportBlob = blob;
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ambiance-' + state.ambianceId + '-' + Date.now() + '.mp4';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+
+    setProgress(100, '✅ Export OK · ' + (blob.size / 1024).toFixed(0) + ' Ko', 0);
+    showToast('Vidéo 10s exportée', 'success', 4000);
+    log('Export MP4 · ' + blob.size + ' o');
+
+    try {
+      await ffmpeg.deleteFile('in.webm');
+      await ffmpeg.deleteFile('video.mp4');
+      if (outName === 'out.mp4') await ffmpeg.deleteFile('out.mp4');
+    } catch (e) { /* ignore */ }
+
+    if (wasPreview) startPreview();
+  } catch (e) {
+    const msg = /Arrêt|abort|terminat/i.test(String(e && e.message || e))
+      ? 'Export annulé'
+      : formatFetchError(e);
+    setProgress(0, '❌ ' + msg);
+    showToast(msg, msg === 'Export annulé' ? 'warn' : 'error', 6000);
+    log('Erreur export : ' + msg);
+  } finally {
+    state.exporting = false;
+    state.ffmpegProgressHandler = null;
+    document.getElementById('export-btn').disabled = false;
+    document.getElementById('preview-btn').disabled = !state.userImageEl;
+    if (!state.previewing) document.getElementById('stop-btn').classList.remove('visible');
+  }
+}
+
+// ── UI wiring ────────────────────────────────────────────────────
+function syncAmbianceUI() {
+  const sel = document.getElementById('ambiance-select');
+  sel.value = state.ambianceId;
+  const preset = AMBIANCE_PRESETS[state.ambianceId];
+  document.getElementById('ambiance-hint').textContent = preset.hint;
+  const custom = document.getElementById('custom-effects');
+  custom.classList.toggle('visible', state.ambianceId === 'custom');
+  custom.querySelectorAll('input[data-fx]').forEach(function (inp) {
+    inp.checked = !!state.customLayers[inp.dataset.fx];
+  });
+  document.getElementById('speed-slider').value = String(state.speed);
+  document.getElementById('speed-value').textContent = state.speed.toFixed(2) + '×';
+  document.getElementById('ripple-slider').value = String(Math.round(state.ripple * 100));
+  document.getElementById('ripple-value').textContent = Math.round(state.ripple * 100) + '%';
+  document.querySelectorAll('.density-btn').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.density === state.density);
+  });
+  document.getElementById('music-volume').value = String(Math.round(state.musicVolume * 100));
+  document.getElementById('music-volume-value').textContent = Math.round(state.musicVolume * 100) + '%';
+}
+
+function updateEnvBanners() {
+  document.getElementById('file-protocol-banner').style.display = isFileProtocol() ? 'block' : 'none';
+  if (!isFileProtocol()) probeServer();
+}
+
+function bindUploads() {
+  [
+    { zone: document.getElementById('image-zone'), input: document.getElementById('image-input'), handler: handleImageFile },
+    { zone: document.getElementById('audio-zone'), input: document.getElementById('audio-input'), handler: handleAudioFile }
+  ].forEach(function (item) {
+    item.input.addEventListener('change', function () {
+      const f = item.input.files && item.input.files[0];
+      if (f) item.handler(f);
+      item.input.value = '';
+    });
+    item.zone.addEventListener('dragover', function (e) { e.preventDefault(); item.zone.classList.add('drag'); });
+    item.zone.addEventListener('dragleave', function () { item.zone.classList.remove('drag'); });
+    item.zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      item.zone.classList.remove('drag');
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) item.handler(f);
+    });
+  });
+}
+
+(async function init() {
+  await loadPrefs();
+  syncAmbianceUI();
+  updateEnvBanners();
+  bindUploads();
+
+  document.querySelectorAll('[data-toggle]').forEach(function (h) {
+    h.addEventListener('click', function () {
+      document.getElementById(h.dataset.toggle).classList.toggle('open');
+    });
+  });
+
+  document.getElementById('ambiance-select').addEventListener('change', function (e) {
+    state.ambianceId = e.target.value;
+    syncAmbianceUI();
+    rebuildLayers();
+    savePrefs();
+    showToast(AMBIANCE_PRESETS[state.ambianceId].label, 'success');
+    if (state.userImageEl && !state.previewing) renderFrame(0, 0.016);
+  });
+
+  document.getElementById('custom-effects').addEventListener('change', function (e) {
+    const t = e.target;
+    if (t && t.dataset && t.dataset.fx) {
+      state.customLayers[t.dataset.fx] = !!t.checked;
+      rebuildLayers();
+      savePrefs();
+    }
+  });
+
+  document.getElementById('speed-slider').addEventListener('input', function (e) {
+    state.speed = parseFloat(e.target.value) || 1;
+    document.getElementById('speed-value').textContent = state.speed.toFixed(2) + '×';
+  });
+  document.getElementById('speed-slider').addEventListener('change', savePrefs);
+
+  document.getElementById('ripple-slider').addEventListener('input', function (e) {
+    state.ripple = (parseInt(e.target.value, 10) || 0) / 100;
+    document.getElementById('ripple-value').textContent = Math.round(state.ripple * 100) + '%';
+  });
+  document.getElementById('ripple-slider').addEventListener('change', savePrefs);
+
+  document.querySelectorAll('.density-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.density = btn.dataset.density;
+      syncAmbianceUI();
+      rebuildLayers();
+      savePrefs();
+    });
+  });
+
+  document.getElementById('music-volume').addEventListener('input', function (e) {
+    state.musicVolume = (parseInt(e.target.value, 10) || 0) / 100;
+    document.getElementById('music-volume-value').textContent = Math.round(state.musicVolume * 100) + '%';
+  });
+  document.getElementById('music-volume').addEventListener('change', savePrefs);
+
+  document.getElementById('image-remove-btn').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation(); clearImage();
+  });
+  document.getElementById('audio-remove-btn').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation(); clearAudio();
+  });
+
+  document.getElementById('preview-btn').addEventListener('click', startPreview);
+  document.getElementById('export-btn').addEventListener('click', exportMp4);
+  document.getElementById('stop-btn').addEventListener('click', stopAll);
+
+  if (isFileProtocol()) {
+    showToast('file:// détecté — lancez demarrer.bat', 'error', 7000);
+  } else if (isFFmpegAvailable()) {
+    ensureFFmpegBlobURLs().then(function () { log('FFmpeg préchargé'); }).catch(function (e) {
+      log('Préchargement FFmpeg : ' + formatFetchError(e));
+    });
+    setInterval(function () { if (!state.exporting) probeServer(); }, 15000);
+  }
+
+  log('Ambiance Animation Studio v1.0 prêt — cadre fixe + calques procéduraux');
+})();
+
+})();
+</script>
+</body>
+</html>
