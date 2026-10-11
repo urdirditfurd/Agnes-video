@@ -3,6 +3,20 @@
 Transformez **n’importe quelle image** en boucle d’ambiance apaisante de 10 secondes  
 (cadre 100 % statique — seuls les effets d’arrière-plan bougent).
 
+## ⚠️ Pourquoi `http://127.0.0.1:8765/` ne répond pas ?
+
+Cette adresse ne marche **que sur VOTRE ordinateur**, et **seulement** si le serveur est lancé :
+
+1. Téléchargez le dossier **complet** `ambiance-animation-studio` (avec `lib/ffmpeg/`)
+2. Windows : double-cliquez **`demarrer.bat`** (laissez la fenêtre noire ouverte)
+3. Mac / Linux : `./demarrer.sh`
+4. Le navigateur s’ouvre sur `http://127.0.0.1:8765/`  
+   (si 8765 est pris → le script affiche un autre port, ex. `8766`)
+
+Si vous voyez `ERR_CONNECTION_REFUSED` : le serveur n’est pas démarré, ou la fenêtre a été fermée.
+
+**Ne double-cliquez pas** `index.html` (mode `file://` → FFmpeg cassé).
+
 ## Contenu du pack
 
 ```
@@ -13,32 +27,15 @@ ambiance-animation-studio/
 └── lib/ffmpeg/          ← obligatoire (~31 Mo)
 ```
 
-## Démarrage
+## Prérequis
 
-```bash
-cd ambiance-animation-studio
-./demarrer.sh          # ou demarrer.bat sous Windows
-# → http://127.0.0.1:8765/
-```
-
-**Ne fermez pas** la fenêtre du serveur. Ne double-cliquez pas le HTML (`file://`).
+- **Python 3** installé ([python.org](https://www.python.org/downloads/) — cochez *Add to PATH* sous Windows)
+- Chrome ou Edge
 
 ## Flux
 
 1. Uploadez une image (JPEG / PNG / WebP)  
-2. Choisissez une ambiance (Onsen, Pluie, Feu, Océan, Forêt, Café, Perso)  
+2. Choisissez une ambiance  
 3. Réglez vitesse / densité / ondulation  
-4. **Prévisualiser** (canvas en boucle)  
-5. **Exporter vidéo 10s (MP4)** via FFmpeg.wasm  
-
-## Ambiances
-
-| Ambiance | Effets |
-|----------|--------|
-| Onsen Japonais | vapeur, neige, ondulation, bulles |
-| Pluie Douce | pluie, brume, éclairs subtils |
-| Feu de Cheminée | flammes, braises, fumée |
-| Océan Calme | vagues, écume, reflets |
-| Forêt Enchantée | lucioles, feuilles, brume |
-| Café Cocooning | vapeur, pluie fenêtre, lueur |
-| Personnalisé | cochez les calques voulus |
+4. **Prévisualiser**  
+5. **Exporter vidéo 10s (MP4)**  
