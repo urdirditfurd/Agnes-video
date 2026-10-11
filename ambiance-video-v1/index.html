@@ -1,0 +1,2504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ambiance Video Studio v1 — Lofi / Cozy 3H</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Ambiance Video Studio v1 — styles (esthétique nuit cozy / lofi)
+   ══════════════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+    --bg-deep: #0f1a1f;
+    --bg-mid: #16262e;
+    --panel: rgba(22, 38, 46, 0.92);
+    --panel-2: rgba(28, 48, 58, 0.95);
+    --border: rgba(120, 168, 150, 0.22);
+    --ink: #e8f0ec;
+    --ink-dim: #8fa8a0;
+    --ink-faint: #5a736c;
+    --amber: #e8a85c;
+    --teal: #5ec4a8;
+    --mist: #7eb8c9;
+    --rose: #d4897a;
+    --success: #5ec47a;
+    --error: #e07070;
+    --warn: #e8b05c;
+    --radius: 14px;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Outfit', system-ui, sans-serif;
+    --loop-duration: 10800;
+}
+
+body {
+    font-family: var(--font-body);
+    background:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(94, 196, 168, 0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 90% 10%, rgba(232, 168, 92, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 60% at 50% 100%, rgba(126, 184, 201, 0.08) 0%, transparent 45%),
+        linear-gradient(165deg, var(--bg-deep) 0%, var(--bg-mid) 45%, #0c1418 100%);
+    background-attachment: fixed;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 1.5rem 1rem 7rem;
+    font-size: 15px;
+    line-height: 1.55;
+    max-width: 920px;
+    margin: 0 auto;
+}
+
+/* Atmosphère : particules de poussière légères */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+        radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.25), transparent),
+        radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.18), transparent),
+        radial-gradient(1.5px 1.5px at 40% 70%, rgba(232,168,92,0.2), transparent),
+        radial-gradient(1px 1px at 85% 80%, rgba(94,196,168,0.2), transparent);
+    animation: driftDust 40s linear infinite;
+    opacity: 0.6;
+}
+@keyframes driftDust {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-40px); }
+}
+
+header, .api-panel, .section, .audio-zone, .preview-stage,
+.btn-primary, .btn-assemble, .btn-download, .btn-stop,
+.meta-panel, .info-banner, .final-film, .status-bar {
+    position: relative;
+    z-index: 1;
+}
+
+header {
+    margin-bottom: 1.75rem;
+    text-align: center;
+    padding: 1.2rem 0 0.5rem;
+    animation: fadeRise 0.8s ease both;
+}
+@keyframes fadeRise {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.brand {
+    font-family: var(--font-display);
+    font-size: clamp(1.85rem, 5vw, 2.45rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: 0.45rem;
+    background: linear-gradient(105deg, #f0e6d4 0%, var(--amber) 35%, var(--teal) 75%, var(--mist) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: brandGlow 6s ease-in-out infinite alternate;
+}
+@keyframes brandGlow {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.12); }
+}
+
+.subtitle {
+    font-size: 0.92rem;
+    color: var(--ink-dim);
+    font-weight: 400;
+    max-width: 34rem;
+    margin: 0 auto;
+}
+
+.version-pill {
+    display: inline-block;
+    margin-top: 0.65rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--teal);
+    border: 1px solid rgba(94, 196, 168, 0.35);
+    padding: 0.25rem 0.7rem;
+    border-radius: 4px;
+}
+
+/* Toast */
+.toast {
+    position: fixed; top: 1.5rem; left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: #1a2e36; color: #fff;
+    padding: 0.85rem 1.4rem; border-radius: 12px;
+    font-size: 0.85rem; font-weight: 600;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    border: 1px solid var(--border);
+    z-index: 1000; opacity: 0;
+    transition: transform 0.35s ease, opacity 0.35s ease;
+    max-width: 90vw; text-align: center;
+    display: flex; align-items: center; gap: 0.5rem;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast.success { border-color: var(--success); }
+.toast.error { border-color: var(--error); }
+.toast.warn { border-color: var(--warn); }
+
+.info-banner {
+    background: linear-gradient(135deg, rgba(94,196,168,0.12), rgba(232,168,92,0.08));
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--teal);
+    padding: 0.95rem 1.1rem;
+    border-radius: var(--radius);
+    font-size: 0.84rem;
+    color: var(--ink);
+    margin-bottom: 1rem;
+    line-height: 1.55;
+    animation: fadeRise 0.9s ease 0.1s both;
+}
+.info-banner strong { color: var(--amber); }
+
+.badge-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.55rem; }
+.badge-soft {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.28rem 0.7rem; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+}
+.badge-soft.teal { background: rgba(94,196,168,0.2); color: var(--teal); }
+.badge-soft.amber { background: rgba(232,168,92,0.2); color: var(--amber); }
+
+/* Sections */
+.section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    animation: fadeRise 0.85s ease both;
+}
+.section-header {
+    padding: 1rem 1.2rem;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent);
+}
+.section-header:active { background: var(--panel-2); }
+.section-title {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--teal);
+    font-weight: 700;
+}
+.section-title .badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.12rem 0.45rem;
+    background: rgba(232,168,92,0.25);
+    color: var(--amber);
+    border-radius: 4px;
+    font-size: 0.62rem;
+    letter-spacing: 0;
+}
+.section-header .chevron {
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    transition: transform 0.25s;
+}
+.section.open .section-header .chevron { transform: rotate(180deg); }
+.section-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+.section.open .section-body { max-height: 12000px; }
+.section-content { padding: 0 1.2rem 1.25rem; }
+
+/* API panel */
+.api-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.3s;
+    animation: fadeRise 0.85s ease 0.05s both;
+}
+.api-panel.ok { border-color: rgba(94,196,168,0.5); }
+
+.control-label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.4rem;
+}
+
+.api-key-input, select, input[type="text"], input[type="number"], textarea {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(12, 20, 24, 0.65);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.9rem;
+    margin-bottom: 0.55rem;
+}
+.api-key-input { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.84rem; }
+.api-key-input:focus, select:focus, input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(94,196,168,0.15);
+}
+select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%8fa8a0' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+}
+textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+
+.api-save-btn {
+    width: 100%;
+    padding: 0.85rem 1.2rem;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--teal), #3a9a88);
+    color: #0c1418;
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    margin-bottom: 0.55rem;
+    transition: transform 0.1s, filter 0.2s;
+}
+.api-save-btn:active { transform: scale(0.98); }
+.api-save-btn:hover { filter: brightness(1.08); }
+
+.api-status-line {
+    font-size: 0.78rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--panel-2);
+    color: var(--ink-dim);
+}
+.api-status-line.ok { background: rgba(94,196,122,0.15); color: var(--success); font-weight: 700; }
+.api-status-line .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ink-faint); flex-shrink: 0;
+}
+.api-status-line.ok .status-dot { background: var(--success); }
+.api-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.35rem; }
+.api-hint a { color: var(--teal); }
+
+.image-gen-status {
+    background: rgba(94,196,168,0.1);
+    border: 1px solid rgba(94,196,168,0.3);
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.78rem;
+    color: var(--teal);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.wake-status {
+    font-size: 0.75rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 8px;
+    margin-top: 0.4rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(126,184,201,0.12);
+    color: var(--mist);
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.wake-status.active { background: rgba(94,196,122,0.15); color: var(--success); }
+.wake-status.warn { background: rgba(232,176,92,0.15); color: var(--warn); }
+.wake-status button {
+    background: transparent;
+    border: 1px solid currentColor;
+    color: inherit;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+}
+
+.control-row { margin-bottom: 0.85rem; }
+.hint-text {
+    font-size: 0.75rem;
+    color: var(--ink-dim);
+    margin-top: -0.25rem;
+    margin-bottom: 0.7rem;
+}
+
+/* Masotte select avec icônes */
+.theme-select-wrap { position: relative; }
+.theme-select-wrap select { font-size: 0.95rem; padding: 0.9rem 1rem; }
+
+.prompt-preview-box {
+    background: rgba(12, 20, 24, 0.5);
+    border: 1px dashed rgba(94,196,168,0.35);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+    line-height: 1.5;
+    margin-top: 0.4rem;
+}
+.prompt-preview-box strong { color: var(--amber); display: block; margin-bottom: 0.35rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Audio */
+.audio-zone {
+    border: 2px dashed rgba(126,184,201,0.4);
+    border-radius: var(--radius);
+    padding: 1.4rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    margin-bottom: 1rem;
+    background: linear-gradient(145deg, rgba(126,184,201,0.08), rgba(94,196,168,0.05));
+}
+.audio-zone:hover { border-color: var(--teal); }
+.audio-zone.has-file {
+    border-style: solid;
+    border-color: rgba(94,196,122,0.5);
+    background: rgba(94,196,122,0.08);
+}
+.audio-zone input[type="file"] { display: none; }
+.audio-zone .audio-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+.audio-zone .audio-text { font-size: 0.92rem; font-weight: 600; color: var(--ink); }
+.audio-zone .audio-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.25rem; }
+.audio-zone .audio-filename {
+    font-size: 0.75rem; color: var(--success); font-weight: 700;
+    margin-top: 0.4rem; word-break: break-all;
+}
+.audio-zone audio { width: 100%; margin-top: 0.6rem; border-radius: 8px; }
+.audio-remove-btn {
+    margin-top: 0.5rem;
+    background: transparent;
+    border: 1px solid var(--error);
+    color: var(--error);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+}
+.bpm-display {
+    margin-top: 0.6rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 10px;
+    background: rgba(12,20,24,0.6);
+    border: 1px solid var(--border);
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: none;
+    text-align: left;
+}
+.bpm-display.visible { display: block; }
+.bpm-display.ok { border-color: rgba(94,196,122,0.5); color: var(--success); }
+.bpm-display.warn { border-color: rgba(232,176,92,0.5); color: var(--warn); }
+.bpm-display .bpm-value { font-size: 1.1rem; font-weight: 700; }
+
+.volume-control {
+    margin-top: 0.7rem;
+    padding: 0.75rem 0.9rem;
+    background: rgba(12,20,24,0.45);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-align: left;
+}
+.volume-control label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+}
+.volume-control input[type="range"] { width: 100%; accent-color: var(--teal); }
+.vol-value { font-size: 0.8rem; color: var(--teal); font-weight: 700; margin-top: 0.25rem; }
+.check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-top: 0.65rem;
+    text-align: left;
+}
+.check-row input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: var(--teal);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.check-row label { font-size: 0.82rem; font-weight: 500; color: var(--ink); cursor: pointer; }
+
+/* Boutons principaux */
+.btn-primary, .btn-assemble, .btn-download, .btn-stop {
+    width: 100%;
+    padding: 1rem 1.2rem;
+    border-radius: 12px;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    margin-bottom: 0.65rem;
+    transition: transform 0.1s, filter 0.2s, opacity 0.2s;
+}
+.btn-primary {
+    background: linear-gradient(135deg, var(--amber), #c4783a);
+    color: #1a1208;
+}
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary:not(:disabled):hover { filter: brightness(1.08); }
+.btn-primary:not(:disabled):active { transform: scale(0.98); }
+
+.btn-assemble {
+    background: linear-gradient(135deg, var(--teal), #2d8a78);
+    color: #0c1418;
+    display: none;
+}
+.btn-assemble.visible { display: block; }
+
+.btn-download {
+    background: transparent;
+    border: 1.5px solid var(--mist);
+    color: var(--mist);
+    display: none;
+}
+.btn-download.visible { display: block; }
+
+.btn-stop {
+    background: transparent;
+    border: 1.5px solid var(--error);
+    color: var(--error);
+    display: none;
+}
+.btn-stop.visible { display: block; }
+
+/* Preview Ken Burns */
+.preview-stage {
+    display: none;
+    margin: 1rem 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #000;
+    aspect-ratio: 16 / 9;
+    position: relative;
+}
+.preview-stage.visible { display: block; animation: fadeRise 0.6s ease both; }
+.preview-stage .ken-burns-layer {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    animation: kenBurns 18s ease-in-out infinite alternate;
+    transform-origin: center center;
+}
+@keyframes kenBurns {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
+}
+.preview-stage .fx-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    opacity: 0.55;
+}
+.preview-stage .fx-rain {
+    background-image: linear-gradient(transparent 50%, rgba(180,210,230,0.08) 50%);
+    background-size: 3px 18px;
+    animation: rainFall 0.6s linear infinite;
+}
+@keyframes rainFall {
+    from { background-position: 0 0; }
+    to { background-position: 8px 36px; }
+}
+.preview-stage .fx-steam {
+    background:
+        radial-gradient(ellipse 30% 20% at 30% 80%, rgba(255,255,255,0.25), transparent),
+        radial-gradient(ellipse 25% 18% at 60% 85%, rgba(255,255,255,0.18), transparent);
+    animation: steamRise 5s ease-in-out infinite;
+}
+@keyframes steamRise {
+    0%, 100% { opacity: 0.3; transform: translateY(0); }
+    50% { opacity: 0.65; transform: translateY(-12px); }
+}
+.preview-stage .fx-dust {
+    background-image:
+        radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,240,200,0.5), transparent),
+        radial-gradient(1px 1px at 60% 50%, rgba(255,240,200,0.4), transparent),
+        radial-gradient(1.5px 1.5px at 80% 20%, rgba(255,240,200,0.35), transparent);
+    animation: dustDrift 12s linear infinite;
+}
+@keyframes dustDrift {
+    from { transform: translate(0, 0); }
+    to { transform: translate(20px, -30px); }
+}
+.preview-label {
+    position: absolute;
+    bottom: 0.7rem;
+    left: 0.7rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.75);
+    background: rgba(0,0,0,0.45);
+    padding: 0.3rem 0.55rem;
+    border-radius: 4px;
+    z-index: 2;
+}
+
+.final-film {
+    display: none;
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.final-film.visible { display: block; }
+.final-film h3 {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    color: var(--amber);
+    margin-bottom: 0.7rem;
+}
+.final-film video {
+    width: 100%;
+    border-radius: 10px;
+    background: #000;
+    aspect-ratio: 16 / 9;
+}
+.progress-bar-container {
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    margin-top: 0.85rem;
+    overflow: hidden;
+}
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--teal), var(--amber));
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+.ffmpeg-cmd-box {
+    margin-top: 0.85rem;
+    padding: 0.75rem 0.9rem;
+    background: rgba(12,20,24,0.7);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 0.68rem;
+    color: var(--mist);
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.45;
+    display: none;
+}
+.ffmpeg-cmd-box.visible { display: block; }
+
+/* Métadonnées YouTube */
+.meta-panel {
+    display: none;
+    background: linear-gradient(145deg, rgba(22,38,46,0.95), rgba(28,48,58,0.9));
+    border: 1px solid rgba(126,184,201,0.3);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.2rem;
+    margin-top: 1.25rem;
+}
+.meta-panel.visible { display: block; }
+.meta-panel h3 {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    color: var(--mist);
+    margin-bottom: 0.75rem;
+}
+.meta-titles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
+}
+.meta-title-option {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    padding: 0.65rem 0.75rem;
+    background: rgba(12,20,24,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+.meta-title-option:hover, .meta-title-option.selected {
+    border-color: var(--teal);
+}
+.meta-title-option input { margin-top: 3px; accent-color: var(--teal); }
+.meta-title-option span { font-size: 0.82rem; line-height: 1.4; }
+
+.tooltip-wrap { position: relative; display: inline-flex; align-items: center; gap: 0.35rem; }
+.tooltip-icon {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--ink-faint);
+    color: var(--ink-dim);
+    font-size: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    flex-shrink: 0;
+}
+.tooltip-bubble {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    width: min(280px, 80vw);
+    padding: 0.65rem 0.75rem;
+    background: #1a2e36;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    line-height: 1.45;
+    z-index: 20;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.tooltip-wrap:hover .tooltip-bubble,
+.tooltip-wrap:focus-within .tooltip-bubble { display: block; }
+
+.meta-copy-btn {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 10px;
+    border: none;
+    background: var(--mist);
+    color: #0c1418;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.status-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(15, 26, 31, 0.96);
+    border-top: 1px solid var(--border);
+    padding: 0.85rem 1.2rem;
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+}
+.status-bar.visible { display: flex; }
+.status-bar .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: var(--teal);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#noSleepCanvas, #noSleepVideo {
+    position: fixed; top: 0; left: 0;
+    width: 1px; height: 1px;
+    opacity: 0.01;
+    pointer-events: none;
+    z-index: -1;
+}
+
+@media (max-width: 560px) {
+    body { padding: 1rem 0.75rem 7rem; }
+    .brand { font-size: 1.7rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <h1 class="brand">Ambiance Video Studio</h1>
+    <p class="subtitle">Générez une boucle Lofi/Cozy de 3 heures — visuel, musique libre de droits, assemblage FFmpeg et SEO YouTube.</p>
+    <span class="version-pill">v1 · 3 heures</span>
+</header>
+
+<div class="info-banner">
+    <div class="badge-row">
+        <span class="badge-soft teal">Boucle 3H</span>
+        <span class="badge-soft amber">Lofi / Cozy</span>
+    </div>
+    Une seule image ou micro-boucle visuelle, musique en boucle avec crossfade, assemblage FFmpeg longue durée, métadonnées monétisation.
+</div>
+
+<!-- Clés API -->
+<div class="api-panel" id="api-panel">
+    <label class="control-label" for="api-key-input">Clé API Agnes (vidéo courte optionnelle)</label>
+    <input type="password" class="api-key-input" id="api-key-input"
+           placeholder="sk-… (optionnel — fallback Ken Burns si absente)" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé Agnes</button>
+    <div class="api-status-line" id="api-status-line">
+        <span class="status-dot"></span>
+        <span id="api-status-text">Aucune clé — mode image + Ken Burns disponible</span>
+    </div>
+    <div class="image-gen-status">
+        Images : <strong>Pollinations.ai</strong> (gratuit)<br>
+        Vidéo courte : <strong>Agnes</strong> · Fallback : <strong>Ken Burns + calques</strong>
+    </div>
+    <div class="api-hint">
+        Agnes : <a href="https://platform.agnes-ai.com" target="_blank" rel="noopener">platform.agnes-ai.com</a>
+    </div>
+    <button type="button" id="diag-btn" style="width:100%; padding:0.7rem; border-radius:10px; border:1px solid var(--warn); background:rgba(232,176,92,0.1); color:var(--warn); font-weight:700; cursor:pointer; margin-top:0.5rem; font-family:inherit; font-size:0.82rem;">
+        Tester les services
+    </button>
+    <pre id="diag-output" style="display:none; margin-top:0.7rem; padding:0.7rem; background:rgba(12,20,24,0.7); border:1px solid var(--border); border-radius:8px; font-size:0.7rem; white-space:pre-wrap; word-break:break-all; max-height:250px; overflow:auto; font-family:monospace; color:var(--ink-dim);"></pre>
+    <div class="wake-status" id="wake-status">
+        <span id="wake-status-text">Veille automatique</span>
+        <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
+    </div>
+</div>
+
+<!-- Configuration ambiance -->
+<div class="section open" id="section-ambiance">
+    <div class="section-header" data-toggle="section-ambiance">
+        <span class="section-title">Ambiance &amp; mascotte <span class="badge">obligatoire</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row theme-select-wrap">
+                <label class="control-label" for="theme-select">Mascotte / Thème</label>
+                <select id="theme-select">
+                    <option value="capybara-zen">🦫 Capybara Zen (Onsen &amp; Neige)</option>
+                    <option value="robot-jardinier">🤖 Robot Jardinier Rétro (Plante bioluminescente)</option>
+                    <option value="chat-boulanger">🐱 Chat Boulanger de Nuit (Pluie &amp; Four à pain)</option>
+                    <option value="custom">✨ Personnalisé (Prompt libre)</option>
+                </select>
+            </div>
+
+            <div class="control-row">
+                <label class="control-label" for="visual-prompt">Générateur de prompt visuel</label>
+                <textarea id="visual-prompt" rows="5" placeholder="Le prompt Midjourney / Pollinations / Agnes se préremplit selon le thème…"></textarea>
+                <p class="hint-text">Inclut automatiquement : lofi aesthetic, studio ghibli style, seamless loop, subtle animation, 16:9, 4k</p>
+                <div class="prompt-preview-box" id="prompt-keywords">
+                    <strong>Mots-clés injectés</strong>
+                    lofi aesthetic · studio ghibli style · seamless loop · subtle animation · 16:9 · 4k
+                </div>
+            </div>
+
+            <div class="control-row">
+                <label class="control-label" for="loop-duration-select">Durée de la boucle finale</label>
+                <select id="loop-duration-select">
+                    <option value="10800" selected>3 Heures (10800 s) — recommandé YouTube</option>
+                    <option value="3600">1 Heure (3600 s)</option>
+                    <option value="7200">2 Heures (7200 s)</option>
+                    <option value="14400">4 Heures (14400 s)</option>
+                </select>
+                <p class="hint-text">Par défaut bloqué / suggéré à 3 heures pour l'optimisation monétisation YouTube.</p>
+            </div>
+
+            <div class="control-row">
+                <label class="control-label" for="seed-input">Seed visuelle</label>
+                <input type="number" id="seed-input" value="42" min="0" max="999999">
+            </div>
+
+            <div class="control-row">
+                <label class="control-label" for="fx-layer-select">Calque d'ambiance (fallback Ken Burns)</label>
+                <select id="fx-layer-select">
+                    <option value="auto" selected>Automatique selon le thème</option>
+                    <option value="rain">Pluie</option>
+                    <option value="steam">Vapeur</option>
+                    <option value="dust">Poussière lumineuse</option>
+                    <option value="none">Aucun</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zone audio -->
+<div class="section open" id="section-audio">
+    <div class="section-header" data-toggle="section-audio">
+        <span class="section-title">Audio avancé <span class="badge">MP3 / WAV</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="audio-zone" id="audio-zone">
+                <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
+                <div class="audio-icon">🎵</div>
+                <div class="audio-text">Uploadez une musique libre de droits</div>
+                <div class="audio-hint">MP3 ou WAV — bouclée sur toute la durée avec crossfade optionnel</div>
+                <div class="audio-filename" id="audio-filename" style="display:none;"></div>
+                <div class="bpm-display" id="bpm-display">
+                    <div>Tempo détecté : <span class="bpm-value" id="bpm-value">—</span> BPM</div>
+                    <div id="bpm-message" style="margin-top:0.3rem; font-size:0.72rem;"></div>
+                </div>
+                <audio id="audio-preview" controls style="display:none;"></audio>
+                <button type="button" class="audio-remove-btn" id="audio-remove-btn" style="display:none;">Retirer la musique</button>
+
+                <div class="volume-control" onclick="event.stopPropagation()">
+                    <label for="music-volume">Volume musique</label>
+                    <input type="range" id="music-volume" min="0" max="100" value="70">
+                    <div class="vol-value" id="music-volume-value">70%</div>
+                    <div class="check-row">
+                        <input type="checkbox" id="crossfade-toggle" checked>
+                        <label for="crossfade-toggle">Activer le crossfade intelligent (boucles audio sans clic)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button type="button" class="btn-primary" id="generate-btn">
+    Générer le visuel d'ambiance
+</button>
+<button type="button" class="btn-assemble" id="assemble-btn">
+    Assembler la boucle 3H (FFmpeg)
+</button>
+<button type="button" class="btn-download" id="download-btn">
+    Télécharger la vidéo (MP4 / preview)
+</button>
+<button type="button" class="btn-stop" id="stop-btn">
+    Arrêter
+</button>
+
+<!-- Aperçu Ken Burns -->
+<div class="preview-stage" id="preview-stage">
+    <div class="ken-burns-layer" id="ken-burns-layer"></div>
+    <div class="fx-layer" id="fx-layer"></div>
+    <span class="preview-label" id="preview-label">Aperçu boucle · Ken Burns</span>
+</div>
+
+<!-- Film final -->
+<div class="final-film" id="final-film">
+    <h3>Assemblage 3 heures</h3>
+    <video id="final-video" controls playsinline></video>
+    <div class="progress-bar-container" id="assembly-progress" style="display:none;">
+        <div class="progress-bar-fill" id="assembly-progress-fill"></div>
+    </div>
+    <div id="assembly-status" style="font-size:0.78rem; color:var(--ink-dim); text-align:center; margin-top:0.45rem;"></div>
+    <div class="ffmpeg-cmd-box" id="ffmpeg-cmd-box"></div>
+</div>
+
+<!-- Métadonnées YouTube -->
+<div class="meta-panel" id="meta-panel">
+    <h3>Métadonnées YouTube — Lofi / Ambiance</h3>
+
+    <div class="check-row" style="margin-bottom:0.9rem; padding:0.75rem 0.85rem; background:rgba(232,168,92,0.1); border:1px solid rgba(232,168,92,0.35); border-radius:10px;">
+        <input type="checkbox" id="ai-content-checkbox">
+        <label for="ai-content-checkbox" class="tooltip-wrap">
+            Contenu modifié ou synthétique (IA) — obligatoire
+            <span class="tooltip-icon" tabindex="0" aria-label="Info">?</span>
+            <span class="tooltip-bubble">YouTube exige depuis 2026 de déclarer les contenus générés ou fortement assistés par l'IA. Cochez cette case avant publication pour rester conforme et protéger la monétisation.</span>
+        </label>
+    </div>
+    <p id="ai-content-warning" style="display:none; font-size:0.75rem; color:var(--error); margin:-0.4rem 0 0.75rem;">Cochez la déclaration « Contenu modifié ou synthétique (IA) » pour continuer.</p>
+
+    <label class="control-label">3 titres SEO (choisissez-en un)</label>
+    <div class="meta-titles-list" id="meta-titles-list"></div>
+
+    <div style="margin-bottom:0.7rem;">
+        <label class="control-label" for="meta-description">Description</label>
+        <textarea id="meta-description" readonly style="min-height:160px;"></textarea>
+    </div>
+    <div style="margin-bottom:0.7rem;">
+        <label class="control-label" for="meta-tags">Tags</label>
+        <textarea id="meta-tags" readonly style="min-height:70px;"></textarea>
+    </div>
+    <button type="button" class="meta-copy-btn" id="meta-copy-btn">Copier les métadonnées</button>
+</div>
+
+<div class="status-bar" id="status-bar">
+    <div class="spinner"></div>
+    <span id="status-text">Préparation…</span>
+</div>
+
+<div class="toast" id="toast">
+    <span class="toast-icon" id="toast-icon">✓</span>
+    <span id="toast-text">Message</span>
+</div>
+
+<canvas id="noSleepCanvas" width="2" height="2"></canvas>
+<video id="noSleepVideo" playsinline muted loop></video>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   Ambiance Video Studio v1
+   Application autonome — génération ambiance lofi / boucle 3H
+   ══════════════════════════════════════════════════════════════════ */
+
+// ── Configuration ────────────────────────────────────────────────
+const AGNES_API_BASE = 'https://apihub.agnes-ai.com/v1';
+const AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
+const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/';
+const MODEL_VIDEO = 'agnes-video-v2.0';
+const FRAME_RATE = 24;
+const POLLINATIONS_MIN_INTERVAL_MS = 28000;
+const POLLINATIONS_FREE_MODELS = ['flux', 'turbo'];
+
+const SERVER_URL = 'https://51-254-135-158.sslip.io';
+const SERVER_API_KEY = 'kids-studio-secret-change-me';
+
+const AGNES_KEY_STORAGE = 'ambiance_agnes_api_key';
+const WAKE_LOCK_PREF = 'ambiance_wakelock_enabled';
+const IDB_NAME = 'AmbianceVideoStudioV1';
+const IDB_STORE = 'projectState';
+const IDB_VERSION = 1;
+
+const LOOP_KEYWORDS = 'lofi aesthetic, studio ghibli style, seamless loop, subtle animation, 16:9, 4k';
+
+/** Thèmes prédéfinis avec prompts optimisés */
+const AMBIANCE_THEMES = {
+    'capybara-zen': {
+        id: 'capybara-zen',
+        label: 'Capybara Zen',
+        emoji: '🍊',
+        hashtags: '#lofi #etude #capybara #musiqueapaisante #3heures #onsen #zen',
+        fx: 'steam',
+        chapters: [
+            { t: '00:00', title: 'Début de la neige douce' },
+            { t: '01:00:00', title: 'Ambiance onsen profonde' },
+            { t: '02:00:00', title: 'Nuit calme sous les flocons' }
+        ],
+        prompt: 'A serene capybara soaking in a Japanese onsen hot spring at dusk, soft falling snow, warm steam rising, wooden bathhouse, lantern glow, cozy winter night, peaceful face, cinematic atmosphere, ' + LOOP_KEYWORDS
+    },
+    'robot-jardinier': {
+        id: 'robot-jardinier',
+        label: 'Robot Jardinier Rétro',
+        emoji: '🌿',
+        hashtags: '#lofi #etude #robot #jardin #musiqueapaisante #3heures #bioluminescent',
+        fx: 'dust',
+        chapters: [
+            { t: '00:00', title: 'Allumage des plantes bioluminescentes' },
+            { t: '01:00:00', title: 'Jardin nocturne en pleine croissance' },
+            { t: '02:00:00', title: 'Veillée mécanique sous les étoiles' }
+        ],
+        prompt: 'A cute retro gardening robot tending bioluminescent plants in a glass greenhouse at night, soft teal and amber light, brass details, gentle watering, dreamy fog, cozy sci-fi atmosphere, ' + LOOP_KEYWORDS
+    },
+    'chat-boulanger': {
+        id: 'chat-boulanger',
+        label: 'Chat Boulanger de Nuit',
+        emoji: '🌧️',
+        hashtags: '#lofi #etude #chat #boulangerie #pluie #musiqueapaisante #3heures',
+        fx: 'rain',
+        chapters: [
+            { t: '00:00', title: 'Début de la pluie' },
+            { t: '01:00:00', title: 'Ambiance four à pain' },
+            { t: '02:00:00', title: 'Nuit calme derrière la vitrine' }
+        ],
+        prompt: 'An adorable cat baker working in a warm night bakery, rain streaking the window, glowing bread oven, flour dust in golden light, cozy interior, soft candlelight, peaceful mood, ' + LOOP_KEYWORDS
+    },
+    'custom': {
+        id: 'custom',
+        label: 'Personnalisé',
+        emoji: '✨',
+        hashtags: '#lofi #etude #ambiance #musiqueapaisante #3heures #cozy',
+        fx: 'dust',
+        chapters: [
+            { t: '00:00', title: 'Début de l\'ambiance' },
+            { t: '01:00:00', title: 'Ambiance profonde' },
+            { t: '02:00:00', title: 'Nuit calme' }
+        ],
+        prompt: 'A cozy lofi room scene at night, warm lamp light, rain on the window, soft shadows, peaceful study atmosphere, ' + LOOP_KEYWORDS
+    }
+};
+
+// ── État global ──────────────────────────────────────────────────
+const state = {
+    ambianceConfig: {
+        themeId: 'capybara-zen',
+        visualPrompt: AMBIANCE_THEMES['capybara-zen'].prompt,
+        fxLayer: 'auto',
+        seed: 42
+    },
+    loopDuration: 10800, // 3 heures en secondes
+    audioFile: null,
+    audioObjectUrl: null,
+    audioBpm: null,
+    audioDuration: 0,
+    musicVolume: 0.70,
+    crossfadeEnabled: true,
+    crossfadeDuration: 2.0,
+    isRunning: false,
+    isAssembling: false,
+    stopRequested: false,
+    lastPollinationsCall: 0,
+    visualAsset: null,      // { type: 'image'|'video', dataUrl|url, blob? }
+    previewMode: null,      // 'kenburns' | 'video'
+    finalFilmBlob: null,
+    finalFilmUrl: null,
+    ffmpegCommand: '',
+    youtubeMeta: null,
+    aiContentDeclared: false,
+    durationFrames: 241,    // ~10s pour boucle Agnes
+    autoDownload: false
+};
+
+// ── IndexedDB (persistance légère) ───────────────────────────────
+function openAmbianceDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)) {
+                db.createObjectStore(IDB_STORE);
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function saveStateToIDB() {
+    try {
+        const db = await openAmbianceDB();
+        const payload = {
+            ambianceConfig: state.ambianceConfig,
+            loopDuration: state.loopDuration,
+            musicVolume: state.musicVolume,
+            crossfadeEnabled: state.crossfadeEnabled,
+            aiContentDeclared: state.aiContentDeclared,
+            savedAt: Date.now()
+        };
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put(payload, 'config');
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+    } catch (e) {
+        log('IndexedDB save ignoré : ' + e.message);
+    }
+}
+
+async function loadStateFromIDB() {
+    try {
+        const db = await openAmbianceDB();
+        const payload = await new Promise((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE, 'readonly');
+            const req = tx.objectStore(IDB_STORE).get('config');
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+        db.close();
+        if (!payload) return;
+        if (payload.ambianceConfig) state.ambianceConfig = { ...state.ambianceConfig, ...payload.ambianceConfig };
+        if (typeof payload.loopDuration === 'number') state.loopDuration = payload.loopDuration;
+        if (typeof payload.musicVolume === 'number') state.musicVolume = payload.musicVolume;
+        if (typeof payload.crossfadeEnabled === 'boolean') state.crossfadeEnabled = payload.crossfadeEnabled;
+        if (typeof payload.aiContentDeclared === 'boolean') state.aiContentDeclared = payload.aiContentDeclared;
+        log('État restauré depuis IndexedDB');
+    } catch (e) {
+        log('IndexedDB load ignoré : ' + e.message);
+    }
+}
+
+// ── Utilitaires UI ───────────────────────────────────────────────
+let toastTimeout = null;
+
+function showToast(message, type, duration) {
+    type = type || 'success';
+    duration = duration || 2500;
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const text = document.getElementById('toast-text');
+    if (!toast) return;
+    toast.classList.remove('visible', 'success', 'error', 'warn');
+    void toast.offsetWidth;
+    const icons = { success: '✓', error: '✕', warn: '⚠' };
+    icon.textContent = icons[type] || '✓';
+    text.textContent = message;
+    toast.classList.add(type);
+    requestAnimationFrame(function () { toast.classList.add('visible'); });
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function () { toast.classList.remove('visible'); }, duration);
+}
+
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function log(msg) { console.log('[AmbianceStudio] ' + msg); }
+
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const el = document.getElementById('status-text');
+    if (!bar || !el) return;
+    if (!text) {
+        bar.classList.remove('visible');
+        return;
+    }
+    el.textContent = text;
+    bar.classList.add('visible');
+}
+
+function getTheme() {
+    return AMBIANCE_THEMES[state.ambianceConfig.themeId] || AMBIANCE_THEMES['capybara-zen'];
+}
+
+function resolveFxLayer() {
+    const choice = state.ambianceConfig.fxLayer;
+    if (choice && choice !== 'auto') return choice;
+    return getTheme().fx || 'dust';
+}
+
+// ── Anti-veille (repris de l'architecture existante) ─────────────
+let wakeLockSentinel = null;
+let wakeLockEnabled = false;
+let canvasStream = null;
+let canvasInterval = null;
+
+function isWakeLockSupported() {
+    return 'wakeLock' in navigator && typeof navigator.wakeLock.request === 'function';
+}
+
+async function requestWakeLockAPI() {
+    if (!isWakeLockSupported()) return false;
+    try {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', function () {
+            wakeLockSentinel = null;
+            updateWakeStatus();
+        });
+        return true;
+    } catch (e) { return false; }
+}
+
+async function releaseWakeLockAPI() {
+    if (wakeLockSentinel) {
+        try { await wakeLockSentinel.release(); } catch (e) { /* ignore */ }
+        wakeLockSentinel = null;
+    }
+}
+
+function startCanvasStream() {
+    if (canvasStream) return true;
+    try {
+        const canvas = document.getElementById('noSleepCanvas');
+        const video = document.getElementById('noSleepVideo');
+        if (!canvas || !video) return false;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return false;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (typeof canvas.captureStream !== 'function') return false;
+        canvasStream = canvas.captureStream(1);
+        let toggle = false;
+        canvasInterval = setInterval(function () {
+            toggle = !toggle;
+            ctx.fillStyle = toggle ? '#000000' : '#010101';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }, 1000);
+        video.srcObject = canvasStream;
+        video.muted = true;
+        video.playsInline = true;
+        video.play().catch(function () {});
+        return true;
+    } catch (e) { return false; }
+}
+
+function stopCanvasStream() {
+    if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
+    const video = document.getElementById('noSleepVideo');
+    if (video) { try { video.pause(); video.srcObject = null; } catch (e) { /* ignore */ } }
+    if (canvasStream) {
+        try { canvasStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* ignore */ }
+        canvasStream = null;
+    }
+}
+
+async function activateWakeLock() {
+    let success = false;
+    if (isWakeLockSupported()) success = await requestWakeLockAPI();
+    if (!success) success = startCanvasStream();
+    return success;
+}
+
+async function deactivateWakeLock() {
+    await releaseWakeLockAPI();
+    stopCanvasStream();
+}
+
+function updateWakeStatus() {
+    const el = document.getElementById('wake-status');
+    const txt = document.getElementById('wake-status-text');
+    const btn = document.getElementById('wake-toggle-btn');
+    if (!el || !txt || !btn) return;
+    el.classList.remove('active', 'warn');
+    btn.style.display = 'inline-block';
+    const isActive = wakeLockSentinel !== null || canvasStream !== null;
+    if (wakeLockEnabled && isActive) {
+        el.classList.add('active');
+        txt.textContent = 'Écran allumé';
+        btn.textContent = 'Désactiver';
+    } else if (wakeLockEnabled && !isActive) {
+        el.classList.add('warn');
+        txt.textContent = 'En attente';
+        btn.textContent = 'Désactiver';
+    } else {
+        txt.textContent = 'Veille automatique';
+        btn.textContent = 'Garder l\'écran allumé';
+    }
+}
+
+async function toggleWakeLock() {
+    if (wakeLockEnabled) {
+        wakeLockEnabled = false;
+        await deactivateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '0'); } catch (e) { /* ignore */ }
+        showToast('Veille réactivée', 'warn');
+    } else {
+        wakeLockEnabled = true;
+        const ok = await activateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) { /* ignore */ }
+        showToast(ok ? 'Écran allumé' : 'Activez manuellement', ok ? 'success' : 'warn');
+    }
+    updateWakeStatus();
+}
+
+document.addEventListener('visibilitychange', async function () {
+    if (document.visibilityState === 'visible' && wakeLockEnabled) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+});
+
+async function ensureWakeLockActive() {
+    if (!wakeLockEnabled) return;
+    if (wakeLockSentinel === null && canvasStream === null) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+}
+
+// ── Clé Agnes ────────────────────────────────────────────────────
+function getAgnesKey() {
+    try { return (localStorage.getItem(AGNES_KEY_STORAGE) || '').trim(); }
+    catch (e) { return ''; }
+}
+
+function saveAgnesKey() {
+    const input = document.getElementById('api-key-input');
+    const key = (input && input.value || '').trim();
+    if (!key) {
+        localStorage.removeItem(AGNES_KEY_STORAGE);
+        updateApiPanel();
+        showToast('Clé Agnes supprimée', 'warn');
+        return;
+    }
+    localStorage.setItem(AGNES_KEY_STORAGE, key);
+    updateApiPanel();
+    showToast('Clé Agnes enregistrée', 'success');
+}
+
+function updateApiPanel() {
+    const panel = document.getElementById('api-panel');
+    const line = document.getElementById('api-status-line');
+    const text = document.getElementById('api-status-text');
+    const input = document.getElementById('api-key-input');
+    const key = getAgnesKey();
+    if (key) {
+        panel.classList.add('ok');
+        line.classList.add('ok');
+        text.textContent = 'Clé Agnes active (' + key.slice(0, 8) + '…)';
+        if (input && !input.value) input.placeholder = 'Clé enregistrée — laissez vide pour conserver';
+    } else {
+        panel.classList.remove('ok');
+        line.classList.remove('ok');
+        text.textContent = 'Aucune clé — mode image + Ken Burns disponible';
+    }
+}
+
+// ── Thème & prompts ──────────────────────────────────────────────
+function applyThemePrompt(themeId, forceOverwrite) {
+    const theme = AMBIANCE_THEMES[themeId] || AMBIANCE_THEMES.custom;
+    state.ambianceConfig.themeId = themeId;
+    const ta = document.getElementById('visual-prompt');
+    if (!ta) return;
+    if (forceOverwrite || themeId !== 'custom') {
+        state.ambianceConfig.visualPrompt = theme.prompt;
+        ta.value = theme.prompt;
+    } else if (!ta.value.trim()) {
+        state.ambianceConfig.visualPrompt = theme.prompt;
+        ta.value = theme.prompt;
+    }
+    ensurePromptKeywords();
+    saveStateToIDB();
+}
+
+/** Garantit la présence des mots-clés SEO / génération */
+function ensurePromptKeywords() {
+    const ta = document.getElementById('visual-prompt');
+    if (!ta) return;
+    let prompt = ta.value.trim();
+    const required = ['lofi aesthetic', 'studio ghibli style', 'seamless loop', 'subtle animation', '16:9', '4k'];
+    const missing = required.filter(function (k) {
+        return prompt.toLowerCase().indexOf(k.toLowerCase()) === -1;
+    });
+    if (missing.length) {
+        prompt = (prompt ? prompt.replace(/[,\s]+$/, '') + ', ' : '') + missing.join(', ');
+        ta.value = prompt;
+    }
+    state.ambianceConfig.visualPrompt = ta.value.trim();
+}
+
+// ── Génération image (Pollinations) ──────────────────────────────
+async function generateImageWithPollinations(prompt, retries) {
+    retries = retries || 4;
+    const now = Date.now();
+    const elapsed = now - state.lastPollinationsCall;
+    if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
+        const wait = POLLINATIONS_MIN_INTERVAL_MS - elapsed;
+        setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
+        await sleep(wait);
+    }
+    state.lastPollinationsCall = Date.now();
+
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1400));
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        const model = POLLINATIONS_FREE_MODELS[attempt % POLLINATIONS_FREE_MODELS.length];
+        const url = POLLINATIONS_BASE + encodedPrompt +
+            '?width=1920&height=1080&model=' + model +
+            '&nologo=true&seed=' + (state.ambianceConfig.seed + attempt) +
+            '&_=' + Date.now();
+
+        try {
+            log('Pollinations [' + model + '] tentative ' + (attempt + 1));
+            setStatus('Image [' + model + '] tentative ' + (attempt + 1) + '…');
+            const controller = new AbortController();
+            const timeoutId = setTimeout(function () { controller.abort(); }, 55000);
+            const res = await fetch(url, { method: 'GET', signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (res.status === 401 || res.status === 402 || res.status === 429) {
+                await sleep(res.status === 429 ? 35000 : 45000);
+                state.lastPollinationsCall = Date.now();
+                continue;
+            }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            const blob = await res.blob();
+            if (!blob.type.startsWith('image/')) throw new Error('Réponse non-image');
+
+            const dataUrl = await blobToDataUrl(blob);
+            log('Image générée avec ' + model);
+            return { dataUrl: dataUrl, blob: blob };
+        } catch (e) {
+            log('Pollinations échec : ' + (e.message || e.name));
+            if (attempt < retries - 1) {
+                await sleep(8000);
+                state.lastPollinationsCall = Date.now();
+            }
+        }
+    }
+    setStatus('Fallback image locale…');
+    return await generateLocalFallbackImage(prompt);
+}
+
+function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onloadend = function () { resolve(reader.result); };
+        reader.onerror = function () { reject(new Error('Erreur conversion blob')); };
+        reader.readAsDataURL(blob);
+    });
+}
+
+function fileToDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function () { resolve(reader.result); };
+        reader.onerror = function () { reject(reader.error || new Error('Lecture fichier impossible')); };
+        reader.readAsDataURL(file);
+    });
+}
+
+/** Image de secours canvas — atmosphère lofi 16:9 */
+async function generateLocalFallbackImage(prompt) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    const theme = getTheme();
+
+    const grad = ctx.createLinearGradient(0, 0, 1920, 1080);
+    grad.addColorStop(0, '#0f1a1f');
+    grad.addColorStop(0.45, '#1a3340');
+    grad.addColorStop(1, '#2a1f18');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1920, 1080);
+
+    // Fenêtre stylisée
+    ctx.fillStyle = 'rgba(232,168,92,0.15)';
+    ctx.fillRect(520, 180, 880, 560);
+    ctx.strokeStyle = 'rgba(232,168,92,0.4)';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(520, 180, 880, 560);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = 'bold 96px Fraunces, Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(theme.emoji || '✨', 960, 420);
+
+    ctx.fillStyle = '#e8f0ec';
+    ctx.font = 'bold 48px Outfit, sans-serif';
+    ctx.fillText(theme.label || 'Ambiance', 960, 520);
+
+    ctx.fillStyle = '#8fa8a0';
+    ctx.font = '28px Outfit, sans-serif';
+    ctx.fillText('Image de secours · Pollinations indisponible', 960, 580);
+    ctx.fillText((prompt || '').slice(0, 60) + '…', 960, 630);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    const blob = await (await fetch(dataUrl)).blob();
+    return { dataUrl: dataUrl, blob: blob };
+}
+
+// ── Agnes (vidéo courte optionnelle) ─────────────────────────────
+function classifyError(error) {
+    const msg = ((error && error.message) || '').toLowerCase();
+    if (msg.indexOf('failed to fetch') !== -1 || msg.indexOf('networkerror') !== -1) {
+        return { type: 'network', retryable: true, wait: 30000 };
+    }
+    if (msg.indexOf('timeout') !== -1 || msg.indexOf('aborted') !== -1) {
+        return { type: 'timeout', retryable: true, wait: 20000 };
+    }
+    return { type: 'unknown', retryable: true, wait: 25000 };
+}
+
+async function apiFetch(url, options, label) {
+    options = options || {};
+    label = label || 'API';
+    const maxAttempts = 4;
+    let lastError = null;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        try {
+            const separator = url.indexOf('?') !== -1 ? '&' : '?';
+            const urlWithBuster = url + separator + '_t=' + Date.now() + '_a=' + attempt;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(function () { controller.abort(); }, 60000);
+            const res = await fetch(urlWithBuster, Object.assign({}, options, {
+                signal: controller.signal,
+                cache: 'no-store',
+                mode: 'cors'
+            }));
+            clearTimeout(timeoutId);
+
+            if (res.status === 429 || res.status === 503 || res.status >= 500) {
+                const wait = [15, 30, 45, 60][Math.min(attempt, 3)];
+                setStatus(label + ' : attente ' + wait + 's…');
+                await sleep(wait * 1000);
+                continue;
+            }
+            return res;
+        } catch (e) {
+            lastError = e;
+            if (attempt < maxAttempts - 1) {
+                const c = classifyError(e);
+                await sleep(c.wait);
+            }
+        }
+    }
+    throw new Error('Échec ' + label + ' : ' + (lastError ? lastError.message : 'inconnu'));
+}
+
+async function createVideoTask(imageDataUri, prompt) {
+    const body = {
+        model: MODEL_VIDEO,
+        prompt: prompt,
+        image: imageDataUri,
+        num_frames: state.durationFrames,
+        frame_rate: FRAME_RATE
+    };
+    const res = await apiFetch(AGNES_API_BASE + '/videos', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + getAgnesKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    }, 'Création vidéo');
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+    }
+    const data = await res.json();
+    const videoId = data.video_id || data.id || data.task_id;
+    if (!videoId) throw new Error('Pas de video_id retourné');
+    return videoId;
+}
+
+async function pollVideo(videoId, onProgress) {
+    const estimatedMs = 30000 + state.durationFrames * 500;
+    let remaining = Math.max(20, Math.floor((estimatedMs / 1000) * 0.8));
+    while (remaining > 0) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        if (onProgress) onProgress('Préparation vidéo… — ' + remaining + 's');
+        await sleep(1000);
+        remaining--;
+    }
+
+    for (let i = 0; i < 80; i++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        const res = await apiFetch(AGNES_POLL_BASE + '/videos/' + videoId, {
+            headers: { 'Authorization': 'Bearer ' + getAgnesKey() }
+        }, 'Poll vidéo');
+        if (!res.ok) throw new Error('Poll HTTP ' + res.status);
+        const data = await res.json();
+        const status = (data.status || data.state || '').toLowerCase();
+        if (status === 'completed' || status === 'succeeded' || status === 'ready') {
+            const url = data.video_url || data.url || (data.output && data.output.url);
+            if (!url) throw new Error('Vidéo prête sans URL');
+            return url;
+        }
+        if (status === 'failed' || status === 'error') {
+            throw new Error('Génération vidéo échouée');
+        }
+        if (onProgress) onProgress('Rendu Agnes… (' + (i + 1) + ')');
+        await sleep(10000);
+    }
+    throw new Error('Timeout poll vidéo Agnes');
+}
+
+// ── Aperçu Ken Burns + calques ───────────────────────────────────
+function showKenBurnsPreview(imageDataUrl) {
+    const stage = document.getElementById('preview-stage');
+    const layer = document.getElementById('ken-burns-layer');
+    const fx = document.getElementById('fx-layer');
+    const label = document.getElementById('preview-label');
+    if (!stage || !layer) return;
+
+    layer.style.backgroundImage = 'url(' + imageDataUrl + ')';
+    fx.className = 'fx-layer';
+    const fxType = resolveFxLayer();
+    if (fxType === 'rain') fx.classList.add('fx-rain');
+    else if (fxType === 'steam') fx.classList.add('fx-steam');
+    else if (fxType === 'dust') fx.classList.add('fx-dust');
+
+    label.textContent = 'Aperçu · Ken Burns 100→105% · ' + (fxType === 'none' ? 'sans calque' : fxType);
+    stage.classList.add('visible');
+    state.previewMode = 'kenburns';
+}
+
+// ── Workflow génération visuelle unique ──────────────────────────
+async function startVisualGeneration() {
+    if (state.isRunning) return;
+
+    ensurePromptKeywords();
+    const prompt = state.ambianceConfig.visualPrompt;
+    if (!prompt || prompt.length < 20) {
+        showToast('Prompt visuel trop court', 'error');
+        return;
+    }
+
+    state.isRunning = true;
+    state.stopRequested = false;
+    state.visualAsset = null;
+    state.finalFilmBlob = null;
+    state.finalFilmUrl = null;
+
+    document.getElementById('assemble-btn').classList.remove('visible');
+    document.getElementById('download-btn').classList.remove('visible');
+    document.getElementById('final-film').classList.remove('visible');
+    document.getElementById('stop-btn').classList.add('visible');
+    document.getElementById('generate-btn').disabled = true;
+    document.getElementById('meta-panel').classList.remove('visible');
+
+    await ensureWakeLockActive();
+    log('═══ GÉNÉRATION VISUELLE UNIQUE ═══');
+    log('Thème : ' + state.ambianceConfig.themeId);
+
+    try {
+        setStatus('Génération de l\'image d\'ambiance…');
+        const imageResult = await generateImageWithPollinations(prompt);
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+
+        const agnesKey = getAgnesKey();
+        let usedVideo = false;
+
+        // Tentative vidéo courte Agnes (10–15 s) — fallback Ken Burns si échec
+        if (agnesKey) {
+            try {
+                setStatus('Tentative boucle vidéo Agnes…');
+                const videoId = await createVideoTask(imageResult.dataUrl, prompt + ', gentle seamless loop, subtle camera drift');
+                const videoUrl = await pollVideo(videoId, setStatus);
+                state.visualAsset = {
+                    type: 'video',
+                    url: videoUrl,
+                    imageDataUrl: imageResult.dataUrl
+                };
+                usedVideo = true;
+                // Aperçu vidéo
+                const stage = document.getElementById('preview-stage');
+                stage.classList.add('visible');
+                document.getElementById('ken-burns-layer').style.backgroundImage = 'none';
+                document.getElementById('fx-layer').className = 'fx-layer';
+                document.getElementById('preview-label').textContent = 'Boucle vidéo Agnes prête';
+                // Affiche l'image en fond en attendant
+                showKenBurnsPreview(imageResult.dataUrl);
+                document.getElementById('preview-label').textContent = 'Boucle vidéo Agnes · fallback Ken Burns disponible';
+                log('Vidéo Agnes OK : ' + videoUrl);
+            } catch (vidErr) {
+                log('Agnes indisponible → fallback Ken Burns : ' + vidErr.message);
+                showToast('Agnes lent/indisponible — mode Ken Burns', 'warn', 3500);
+            }
+        }
+
+        if (!usedVideo) {
+            state.visualAsset = {
+                type: 'image',
+                dataUrl: imageResult.dataUrl,
+                blob: imageResult.blob
+            };
+            showKenBurnsPreview(imageResult.dataUrl);
+            showToast('Visuel prêt (Ken Burns + calques)', 'success');
+        } else {
+            showToast('Visuel prêt (vidéo + Ken Burns)', 'success');
+        }
+
+        document.getElementById('assemble-btn').classList.add('visible');
+        document.getElementById('download-btn').classList.add('visible');
+        displayYouTubeMetadata();
+        updateGenerateBtn();
+        saveStateToIDB();
+
+    } catch (e) {
+        log('Erreur génération : ' + e.message);
+        showToast('Erreur : ' + e.message, 'error', 4000);
+    } finally {
+        state.isRunning = false;
+        state.stopRequested = false;
+        document.getElementById('stop-btn').classList.remove('visible');
+        document.getElementById('generate-btn').disabled = false;
+        setStatus(null);
+        updateGenerateBtn();
+    }
+}
+
+function stopGeneration() {
+    if (!state.isRunning && !state.isAssembling) return;
+    state.stopRequested = true;
+    setStatus('Arrêt en cours…');
+}
+
+function updateGenerateBtn() {
+    const btn = document.getElementById('generate-btn');
+    if (!btn) return;
+    btn.disabled = state.isRunning || state.isAssembling;
+    if (state.isRunning) btn.textContent = 'Génération en cours…';
+    else if (state.visualAsset) btn.textContent = 'Régénérer le visuel d\'ambiance';
+    else btn.textContent = 'Générer le visuel d\'ambiance';
+}
+
+// ── Audio & BPM ──────────────────────────────────────────────────
+async function detectBPM(file) {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        const channelData = audioBuffer.getChannelData(0);
+        const sampleRate = audioBuffer.sampleRate;
+        const peaks = [];
+        const threshold = 0.3;
+        const minPeakDistance = Math.floor(sampleRate * 0.1);
+        for (let i = 0; i < channelData.length; i++) {
+            if (Math.abs(channelData[i]) > threshold) {
+                if (peaks.length === 0 || (i - peaks[peaks.length - 1]) > minPeakDistance) {
+                    peaks.push(i);
+                }
+            }
+        }
+        if (peaks.length < 2) { audioCtx.close(); return null; }
+        let totalInterval = 0;
+        for (let i = 1; i < peaks.length; i++) totalInterval += (peaks[i] - peaks[i - 1]);
+        const avgInterval = totalInterval / (peaks.length - 1);
+        const bpm = Math.round(60 / (avgInterval / sampleRate));
+        audioCtx.close();
+        return bpm > 0 && bpm < 300 ? bpm : null;
+    } catch (e) { return null; }
+}
+
+function displayBPM(bpm) {
+    const el = document.getElementById('bpm-display');
+    const valEl = document.getElementById('bpm-value');
+    const msgEl = document.getElementById('bpm-message');
+    if (!el) return;
+    el.classList.add('visible');
+    el.classList.remove('ok', 'warn');
+    if (bpm === null) {
+        valEl.textContent = '—';
+        msgEl.textContent = 'Analyse impossible — la boucle fonctionnera quand même';
+        el.classList.add('warn');
+        return;
+    }
+    valEl.textContent = String(bpm);
+    // Tempo idéal lofi : ~60–95 BPM
+    if (bpm >= 60 && bpm <= 95) {
+        el.classList.add('ok');
+        msgEl.textContent = 'Tempo lofi idéal (60–95 BPM)';
+    } else if (bpm > 95 && bpm <= 110) {
+        el.classList.add('ok');
+        msgEl.textContent = 'Tempo chill acceptable';
+    } else {
+        el.classList.add('warn');
+        msgEl.textContent = 'Conseil lofi : 70–90 BPM — utilisable malgré tout';
+    }
+}
+
+async function handleAudioFile(file) {
+    if (!file || !file.type.startsWith('audio/')) {
+        showToast('Fichier audio invalide (MP3/WAV)', 'error');
+        return;
+    }
+    if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+    state.audioFile = file;
+    state.audioObjectUrl = URL.createObjectURL(file);
+
+    const audioZone = document.getElementById('audio-zone');
+    const filenameEl = document.getElementById('audio-filename');
+    const previewEl = document.getElementById('audio-preview');
+    const removeBtn = document.getElementById('audio-remove-btn');
+
+    audioZone.classList.add('has-file');
+    filenameEl.textContent = file.name;
+    filenameEl.style.display = 'block';
+    previewEl.src = state.audioObjectUrl;
+    previewEl.style.display = 'block';
+    removeBtn.style.display = 'inline-block';
+    previewEl.onloadedmetadata = function () { state.audioDuration = previewEl.duration; };
+
+    showToast('Analyse du tempo…', 'warn', 1500);
+    const bpm = await detectBPM(file);
+    state.audioBpm = bpm;
+    displayBPM(bpm);
+    showToast('Musique ajoutée — sera bouclée sur ' + formatDuration(state.loopDuration), 'success');
+    saveStateToIDB();
+}
+
+function removeAudioFile() {
+    if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+    state.audioFile = null;
+    state.audioObjectUrl = null;
+    state.audioBpm = null;
+    state.audioDuration = 0;
+
+    const audioZone = document.getElementById('audio-zone');
+    document.getElementById('audio-filename').style.display = 'none';
+    document.getElementById('audio-preview').style.display = 'none';
+    document.getElementById('audio-preview').removeAttribute('src');
+    document.getElementById('audio-remove-btn').style.display = 'none';
+    document.getElementById('bpm-display').classList.remove('visible');
+    audioZone.classList.remove('has-file');
+    showToast('Musique retirée', 'warn');
+}
+
+function formatDuration(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return h + 'h' + (m > 0 ? m + 'm' : '');
+    return m + ' min';
+}
+
+// ── Construction commande FFmpeg ─────────────────────────────────
+function buildFFmpegCommand(videoInput, audioInput, durationSec, crossfade) {
+    // Cœur du système : boucle infinie vidéo + audio, puis coupe à N secondes
+    let cmd = 'ffmpeg -stream_loop -1 -i ' + videoInput +
+        ' -stream_loop -1 -i ' + audioInput +
+        ' -c:v copy -c:a aac -b:a 192k -t ' + durationSec + ' -shortest';
+
+    if (crossfade) {
+        // Note backend : crossfade audio appliqué côté serveur via afade / acrossfade
+        cmd += ' # crossfade_audio=' + state.crossfadeDuration + 's';
+    }
+    cmd += ' output_3h.mp4';
+    return cmd;
+}
+
+/**
+ * Prépare le payload d'assemblage pour le backend SERVER_URL.
+ * Ne concatène PAS des scènes : crée une boucle longue durée.
+ */
+function buildAssemblePayload(musicDataUrl) {
+    const visual = state.visualAsset;
+    const videoLoopUrl = (visual && visual.type === 'video') ? visual.url : null;
+    const imageDataUrl = (visual && visual.type === 'image')
+        ? visual.dataUrl
+        : (visual && visual.imageDataUrl) || null;
+
+    const duration = state.loopDuration || 10800;
+    const videoInputName = videoLoopUrl ? 'video_loop.mp4' : 'kenburns_loop.mp4';
+    const audioInputName = 'audio_track.mp3';
+
+    state.ffmpegCommand = buildFFmpegCommand(
+        videoInputName,
+        audioInputName,
+        duration,
+        state.crossfadeEnabled
+    );
+
+    return {
+        mode: 'ambiance_loop_3h',
+        ffmpegCommand: state.ffmpegCommand,
+        durationSeconds: duration,
+        videoLoopUrl: videoLoopUrl,
+        imageDataUrl: imageDataUrl,
+        kenBurns: {
+            enabled: !videoLoopUrl,
+            startScale: 1.0,
+            endScale: 1.05,
+            durationSeconds: 15,
+            fxLayer: resolveFxLayer()
+        },
+        musicDataUrl: musicDataUrl,
+        musicVolume: state.musicVolume,
+        crossfadeEnabled: state.crossfadeEnabled,
+        crossfadeDuration: state.crossfadeDuration,
+        titleText: getTheme().label + ' · ' + formatDuration(duration),
+        // Rappel explicite de la commande attendue côté serveur
+        ffmpegTemplate:
+            'ffmpeg -stream_loop -1 -i video_loop.mp4 -stream_loop -1 -i audio_track.mp3 ' +
+            '-c:v copy -c:a aac -b:a 192k -t ' + duration + ' -shortest output_3h.mp4'
+    };
+}
+
+/** Animation de progression réaliste pendant l'attente serveur */
+function startProgressSimulation(fillEl, statusEl) {
+    let progress = 8;
+    const steps = [
+        { at: 15, msg: 'Préparation des flux vidéo / audio…' },
+        { at: 28, msg: 'Application Ken Burns / encodage boucle courte…' },
+        { at: 42, msg: 'Lancement FFmpeg -stream_loop…' },
+        { at: 58, msg: 'Bouclage audio + crossfade…' },
+        { at: 72, msg: 'Assemblage longue durée en cours…' },
+        { at: 85, msg: 'Finalisation AAC 192k…' }
+    ];
+    const timer = setInterval(function () {
+        if (progress >= 88) return;
+        progress += 0.35 + Math.random() * 0.9;
+        if (progress > 88) progress = 88;
+        fillEl.style.width = progress.toFixed(1) + '%';
+        for (let i = steps.length - 1; i >= 0; i--) {
+            if (progress >= steps[i].at) {
+                statusEl.textContent = steps[i].msg;
+                break;
+            }
+        }
+    }, 400);
+    return {
+        stop: function () { clearInterval(timer); },
+        set: function (pct, msg) {
+            progress = pct;
+            fillEl.style.width = pct + '%';
+            if (msg) statusEl.textContent = msg;
+        }
+    };
+}
+
+/**
+ * assembleFinalFilm — cœur Phase 4
+ * Prépare la commande FFmpeg et envoie au backend.
+ * En cas d'échec serveur : génère une preview client (image + audio) téléchargeable.
+ */
+async function assembleFinalFilm() {
+    if (state.isAssembling) return;
+    if (!state.visualAsset) {
+        showToast('Générez d\'abord un visuel', 'error');
+        return;
+    }
+
+    state.isAssembling = true;
+    state.stopRequested = false;
+
+    const finalFilmEl = document.getElementById('final-film');
+    const progressContainer = document.getElementById('assembly-progress');
+    const progressFill = document.getElementById('assembly-progress-fill');
+    const statusEl = document.getElementById('assembly-status');
+    const cmdBox = document.getElementById('ffmpeg-cmd-box');
+
+    finalFilmEl.classList.add('visible');
+    progressContainer.style.display = 'block';
+    progressFill.style.width = '0%';
+    setStatus('Assemblage boucle ' + formatDuration(state.loopDuration) + '…');
+    try { finalFilmEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ }
+
+    const sim = startProgressSimulation(progressFill, statusEl);
+
+    try {
+        log('═══ ASSEMBLAGE BOUCLE 3H ═══');
+        const musicDataUrl = state.audioFile ? await fileToDataUrl(state.audioFile) : null;
+        if (!musicDataUrl) {
+            showToast('Conseil : ajoutez une musique pour une vraie boucle 3H', 'warn', 3500);
+        }
+
+        const payload = buildAssemblePayload(musicDataUrl);
+        cmdBox.textContent = '$ ' + payload.ffmpegTemplate +
+            (state.crossfadeEnabled ? '\n# crossfade intelligent : ' + state.crossfadeDuration + 's' : '') +
+            '\n# mode : ' + payload.mode +
+            '\n# durée : ' + payload.durationSeconds + 's';
+        cmdBox.classList.add('visible');
+
+        sim.set(35, 'Envoi au serveur FFmpeg…');
+
+        let serverOk = false;
+        try {
+            const response = await fetch(SERVER_URL + '/api/assemble', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': SERVER_API_KEY
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json().catch(function () { return {}; });
+            if (response.ok && result.success && result.url) {
+                sim.set(80, 'Téléchargement du fichier 3H…');
+                const remoteUrl = SERVER_URL + result.url;
+                const filmRes = await fetch(remoteUrl);
+                if (!filmRes.ok) throw new Error('Film inaccessible HTTP ' + filmRes.status);
+                const filmBlob = await filmRes.blob();
+                if (!filmBlob || filmBlob.size < 1000) throw new Error('Film vide ou corrompu');
+
+                if (state.finalFilmUrl && state.finalFilmUrl.indexOf('blob:') === 0) {
+                    try { URL.revokeObjectURL(state.finalFilmUrl); } catch (e) { /* ignore */ }
+                }
+                state.finalFilmBlob = filmBlob;
+                state.finalFilmUrl = URL.createObjectURL(filmBlob);
+                document.getElementById('final-video').src = state.finalFilmUrl;
+                document.getElementById('final-video').load();
+                serverOk = true;
+
+                sim.set(100, 'Boucle ' + formatDuration(state.loopDuration) + ' prête · ' +
+                    (filmBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+                showToast('Assemblage 3H terminé', 'success', 4000);
+            } else {
+                throw new Error(result.error || ('HTTP ' + response.status));
+            }
+        } catch (serverErr) {
+            log('Serveur FFmpeg indisponible — preview locale : ' + serverErr.message);
+            sim.set(70, 'Serveur indisponible — génération preview locale…');
+            await generateClientPreviewPackage(musicDataUrl, statusEl, progressFill);
+            showToast('Preview locale prête (commande FFmpeg affichée)', 'warn', 4500);
+        }
+
+        document.getElementById('download-btn').classList.add('visible');
+        document.getElementById('assemble-btn').classList.add('visible');
+        displayYouTubeMetadata();
+
+        if (serverOk && state.autoDownload) {
+            setTimeout(downloadFinalFilm, 600);
+        }
+
+        try {
+            sessionStorage.setItem('ambiance_last_assemble', JSON.stringify({
+                at: Date.now(),
+                duration: state.loopDuration,
+                ffmpeg: state.ffmpegCommand,
+                theme: state.ambianceConfig.themeId
+            }));
+        } catch (e) { /* ignore */ }
+
+    } catch (e) {
+        log('Erreur assemblage : ' + e.message);
+        statusEl.textContent = 'Erreur : ' + e.message;
+        showToast('Erreur assemblage : ' + e.message, 'error', 5000);
+    } finally {
+        sim.stop();
+        state.isAssembling = false;
+        setStatus(null);
+        updateGenerateBtn();
+    }
+}
+
+/**
+ * Fallback client : package un aperçu (image Ken Burns capturée + méta FFmpeg)
+ * quand le serveur n'est pas joignable.
+ */
+async function generateClientPreviewPackage(musicDataUrl, statusEl, progressFill) {
+    statusEl.textContent = 'Création d\'un aperçu téléchargeable…';
+    progressFill.style.width = '85%';
+
+    // Capture une frame du canvas Ken Burns pour téléchargement
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+
+    const img = new Image();
+    const src = (state.visualAsset && state.visualAsset.dataUrl) ||
+        (state.visualAsset && state.visualAsset.imageDataUrl);
+    if (src) {
+        await new Promise(function (resolve) {
+            img.onload = resolve;
+            img.onerror = resolve;
+            img.src = src;
+        });
+        // Zoom 102.5% centré (milieu du Ken Burns)
+        const scale = 1.025;
+        const sw = img.width / scale;
+        const sh = img.height / scale;
+        const sx = (img.width - sw) / 2;
+        const sy = (img.height - sh) / 2;
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 1280, 720);
+    } else {
+        ctx.fillStyle = '#0f1a1f';
+        ctx.fillRect(0, 0, 1280, 720);
+    }
+
+    // Overlay texte
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 640, 1280, 80);
+    ctx.fillStyle = '#e8f0ec';
+    ctx.font = 'bold 28px Outfit, sans-serif';
+    ctx.fillText(getTheme().label + ' · Preview · Lancez FFmpeg pour la version 3H', 40, 688);
+
+    const previewBlob = await new Promise(function (resolve) {
+        canvas.toBlob(function (b) { resolve(b); }, 'image/jpeg', 0.92);
+    });
+
+    // Manifeste JSON avec la commande exacte
+    const manifest = {
+        app: 'Ambiance Video Studio v1',
+        theme: state.ambianceConfig.themeId,
+        loopDuration: state.loopDuration,
+        crossfadeEnabled: state.crossfadeEnabled,
+        bpm: state.audioBpm,
+        ffmpegCommand: state.ffmpegCommand,
+        ffmpegTemplate:
+            'ffmpeg -stream_loop -1 -i video_loop.mp4 -stream_loop -1 -i audio_track.mp3 ' +
+            '-c:v copy -c:a aac -b:a 192k -t ' + state.loopDuration + ' -shortest output_3h.mp4',
+        note: 'Utilisez cette commande sur votre backend / machine locale avec video_loop.mp4 et audio_track.mp3',
+        hasMusic: !!musicDataUrl,
+        createdAt: new Date().toISOString()
+    };
+
+    state.finalFilmBlob = previewBlob;
+    if (state.finalFilmUrl && state.finalFilmUrl.indexOf('blob:') === 0) {
+        try { URL.revokeObjectURL(state.finalFilmUrl); } catch (e) { /* ignore */ }
+    }
+    state.finalFilmUrl = URL.createObjectURL(previewBlob);
+
+    // Affiche aussi l'image dans le player (certains navigateurs acceptent image via object URL dans <video> non — on utilise un aperçu via poster)
+    const finalVideo = document.getElementById('final-video');
+    finalVideo.removeAttribute('src');
+    finalVideo.poster = state.finalFilmUrl;
+    finalVideo.load();
+
+    // Stocke le manifeste pour le téléchargement
+    state._assembleManifest = manifest;
+
+    progressFill.style.width = '100%';
+    statusEl.textContent = 'Preview locale prête · commande FFmpeg affichée ci-dessous';
+}
+
+function downloadFinalFilm() {
+    // Manifeste FFmpeg
+    if (state._assembleManifest) {
+        const manBlob = new Blob([JSON.stringify(state._assembleManifest, null, 2)], { type: 'application/json' });
+        const manUrl = URL.createObjectURL(manBlob);
+        const aMan = document.createElement('a');
+        aMan.href = manUrl;
+        aMan.download = 'ambiance-ffmpeg-3h-' + Date.now() + '.json';
+        document.body.appendChild(aMan);
+        aMan.click();
+        document.body.removeChild(aMan);
+        setTimeout(function () { URL.revokeObjectURL(manUrl); }, 2000);
+    }
+
+    if (state.finalFilmBlob) {
+        const url = URL.createObjectURL(state.finalFilmBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        const ext = state.finalFilmBlob.type.indexOf('image') !== -1 ? 'jpg' : 'mp4';
+        a.download = 'ambiance-' + state.ambianceConfig.themeId + '-' + Date.now() + '.' + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        showToast('Téléchargement lancé', 'success');
+        return;
+    }
+    if (state.finalFilmUrl) {
+        const a = document.createElement('a');
+        a.href = state.finalFilmUrl;
+        a.download = 'ambiance-loop-' + Date.now() + '.mp4';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast('Téléchargement lancé', 'success');
+        return;
+    }
+    showToast('Aucun fichier à télécharger', 'error');
+}
+
+// ── Métadonnées YouTube Lofi / Ambiance ──────────────────────────
+function generateYouTubeMetadata() {
+    const theme = getTheme();
+    const hours = Math.round(state.loopDuration / 3600);
+    const hoursLabel = hours + 'H';
+
+    const titles = [
+        theme.emoji + ' ' + theme.label + ' ' + hoursLabel + ' — Musique Lofi pour Étudier, Dormir et Se Détendre',
+        theme.emoji + ' Pluie Douce & ' + theme.label + ' ' + hoursLabel + ' ' + theme.emoji.replace(/.$/, '') + ' Ambiance Cozy Focus',
+        '【' + hoursLabel + ' LOFI】' + theme.label + ' — Concentration, Relaxation & Sommeil Profond'
+    ];
+
+    // Variante demandée pour Capybara
+    if (theme.id === 'capybara-zen') {
+        titles[0] = '🍊 Pluie Douce & Capybara Zen 3H 🌧️ Musique Lofi pour Étudier, Dormir et Se Détendre';
+    }
+
+    const chapterLines = theme.chapters.map(function (c) {
+        return c.t + ' ' + c.title;
+    }).join('\n');
+
+    const description =
+        'Bienvenue dans cet espace doux et feutré. Laissez ' + theme.label +
+        ' vous accompagner pendant ' + formatDuration(state.loopDuration) +
+        ' de musique lofi et d\'ambiance cozy.\n\n' +
+        'Parfait pour étudier, travailler, lire ou s\'endormir.\n\n' +
+        '———\n' +
+        'Crédits musicaux : [Nom du morceau / Artiste] — licence libre de droits (placeholder)\n' +
+        'Visuel : généré avec assistance IA (Pollinations' + (getAgnesKey() ? ' / Agnes' : '') + ')\n' +
+        '———\n\n' +
+        'Chapitrage\n' + chapterLines + '\n\n' +
+        theme.hashtags + '\n' +
+        '#lofihiphop #chillbeats #studywithme #sleepmusic #cozyvibes #rainysounds #backgroundmusic';
+
+    const tags = [
+        'lofi', 'lofi hip hop', 'musique lofi', 'étudier', 'dormir', 'se détendre',
+        'ambiance', 'cozy', '3 heures', '3 hours lofi', theme.label.toLowerCase(),
+        'musique apaisante', 'focus music', 'rain sounds', 'study music',
+        'chill beats', 'background music', 'relaxation', 'sommeil', 'concentration'
+    ].join(', ');
+
+    return { titles: titles, description: description, tags: tags, themeId: theme.id };
+}
+
+function displayYouTubeMetadata() {
+    const meta = generateYouTubeMetadata();
+    state.youtubeMeta = meta;
+
+    const list = document.getElementById('meta-titles-list');
+    list.innerHTML = '';
+    meta.titles.forEach(function (title, idx) {
+        const label = document.createElement('label');
+        label.className = 'meta-title-option' + (idx === 0 ? ' selected' : '');
+        label.innerHTML =
+            '<input type="radio" name="meta-title-choice" value="' + idx + '"' +
+            (idx === 0 ? ' checked' : '') + '>' +
+            '<span></span>';
+        label.querySelector('span').textContent = title;
+        label.addEventListener('change', function () {
+            document.querySelectorAll('.meta-title-option').forEach(function (el) {
+                el.classList.remove('selected');
+            });
+            label.classList.add('selected');
+        });
+        list.appendChild(label);
+    });
+
+    document.getElementById('meta-description').value = meta.description;
+    document.getElementById('meta-tags').value = meta.tags;
+    document.getElementById('meta-panel').classList.add('visible');
+
+    const aiBox = document.getElementById('ai-content-checkbox');
+    if (aiBox) aiBox.checked = !!state.aiContentDeclared;
+}
+
+function getSelectedMetaTitle() {
+    const checked = document.querySelector('input[name="meta-title-choice"]:checked');
+    const idx = checked ? parseInt(checked.value, 10) : 0;
+    const meta = state.youtubeMeta || generateYouTubeMetadata();
+    return meta.titles[idx] || meta.titles[0];
+}
+
+function copyYouTubeMetadata() {
+    if (!document.getElementById('ai-content-checkbox').checked) {
+        document.getElementById('ai-content-warning').style.display = 'block';
+        showToast('Cochez la déclaration contenu IA (obligatoire)', 'error');
+        return;
+    }
+    document.getElementById('ai-content-warning').style.display = 'none';
+    state.aiContentDeclared = true;
+    saveStateToIDB();
+
+    const text =
+        'TITRE :\n' + getSelectedMetaTitle() +
+        '\n\nDESCRIPTION :\n' + document.getElementById('meta-description').value +
+        '\n\nTAGS :\n' + document.getElementById('meta-tags').value +
+        '\n\n[✓] Contenu modifié ou synthétique (IA) déclaré';
+
+    navigator.clipboard.writeText(text).then(function () {
+        showToast('Métadonnées copiées', 'success');
+    }).catch(function () {
+        showToast('Copie impossible — sélectionnez le texte manuellement', 'warn');
+    });
+}
+
+// ── Diagnostic ───────────────────────────────────────────────────
+async function runDiagnostic() {
+    const out = document.getElementById('diag-output');
+    out.style.display = 'block';
+    out.textContent = 'Diagnostic en cours…\n\n';
+    const logLine = function (msg) { out.textContent += msg + '\n'; };
+
+    logLine('═══ POLLINATIONS ═══');
+    for (let i = 0; i < POLLINATIONS_FREE_MODELS.length; i++) {
+        const model = POLLINATIONS_FREE_MODELS[i];
+        try {
+            const testUrl = POLLINATIONS_BASE + encodeURIComponent('cozy lofi room night rain window') +
+                '?width=640&height=360&model=' + model + '&nologo=true&seed=42';
+            const start = Date.now();
+            const res = await fetch(testUrl);
+            const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+            if (res.ok) {
+                const blob = await res.blob();
+                logLine((blob.type.indexOf('image') === 0 ? 'OK ' : 'WARN ') + model +
+                    ' — HTTP ' + res.status + ' (' + elapsed + 's)');
+            } else {
+                logLine('FAIL ' + model + ' — HTTP ' + res.status);
+            }
+        } catch (e) {
+            logLine('FAIL ' + model + ' — ' + e.message);
+        }
+    }
+
+    logLine('\n═══ AGNES ═══');
+    const key = getAgnesKey();
+    logLine('Clé : ' + (key ? key.slice(0, 10) + '…' : '(vide — Ken Burns OK)'));
+    if (key) {
+        try {
+            const res = await fetch('https://apihub.agnes-ai.com/v1/models', {
+                headers: { 'Authorization': 'Bearer ' + key }
+            });
+            logLine('HTTP ' + res.status + (res.ok ? ' — OK' : ''));
+        } catch (e) {
+            logLine('Réseau : ' + e.message);
+        }
+    }
+
+    logLine('\n═══ ÉTAT ═══');
+    logLine('Thème : ' + state.ambianceConfig.themeId);
+    logLine('Durée boucle : ' + state.loopDuration + 's');
+    logLine('Audio : ' + (state.audioFile ? state.audioFile.name : 'aucun'));
+    logLine('BPM : ' + (state.audioBpm || '—'));
+    logLine('Crossfade : ' + (state.crossfadeEnabled ? 'oui' : 'non'));
+    logLine('Visuel : ' + (state.visualAsset ? state.visualAsset.type : 'aucun'));
+    logLine('IndexedDB : ' + IDB_NAME);
+    logLine('\n═══ FIN ═══');
+}
+
+// ── Validation structurelle (auto-test Phase 6) ──────────────────
+function runSelfValidation() {
+    const requiredIds = [
+        'theme-select', 'visual-prompt', 'loop-duration-select', 'audio-zone',
+        'audio-input', 'crossfade-toggle', 'generate-btn', 'assemble-btn',
+        'download-btn', 'preview-stage', 'final-film', 'meta-panel',
+        'ai-content-checkbox', 'ffmpeg-cmd-box', 'bpm-display'
+    ];
+    const missing = requiredIds.filter(function (id) { return !document.getElementById(id); });
+    if (missing.length) {
+        console.error('[AmbianceStudio] Éléments manquants :', missing);
+        return false;
+    }
+
+    // Vérifie que les fonctions critiques existent
+    const fns = [
+        detectBPM, assembleFinalFilm, startVisualGeneration,
+        generateYouTubeMetadata, buildFFmpegCommand, handleAudioFile
+    ];
+    for (let i = 0; i < fns.length; i++) {
+        if (typeof fns[i] !== 'function') {
+            console.error('[AmbianceStudio] Fonction manquante index ' + i);
+            return false;
+        }
+    }
+
+    // Simulation mentale du flux d'état
+    const snap = {
+        theme: state.ambianceConfig.themeId,
+        loop: state.loopDuration,
+        promptLen: (state.ambianceConfig.visualPrompt || '').length
+    };
+    if (snap.loop !== 10800 && snap.loop !== 3600 && snap.loop !== 7200 && snap.loop !== 14400) {
+        console.warn('[AmbianceStudio] loopDuration inattendu :', snap.loop);
+    }
+    if (snap.promptLen < 40) {
+        console.warn('[AmbianceStudio] Prompt initial trop court');
+    }
+
+    log('Auto-validation OK — flux thème→prompt→audio→assemblage 3H prêt');
+    return true;
+}
+
+// ── Initialisation ───────────────────────────────────────────────
+(async function init() {
+    await loadStateFromIDB();
+
+    // Restaure les contrôles depuis l'état
+    const themeSelect = document.getElementById('theme-select');
+    const promptTa = document.getElementById('visual-prompt');
+    const durationSelect = document.getElementById('loop-duration-select');
+    const seedInput = document.getElementById('seed-input');
+    const fxSelect = document.getElementById('fx-layer-select');
+    const volInput = document.getElementById('music-volume');
+    const crossfadeToggle = document.getElementById('crossfade-toggle');
+    const aiCheckbox = document.getElementById('ai-content-checkbox');
+
+    if (themeSelect) themeSelect.value = state.ambianceConfig.themeId || 'capybara-zen';
+    if (promptTa) {
+        promptTa.value = state.ambianceConfig.visualPrompt || getTheme().prompt;
+    } else {
+        applyThemePrompt(state.ambianceConfig.themeId, true);
+    }
+    if (durationSelect) durationSelect.value = String(state.loopDuration || 10800);
+    if (seedInput) seedInput.value = String(state.ambianceConfig.seed || 42);
+    if (fxSelect) fxSelect.value = state.ambianceConfig.fxLayer || 'auto';
+    if (volInput) {
+        volInput.value = String(Math.round((state.musicVolume || 0.7) * 100));
+        document.getElementById('music-volume-value').textContent = volInput.value + '%';
+    }
+    if (crossfadeToggle) crossfadeToggle.checked = state.crossfadeEnabled !== false;
+    if (aiCheckbox) aiCheckbox.checked = !!state.aiContentDeclared;
+
+    ensurePromptKeywords();
+
+    // Écouteurs
+    document.getElementById('api-save-btn').addEventListener('click', saveAgnesKey);
+    document.getElementById('stop-btn').addEventListener('click', stopGeneration);
+    document.getElementById('assemble-btn').addEventListener('click', assembleFinalFilm);
+    document.getElementById('download-btn').addEventListener('click', downloadFinalFilm);
+    document.getElementById('diag-btn').addEventListener('click', runDiagnostic);
+    document.getElementById('generate-btn').addEventListener('click', startVisualGeneration);
+    document.getElementById('wake-toggle-btn').addEventListener('click', toggleWakeLock);
+    document.getElementById('meta-copy-btn').addEventListener('click', copyYouTubeMetadata);
+
+    document.querySelectorAll('[data-toggle]').forEach(function (header) {
+        header.addEventListener('click', function () {
+            document.getElementById(header.dataset.toggle).classList.toggle('open');
+        });
+    });
+
+    themeSelect.addEventListener('change', function (e) {
+        applyThemePrompt(e.target.value, true);
+        showToast('Thème : ' + getTheme().label, 'success');
+    });
+
+    promptTa.addEventListener('input', function () {
+        state.ambianceConfig.visualPrompt = promptTa.value;
+        saveStateToIDB();
+    });
+    promptTa.addEventListener('blur', ensurePromptKeywords);
+
+    durationSelect.addEventListener('change', function (e) {
+        state.loopDuration = parseInt(e.target.value, 10) || 10800;
+        saveStateToIDB();
+        showToast('Durée boucle : ' + formatDuration(state.loopDuration), 'success');
+    });
+
+    seedInput.addEventListener('change', function (e) {
+        state.ambianceConfig.seed = parseInt(e.target.value, 10) || 42;
+        saveStateToIDB();
+    });
+
+    fxSelect.addEventListener('change', function (e) {
+        state.ambianceConfig.fxLayer = e.target.value;
+        if (state.visualAsset && (state.visualAsset.dataUrl || state.visualAsset.imageDataUrl)) {
+            showKenBurnsPreview(state.visualAsset.dataUrl || state.visualAsset.imageDataUrl);
+        }
+        saveStateToIDB();
+    });
+
+    volInput.addEventListener('input', function (e) {
+        state.musicVolume = parseInt(e.target.value, 10) / 100;
+        document.getElementById('music-volume-value').textContent = e.target.value + '%';
+    });
+    volInput.addEventListener('change', function () { saveStateToIDB(); });
+
+    crossfadeToggle.addEventListener('change', function (e) {
+        state.crossfadeEnabled = e.target.checked;
+        saveStateToIDB();
+    });
+
+    aiCheckbox.addEventListener('change', function (e) {
+        state.aiContentDeclared = e.target.checked;
+        if (e.target.checked) {
+            document.getElementById('ai-content-warning').style.display = 'none';
+        }
+        saveStateToIDB();
+    });
+
+    const audioZone = document.getElementById('audio-zone');
+    const audioInput = document.getElementById('audio-input');
+    audioZone.addEventListener('click', function (e) {
+        if (e.target.tagName === 'AUDIO' || e.target.tagName === 'BUTTON' ||
+            e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL' ||
+            e.target.closest('.volume-control')) return;
+        audioInput.click();
+    });
+    audioInput.addEventListener('change', function (e) {
+        if (e.target.files && e.target.files[0]) handleAudioFile(e.target.files[0]);
+        audioInput.value = '';
+    });
+    document.getElementById('audio-remove-btn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        removeAudioFile();
+    });
+
+    try {
+        wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
+        const savedKey = getAgnesKey();
+        if (savedKey) {
+            document.getElementById('api-key-input').placeholder = 'Clé enregistrée';
+        }
+    } catch (e) { /* ignore */ }
+
+    if (wakeLockEnabled) activateWakeLock().then(updateWakeStatus);
+
+    updateApiPanel();
+    updateWakeStatus();
+    updateGenerateBtn();
+    runSelfValidation();
+    log('Ambiance Video Studio v1 prêt — boucle ' + state.loopDuration + 's');
+})();
+</script>
+</body>
+</html>
