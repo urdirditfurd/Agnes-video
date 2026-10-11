@@ -2251,6 +2251,12 @@ let pollinationsPreferredModel = 'turbo';
 /** Soft cooldown after intermittent 402 (ms timestamp). Avoids local fallback every other scene. */
 let pollinationsQuotaCoolUntil = 0;
 let pollinationsConsecutive402 = 0;
+/** Adaptive gap between Pollinations calls (ms). Elevates after 402 so next scene doesn't burn attempt 1. */
+let pollinationsSafeIntervalMs = 24000;
+const POLLINATIONS_SAFE_MIN_MS = 24000;
+const POLLINATIONS_SAFE_ELEVATED_MS = 55000;
+const POLLINATIONS_SAFE_MAX_MS = 75000;
+let pollinationsSuccessStreak = 0;
 
 function getPollinationsModels() {
     const now = Date.now();
@@ -2281,10 +2287,41 @@ function blacklistPollinationsModel(model, minutes) {
     }
 }
 
+function bumpPollinationsSafeInterval(reason) {
+    const prev = pollinationsSafeIntervalMs;
+    pollinationsSafeIntervalMs = Math.min(
+        POLLINATIONS_SAFE_MAX_MS,
+        Math.max(POLLINATIONS_SAFE_ELEVATED_MS, pollinationsSafeIntervalMs + 5000)
+    );
+    pollinationsSuccessStreak = 0;
+    if (pollinationsSafeIntervalMs !== prev) {
+        log('⏱ Espacement Pollinations → ' + Math.round(pollinationsSafeIntervalMs / 1000) +
+            's (' + reason + ')');
+    }
+}
+
+function decayPollinationsSafeInterval() {
+    if (pollinationsSafeIntervalMs <= POLLINATIONS_SAFE_MIN_MS) return;
+    pollinationsSuccessStreak++;
+    // Après 3 succès d'affilée sans 402, assouplir progressivement
+    if (pollinationsSuccessStreak >= 3) {
+        const prev = pollinationsSafeIntervalMs;
+        pollinationsSafeIntervalMs = Math.max(
+            POLLINATIONS_SAFE_MIN_MS,
+            pollinationsSafeIntervalMs - 5000
+        );
+        if (pollinationsSafeIntervalMs !== prev) {
+            log('⏱ Espacement Pollinations → ' + Math.round(pollinationsSafeIntervalMs / 1000) +
+                's (assoupli)');
+        }
+    }
+}
+
 async function waitPollinationsQuotaRecovery(severity) {
     const level = Math.max(1, severity || 1);
-    // Intermittent 402: short pause then retry (logs show next call often succeeds)
-    const waitSec = Math.min(30 + level * 25, nightModeEnabled ? 180 : 120);
+    bumpPollinationsSafeInterval('402');
+    // Pause courte : le prochain appel respectera aussi pollinationsSafeIntervalMs
+    const waitSec = Math.min(25 + level * 15, nightModeEnabled ? 120 : 90);
     pollinationsQuotaCoolUntil = Date.now() + waitSec * 1000;
     log('⏳ Pollinations quota 402 — pause ' + waitSec + 's puis retry turbo (pas de fallback local)');
     for (let r = waitSec; r > 0; r--) {
@@ -2305,13 +2342,14 @@ async function generateImageWithPollinations(prompt, retries = 4) {
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 1600));
     let lastError = null;
     const models = getPollinationsModels();
+    let recoveredFrom402 = false;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
 
-        // Intervalle adaptatif : plus long après des 402, et en mode opt/nuit
+        // Intervalle adaptatif : après des 402, espacer ~55s pour éviter l'échec systématique #1
         const baseInterval = unattended
-            ? 24000
+            ? pollinationsSafeIntervalMs
             : (pollinationsPreferredModel === 'turbo'
                 ? Math.min(POLLINATIONS_MIN_INTERVAL_MS, 18000)
                 : POLLINATIONS_MIN_INTERVAL_MS);
@@ -2320,7 +2358,9 @@ async function generateImageWithPollinations(prompt, retries = 4) {
         const elapsed = Date.now() - state.lastPollinationsCall;
         if (elapsed < minInterval && state.lastPollinationsCall > 0) {
             const wait = minInterval - elapsed;
-            log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's');
+            log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's' +
+                (unattended && pollinationsSafeIntervalMs >= POLLINATIONS_SAFE_ELEVATED_MS
+                    ? ' (anti-402)' : ''));
             setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
             await sleep(wait);
         }
@@ -2345,6 +2385,7 @@ async function generateImageWithPollinations(prompt, retries = 4) {
 
             if (res.status === 401 || res.status === 402) {
                 pollinationsConsecutive402++;
+                recoveredFrom402 = true;
                 if (unattended) {
                     // 402 intermittent : pause + retry turbo (NE PAS fallback local tout de suite)
                     log('Pollinations [' + model + '] HTTP ' + res.status +
@@ -2361,6 +2402,7 @@ async function generateImageWithPollinations(prompt, retries = 4) {
                 continue;
             }
             if (res.status === 429) {
+                bumpPollinationsSafeInterval('429');
                 const wait429 = [25, 40, 60][Math.min(attempt, 2)] * 1000;
                 log('Pollinations [' + model + '] 429 — pause ' + (wait429 / 1000) + 's');
                 await sleep(wait429);
@@ -2368,7 +2410,14 @@ async function generateImageWithPollinations(prompt, retries = 4) {
                 continue;
             }
             if (res.status >= 500) {
-                await sleep([5, 10, 15][Math.min(attempt, 2)] * 1000);
+                // 500 souvent suivi d'un 402 si on retente trop vite
+                const wait5xx = unattended
+                    ? [20, 35, 50][Math.min(attempt, 2)] * 1000
+                    : [5, 10, 15][Math.min(attempt, 2)] * 1000;
+                log('Pollinations [' + model + '] HTTP ' + res.status +
+                    ' — pause ' + (wait5xx / 1000) + 's');
+                await sleep(wait5xx);
+                state.lastPollinationsCall = Date.now();
                 continue;
             }
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2377,8 +2426,21 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             if (!blob.type.startsWith('image/')) throw new Error('Réponse non-image');
 
             pollinationsPreferredModel = model;
+            if (recoveredFrom402 || pollinationsConsecutive402 > 0) {
+                // Sticky spacing: next scene waits ~55s instead of burning attempt 1 on 402
+                bumpPollinationsSafeInterval('post-402');
+                pollinationsQuotaCoolUntil = Date.now() + pollinationsSafeIntervalMs;
+            } else if (unattended) {
+                decayPollinationsSafeInterval();
+                // Keep at least the current safe gap before the next scene
+                pollinationsQuotaCoolUntil = Date.now() + Math.min(
+                    pollinationsSafeIntervalMs,
+                    POLLINATIONS_SAFE_ELEVATED_MS
+                );
+            } else {
+                pollinationsQuotaCoolUntil = 0;
+            }
             pollinationsConsecutive402 = 0;
-            pollinationsQuotaCoolUntil = 0;
             log('✅ Image générée avec ' + model);
             return await new Promise((resolve, reject) => {
                 const reader = new FileReader();
