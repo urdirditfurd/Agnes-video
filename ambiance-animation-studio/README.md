@@ -1,41 +1,56 @@
 # Ambiance Animation Studio
 
-Transformez **n’importe quelle image** en boucle d’ambiance apaisante de 10 secondes  
-(cadre 100 % statique — seuls les effets d’arrière-plan bougent).
+Boucle d’ambiance 10 s à partir de **n’importe quelle image**  
+(cadre fixe — seuls les effets bougent).
 
-## ⚠️ Pourquoi `http://127.0.0.1:8765/` ne répond pas ?
+## Si le navigateur dit « can't connect to server »
 
-Cette adresse ne marche **que sur VOTRE ordinateur**, et **seulement** si le serveur est lancé :
+Cela signifie que **aucun serveur n’écoute** sur votre PC.  
+`http://127.0.0.1:8765/` ne s’ouvre pas tout seul.
 
-1. Téléchargez le dossier **complet** `ambiance-animation-studio` (avec `lib/ffmpeg/`)
-2. Windows : double-cliquez **`demarrer.bat`** (laissez la fenêtre noire ouverte)
-3. Mac / Linux : `./demarrer.sh`
-4. Le navigateur s’ouvre sur `http://127.0.0.1:8765/`  
-   (si 8765 est pris → le script affiche un autre port, ex. `8766`)
+### Windows (recommandé)
 
-Si vous voyez `ERR_CONNECTION_REFUSED` : le serveur n’est pas démarré, ou la fenêtre a été fermée.
+1. Téléchargez le dossier **complet** `ambiance-animation-studio`  
+   (GitHub → Code → Download ZIP → dézippez)
+2. Entrez dans le dossier (vous devez voir `demarrer.bat` + `lib\ffmpeg\`)
+3. Double-cliquez **`demarrer.bat`**
+4. **Laissez la fenêtre noire ouverte**
+5. Une URL verte apparaît, ex. `http://127.0.0.1:8765/` — ouvrez-la dans Chrome
 
-**Ne double-cliquez pas** `index.html` (mode `file://` → FFmpeg cassé).
+`demarrer.bat` essaie automatiquement :
+1. Python → 2. PowerShell (**sans Python**) → 3. Node.js
 
-## Contenu du pack
+### Si ça échoue encore
+
+Ouvrez **PowerShell** dans le dossier et collez :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\serve.ps1
+```
+
+Puis ouvrez l’URL affichée.
+
+### Mac / Linux
+
+```bash
+cd ambiance-animation-studio
+chmod +x demarrer.sh
+./demarrer.sh
+```
+
+## Contenu obligatoire
 
 ```
 ambiance-animation-studio/
+├── demarrer.bat      ← Windows
+├── demarrer.sh
+├── serve.py / serve.ps1 / serve.mjs
 ├── index.html
-├── demarrer.bat / demarrer.sh / serve.py
-├── README.md
-└── lib/ffmpeg/          ← obligatoire (~31 Mo)
+└── lib/ffmpeg/       ← ~31 Mo, obligatoire
 ```
 
-## Prérequis
+## Ne pas faire
 
-- **Python 3** installé ([python.org](https://www.python.org/downloads/) — cochez *Add to PATH* sous Windows)
-- Chrome ou Edge
-
-## Flux
-
-1. Uploadez une image (JPEG / PNG / WebP)  
-2. Choisissez une ambiance  
-3. Réglez vitesse / densité / ondulation  
-4. **Prévisualiser**  
-5. **Exporter vidéo 10s (MP4)**  
+- ❌ Double-cliquer seulement `index.html`
+- ❌ Fermer la fenêtre du serveur puis recharger la page
+- ❌ Ouvrir `127.0.0.1` sur un autre ordinateur que celui où tourne `demarrer`

@@ -1,4 +1,5 @@
 @echo off
+setlocal EnableExtensions
 chcp 65001 >nul
 cd /d "%~dp0"
 
@@ -7,48 +8,76 @@ echo  ============================================
 echo   Ambiance Animation Studio — demarrage
 echo  ============================================
 echo.
-echo  1) Cette fenetre DOIT rester ouverte
-echo  2) Le navigateur s'ouvre sur http://127.0.0.1:8765/
-echo  3) Si la page refuse la connexion : lisez les messages ci-dessous
+echo  Cette fenetre DOIT rester ouverte.
+echo  Si "can't connect" : le serveur n'est PAS lance.
 echo.
 
-if not exist "index.html" (
-  echo  ERREUR: index.html introuvable.
-  echo  Placez demarrer.bat DANS le dossier ambiance-animation-studio.
-  pause
-  exit /b 1
+if not exist "%~dp0index.html" (
+  echo  [X] index.html introuvable
+  echo      Mettez demarrer.bat DANS ambiance-animation-studio\
+  goto FAIL
 )
-if not exist "lib\ffmpeg\ffmpeg.js" (
-  echo  ERREUR: lib\ffmpeg\ manquant.
-  echo  Telechargez le dossier COMPLET, pas seulement index.html.
-  pause
-  exit /b 1
+if not exist "%~dp0lib\ffmpeg\ffmpeg.js" (
+  echo  [X] lib\ffmpeg\ manquant
+  echo      Telechargez le ZIP/dossier COMPLET depuis GitHub
+  goto FAIL
 )
+echo  [OK] Pack complet detecte
+echo.
 
+REM --- 1) Python ---
 where python >nul 2>&1
 if %errorlevel%==0 (
-  echo  Python trouve — demarrage...
+  echo  [1/3] Essai Python...
+  python "%~dp0serve.py"
+  if %errorlevel%==0 goto END
+  echo  Python a echoue, essai suivant...
   echo.
-  python serve.py
-  if errorlevel 1 goto TRY_PY
-  goto END
 )
 
-:TRY_PY
 where py >nul 2>&1
 if %errorlevel%==0 (
-  echo  Essai avec: py -3 serve.py
+  echo  [1/3] Essai py -3...
+  py -3 "%~dp0serve.py"
+  if %errorlevel%==0 goto END
+  echo  py a echoue, essai suivant...
   echo.
-  py -3 serve.py
-  if errorlevel 1 goto NO_PYTHON
-  goto END
 )
 
-:NO_PYTHON
+REM --- 2) PowerShell (pas besoin de Python) ---
+echo  [2/3] Essai PowerShell (sans Python)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1"
+if %errorlevel%==0 goto END
+echo  PowerShell a echoue, essai suivant...
 echo.
-echo  ERREUR: Python introuvable.
-echo  Installez Python 3 depuis https://www.python.org/downloads/
-echo  Cochez "Add python.exe to PATH" puis relancez demarrer.bat
+
+REM --- 3) Node.js ---
+where node >nul 2>&1
+if %errorlevel%==0 (
+  echo  [3/3] Essai Node.js...
+  node "%~dp0serve.mjs"
+  if %errorlevel%==0 goto END
+)
+
+echo.
+echo  ============================================
+echo   AUCUN SERVEUR N'A PU DEMARRER
+echo  ============================================
+echo.
+echo  Installez UNE de ces options, puis relancez :
+echo    A) Python 3  https://www.python.org/downloads/
+echo       ^> cochez "Add python.exe to PATH"
+echo    B) Node.js   https://nodejs.org/
+echo.
+echo  Ou ouvrez PowerShell dans ce dossier et tapez :
+echo    powershell -ExecutionPolicy Bypass -File .\serve.ps1
+echo.
+echo  Puis ouvrez l'URL verte affichee (ex. http://127.0.0.1:8765/)
+echo.
+pause
+exit /b 1
+
+:FAIL
 echo.
 pause
 exit /b 1
@@ -57,3 +86,4 @@ exit /b 1
 echo.
 echo  Serveur arrete.
 pause
+endlocal

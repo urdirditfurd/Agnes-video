@@ -7,23 +7,30 @@ echo "============================================"
 echo " Ambiance Animation Studio — demarrage"
 echo "============================================"
 echo ""
-echo "1) Cette fenetre DOIT rester ouverte"
-echo "2) Ouvrez ensuite : http://127.0.0.1:8765/"
-echo "3) Ne double-cliquez PAS index.html (file://)"
+echo "Cette fenetre DOIT rester ouverte."
+echo "Si « can't connect » : le serveur n'est pas lance."
 echo ""
 
 if [[ ! -f index.html ]]; then
-  echo "ERREUR: index.html introuvable (mauvais dossier)."
+  echo "[X] index.html introuvable (mauvais dossier)."
   exit 1
 fi
 if [[ ! -f lib/ffmpeg/ffmpeg.js ]]; then
-  echo "ERREUR: lib/ffmpeg/ manquant — dossier incomplet."
+  echo "[X] lib/ffmpeg/ manquant — dossier incomplet."
   exit 1
 fi
+echo "[OK] Pack complet"
+echo ""
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "ERREUR: python3 introuvable. Installez Python 3."
-  exit 1
+if command -v python3 >/dev/null 2>&1; then
+  echo "[1] Python3..."
+  exec python3 serve.py
 fi
 
-exec python3 serve.py
+if command -v node >/dev/null 2>&1; then
+  echo "[1] Node.js (pas de python3)..."
+  exec node serve.mjs
+fi
+
+echo "ERREUR: installez python3 ou node, puis relancez."
+exit 1
