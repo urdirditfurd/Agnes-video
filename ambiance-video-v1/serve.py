@@ -92,7 +92,7 @@ def main() -> int:
 
     print("")
     print("============================================")
-    print(" Ambiance Animation Studio — serveur OK")
+    print(" Ambiance Video Studio — serveur OK")
     print("============================================")
     print("")
     print("  Ouvrez dans Chrome / Edge :")
