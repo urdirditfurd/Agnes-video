@@ -736,6 +736,14 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
                 </select>
                 <p class="hint-text">Conseil : testez d'abord en 1 min. Une vraie 3H peut consommer beaucoup de RAM navigateur.</p>
             </div>
+            <div class="check-row" style="margin-top:0.4rem;">
+                <input type="checkbox" id="local-fallback-toggle" checked>
+                <label for="local-fallback-toggle">Si Agnes est saturé (503) → bascule auto vers boucle locale Ken Burns (recommandé)</label>
+            </div>
+            <div class="check-row" style="margin-top:0.35rem;">
+                <input type="checkbox" id="local-only-toggle">
+                <label for="local-only-toggle">Mode 100&nbsp;% local (ignorer Agnes, animer l'image dans le navigateur)</label>
+            </div>
         </div>
     </div>
 </div>
@@ -958,7 +966,10 @@ const state = {
     youtubeMeta: null,
     aiContentDeclared: false,
     ffmpegInstance: null,
-    ffmpegLoaded: false
+    ffmpegLoaded: false,
+    localFallbackEnabled: true,  // bascule auto si Agnes 503
+    localOnlyMode: false,        // ignorer Agnes
+    videoSource: null            // 'agnes' | 'local'
 };
 
 // ── IndexedDB ────────────────────────────────────────────────────
@@ -1284,14 +1295,24 @@ function applyThemeDefaults(themeId) {
 function updateGenerateBtn() {
     const btn = document.getElementById('generate-btn');
     if (!btn) return;
-    const ready = !!(state.userImageDataURL && state.audioFile && getAgnesKey());
+    const canLocal = !!(state.userImageDataURL && state.audioFile);
+    const canAgnes = canLocal && !!getAgnesKey() && !state.localOnlyMode;
+    const ready = state.localOnlyMode ? canLocal : (canAgnes || (canLocal && state.localFallbackEnabled));
     btn.disabled = !ready || state.isRunning || state.isAssembling;
     if (state.isRunning) {
-        btn.textContent = 'Génération Agnes en cours…';
+        btn.textContent = state.localOnlyMode
+            ? 'Animation locale en cours…'
+            : 'Génération en cours…';
     } else if (!state.userImageDataURL) {
         btn.textContent = 'Téléversez d\'abord une image';
     } else if (!state.audioFile) {
         btn.textContent = 'Téléversez d\'abord une musique';
+    } else if (state.localOnlyMode) {
+        btn.textContent = state.agnesVideoUrl
+            ? 'Régénérer la boucle locale'
+            : 'Créer la boucle locale (Ken Burns)';
+    } else if (!getAgnesKey() && state.localFallbackEnabled) {
+        btn.textContent = 'Créer la boucle (local sans clé Agnes)';
     } else if (!getAgnesKey()) {
         btn.textContent = 'Ajoutez une clé Agnes';
     } else if (state.agnesVideoUrl) {
@@ -1487,13 +1508,13 @@ function classifyError(error) {
 }
 
 /**
- * Fetch Agnes avec backoff exponentiel (max 5 tentatives).
- * Message clair si saturation 503 persistante.
+ * Fetch Agnes avec backoff court (max 3 tentatives).
+ * En cas de 503 persistant → erreur typée AGNES_SATURATED pour bascule locale.
  */
 async function apiFetch(url, options, label) {
     options = options || {};
     label = label || 'Agnes';
-    const maxAttempts = 5;
+    const maxAttempts = 3;
     let lastError = null;
     let saw503 = false;
 
@@ -1503,7 +1524,7 @@ async function apiFetch(url, options, label) {
             const sep = url.indexOf('?') !== -1 ? '&' : '?';
             const urlB = url + sep + '_t=' + Date.now() + '_a=' + attempt;
             const controller = new AbortController();
-            const timeoutId = setTimeout(function () { controller.abort(); }, 60000);
+            const timeoutId = setTimeout(function () { controller.abort(); }, 45000);
             const res = await fetch(urlB, Object.assign({}, options, {
                 signal: controller.signal,
                 cache: 'no-store',
@@ -1512,34 +1533,40 @@ async function apiFetch(url, options, label) {
             clearTimeout(timeoutId);
 
             if (res.status === 503 || res.status === 429 || res.status >= 500) {
-                saw503 = saw503 || res.status === 503;
-                const wait = Math.min(120000, Math.round(8000 * Math.pow(2, attempt)));
-                log(label + ' HTTP ' + res.status + ' — retry dans ' + Math.round(wait / 1000) + 's (' + (attempt + 1) + '/' + maxAttempts + ')');
-                setStatus('Serveur Agnes occupé, nouvelle tentative dans ' + Math.round(wait / 1000) + 's…');
-                await sleep(wait);
-                continue;
+                saw503 = true;
+                const waitSec = [8, 16, 24][attempt] || 24;
+                log(label + ' HTTP ' + res.status + ' — retry ' + (attempt + 1) + '/' + maxAttempts);
+                if (attempt < maxAttempts - 1) {
+                    setStatus(
+                        'Serveur Agnes occupé (' + (attempt + 1) + '/' + maxAttempts +
+                        ') — nouvelle tentative dans ' + waitSec + 's…' +
+                        (state.localFallbackEnabled ? ' puis bascule locale' : '')
+                    );
+                    await sleep(waitSec * 1000);
+                    continue;
+                }
+                break;
             }
             return res;
         } catch (e) {
             lastError = e;
+            if (e.message === 'Arrêt demandé') throw e;
             if (attempt < maxAttempts - 1) {
-                const c = classifyError(e);
-                const wait = Math.min(120000, c.wait * Math.pow(1.6, attempt));
-                setStatus(label + ' : retry dans ' + Math.round(wait / 1000) + 's…');
-                await sleep(wait);
+                const waitSec = 8 + attempt * 8;
+                setStatus(label + ' : retry dans ' + waitSec + 's… (' + (attempt + 1) + '/' + maxAttempts + ')');
+                await sleep(waitSec * 1000);
             }
         }
     }
 
-    if (saw503) {
-        throw new Error(
-            'Serveur Agnes saturé. Veuillez réessayer dans quelques minutes ou utiliser une autre clé API.'
-        );
-    }
-    throw new Error(
-        'Échec ' + label + ' après 5 tentatives' +
-        (lastError ? ' : ' + lastError.message : '')
+    const err = new Error(
+        saw503
+            ? 'Serveur Agnes saturé. Veuillez réessayer dans quelques minutes ou utiliser une autre clé API.'
+            : ('Échec ' + label + ' après ' + maxAttempts + ' tentatives' +
+                (lastError ? ' : ' + lastError.message : ''))
     );
+    err.code = saw503 ? 'AGNES_SATURATED' : 'AGNES_FAILED';
+    throw err;
 }
 
 /**
@@ -1567,16 +1594,18 @@ async function createVideoTask(imageDataUri, prompt) {
     }, 'Création vidéo');
 
     if (!res.ok) {
-        const err = await res.text();
-        if (res.status === 503) {
-            throw new Error(
+        const errText = await res.text();
+        if (res.status === 503 || res.status === 429) {
+            const err = new Error(
                 'Serveur Agnes saturé. Veuillez réessayer dans quelques minutes ou utiliser une autre clé API.'
             );
+            err.code = 'AGNES_SATURATED';
+            throw err;
         }
         if (res.status === 401) {
             throw new Error('Clé Agnes invalide — vérifiez votre clé API');
         }
-        throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+        throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0, 200));
     }
     const data = await res.json();
     const videoId = data.video_id || data.id || data.task_id;
@@ -1631,6 +1660,183 @@ async function downloadVideoAsBlob(url) {
     return blob;
 }
 
+function loadImageElement(src) {
+    return new Promise(function (resolve, reject) {
+        const img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { reject(new Error('Impossible de charger l\'image')); };
+        img.src = src;
+    });
+}
+
+function pickRecorderMime() {
+    const candidates = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+    ];
+    for (let i = 0; i < candidates.length; i++) {
+        if (typeof MediaRecorder !== 'undefined' &&
+            MediaRecorder.isTypeSupported(candidates[i])) {
+            return candidates[i];
+        }
+    }
+    return '';
+}
+
+/**
+ * Boucle locale Ken Burns (10 s) depuis l'image utilisateur.
+ * 1) Capture canvas → WebM (MediaRecorder)
+ * 2) Conversion WebM → MP4 via FFmpeg.wasm (pour -c:v copy ensuite)
+ */
+async function createLocalKenBurnsLoop(onProgress) {
+    if (!state.userImageDataURL) {
+        throw new Error('Veuillez d\'abord téléverser une image');
+    }
+    const durationSec = 10;
+    const fps = 30;
+    const width = 1280;
+    const height = 720;
+    const mime = pickRecorderMime();
+    if (!mime) {
+        throw new Error('MediaRecorder WebM non supporté par ce navigateur');
+    }
+
+    if (onProgress) onProgress('Animation locale Ken Burns…');
+    log('═══ BOUCLE LOCALE KEN BURNS ═══');
+
+    const img = await loadImageElement(state.userImageDataURL);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const stream = canvas.captureStream(fps);
+    const recorder = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: 3500000
+    });
+    const chunks = [];
+    recorder.ondataavailable = function (e) {
+        if (e.data && e.data.size) chunks.push(e.data);
+    };
+
+    const done = new Promise(function (resolve, reject) {
+        recorder.onstop = function () { resolve(); };
+        recorder.onerror = function () { reject(new Error('Erreur MediaRecorder')); };
+    });
+
+    recorder.start(200);
+    const start = performance.now();
+    const totalMs = durationSec * 1000;
+
+    await new Promise(function (resolve) {
+        function frame(now) {
+            if (state.stopRequested) {
+                try { recorder.stop(); } catch (e) { /* ignore */ }
+                resolve();
+                return;
+            }
+            const t = Math.min(1, (now - start) / totalMs);
+            // Zoom 100% → 105% puis retour (boucle douce)
+            const pulse = t < 0.5 ? (t * 2) : (2 - t * 2);
+            const scale = 1 + 0.05 * pulse;
+            const iw = img.width;
+            const ih = img.height;
+            const cover = Math.max(width / iw, height / ih) * scale;
+            const dw = iw * cover;
+            const dh = ih * cover;
+            const dx = (width - dw) / 2;
+            const dy = (height - dh) / 2;
+            ctx.fillStyle = '#0c1418';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, dx, dy, dw, dh);
+
+            if (t < 1) {
+                requestAnimationFrame(frame);
+            } else {
+                resolve();
+            }
+        }
+        requestAnimationFrame(frame);
+    });
+
+    if (state.stopRequested) throw new Error('Arrêt demandé');
+    if (recorder.state !== 'inactive') recorder.stop();
+    await done;
+
+    const webmBlob = new Blob(chunks, { type: 'video/webm' });
+    if (webmBlob.size < 500) {
+        throw new Error('Boucle locale vide — réessayez');
+    }
+    log('WebM local · ' + webmBlob.size + ' octets');
+
+    // Convertir en MP4 pour l'assemblage -stream_loop -c:v copy
+    if (onProgress) onProgress('Conversion WebM → MP4 (FFmpeg.wasm)…');
+    const ffmpeg = await ensureFFmpegLoaded(function (pct, msg) {
+        if (onProgress) onProgress(msg || ('FFmpeg ' + pct + '%'));
+    });
+    const fetchFile = FFmpegUtil.fetchFile;
+    await ffmpeg.writeFile('local_in.webm', await fetchFile(webmBlob));
+
+    let converted = false;
+    const encoders = [
+        ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', '23'],
+        ['-c:v', 'mpeg4', '-q:v', '5'],
+        ['-c:v', 'libvpx', '-b:v', '2M']
+    ];
+    for (let i = 0; i < encoders.length; i++) {
+        try {
+            const args = ['-i', 'local_in.webm']
+                .concat(encoders[i])
+                .concat(['-an', '-t', String(durationSec), 'loop_short.mp4']);
+            log('convert try: ffmpeg ' + args.join(' '));
+            await ffmpeg.exec(args);
+            const data = await ffmpeg.readFile('loop_short.mp4');
+            if (data && data.byteLength > 1000) {
+                const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+                const mp4Blob = new Blob([buffer], { type: 'video/mp4' });
+                try {
+                    await ffmpeg.deleteFile('local_in.webm');
+                    await ffmpeg.deleteFile('loop_short.mp4');
+                } catch (e) { /* ignore */ }
+                converted = true;
+                log('MP4 local OK · ' + mp4Blob.size + ' octets');
+                return mp4Blob;
+            }
+        } catch (encErr) {
+            log('Encodeur échoué : ' + encErr.message);
+        }
+    }
+
+    if (!converted) {
+        // Dernier recours : utiliser le WebM tel quel (assemble réencodera)
+        log('Conversion MP4 impossible — conservation WebM');
+        return webmBlob;
+    }
+}
+
+function presentShortLoop(blob, sourceLabel) {
+    if (state.agnesVideoUrl && state.agnesVideoUrl.indexOf('blob:') === 0) {
+        try { URL.revokeObjectURL(state.agnesVideoUrl); } catch (e) { /* ignore */ }
+    }
+    state.agnesVideoBlob = blob;
+    state.agnesVideoUrl = URL.createObjectURL(blob);
+    state.videoSource = sourceLabel === 'Agnes' ? 'agnes' : 'local';
+
+    const stage = document.getElementById('preview-stage');
+    const pv = document.getElementById('preview-video');
+    pv.src = state.agnesVideoUrl;
+    pv.muted = true;
+    pv.loop = true;
+    pv.load();
+    pv.play().catch(function () {});
+    document.getElementById('preview-label').textContent =
+        'Boucle courte ' + sourceLabel + ' · ' + (blob.size / 1024).toFixed(0) + ' Ko';
+    stage.classList.add('visible');
+    document.getElementById('assemble-btn').classList.add('visible');
+    displayYouTubeMetadata();
+}
+
 // ── Workflow : créer la vidéo d'ambiance ─────────────────────────
 async function startAmbianceGeneration() {
     if (state.isRunning) return;
@@ -1643,8 +1849,10 @@ async function startAmbianceGeneration() {
         showToast('Veuillez d\'abord téléverser une musique', 'error');
         return;
     }
-    if (!getAgnesKey()) {
-        showToast('Ajoutez une clé API Agnes valide', 'error');
+
+    const useLocalOnly = state.localOnlyMode || !getAgnesKey();
+    if (!useLocalOnly && !getAgnesKey()) {
+        showToast('Ajoutez une clé API Agnes ou activez le mode local', 'error');
         return;
     }
 
@@ -1658,41 +1866,61 @@ async function startAmbianceGeneration() {
     updateGenerateBtn();
 
     await ensureWakeLockActive();
-    const prompt = buildVideoPrompt();
-    log('═══ GÉNÉRATION AGNES (boucle) ═══');
-    log('Prompt : ' + prompt.slice(0, 180) + '…');
 
     try {
-        setStatus('Envoi de votre image à Agnes…');
-        const videoId = await createVideoTask(state.userImageDataURL, prompt);
-        log('video_id = ' + videoId);
+        if (useLocalOnly) {
+            log('═══ MODE LOCAL (sans Agnes) ═══');
+            showToast('Mode local — Agnes ignoré', 'warn', 2500);
+            const blob = await createLocalKenBurnsLoop(setStatus);
+            presentShortLoop(blob, 'locale');
+            showToast('Boucle locale prête — lancez l\'assemblage 3H', 'success', 4000);
+            return;
+        }
 
-        const remoteUrl = await pollVideo(videoId, setStatus);
-        setStatus('Téléchargement de la boucle courte…');
-        const blob = await downloadVideoAsBlob(remoteUrl);
+        const prompt = buildVideoPrompt();
+        log('═══ GÉNÉRATION AGNES (boucle) ═══');
+        log('Prompt : ' + prompt.slice(0, 180) + '…');
 
-        state.agnesVideoBlob = blob;
-        state.agnesVideoUrl = URL.createObjectURL(blob);
+        try {
+            setStatus('Envoi de votre image à Agnes…');
+            const videoId = await createVideoTask(state.userImageDataURL, prompt);
+            log('video_id = ' + videoId);
 
-        const stage = document.getElementById('preview-stage');
-        const pv = document.getElementById('preview-video');
-        pv.src = state.agnesVideoUrl;
-        pv.muted = true;
-        pv.loop = true;
-        pv.load();
-        pv.play().catch(function () {});
-        document.getElementById('preview-label').textContent =
-            'Boucle courte Agnes · ' + (blob.size / 1024).toFixed(0) + ' Ko';
-        stage.classList.add('visible');
+            const remoteUrl = await pollVideo(videoId, setStatus);
+            setStatus('Téléchargement de la boucle courte…');
+            const blob = await downloadVideoAsBlob(remoteUrl);
+            presentShortLoop(blob, 'Agnes');
+            showToast('Boucle Agnes prête — lancez l\'assemblage 3H', 'success', 4000);
+            log('Vidéo Agnes OK · ' + blob.size + ' octets');
+        } catch (agnesErr) {
+            if (agnesErr.message === 'Arrêt demandé') throw agnesErr;
+            log('Erreur Agnes : ' + agnesErr.message);
 
-        document.getElementById('assemble-btn').classList.add('visible');
-        displayYouTubeMetadata();
-        showToast('Boucle courte prête — lancez l\'assemblage 3H', 'success', 4000);
-        log('Vidéo Agnes OK · ' + blob.size + ' octets');
+            const saturated = agnesErr.code === 'AGNES_SATURATED' ||
+                /satur/i.test(agnesErr.message) || /503/.test(agnesErr.message);
+
+            if (state.localFallbackEnabled && (saturated || agnesErr.code === 'AGNES_FAILED')) {
+                showToast(
+                    'Agnes saturé — bascule automatique vers boucle locale',
+                    'warn',
+                    4000
+                );
+                setStatus('Bascule locale Ken Burns…');
+                const blob = await createLocalKenBurnsLoop(setStatus);
+                presentShortLoop(blob, 'locale (fallback)');
+                showToast('Boucle locale prête — lancez l\'assemblage 3H', 'success', 4000);
+                return;
+            }
+
+            showToast(agnesErr.message, 'error', 6000);
+        }
     } catch (e) {
-        log('Erreur Agnes : ' + e.message);
-        showToast(e.message, 'error', 6000);
-        setStatus(null);
+        if (e.message !== 'Arrêt demandé') {
+            log('Erreur génération : ' + e.message);
+            showToast(e.message, 'error', 6000);
+        } else {
+            showToast('Arrêt demandé', 'warn');
+        }
     } finally {
         state.isRunning = false;
         state.stopRequested = false;
@@ -1719,7 +1947,7 @@ async function ensureFFmpegLoaded(onProgress) {
     }
     if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
         throw new Error(
-            'FFmpeg.wasm non chargé. Vérifiez votre connexion CDN (unpkg.com).'
+            'FFmpeg.wasm non chargé. Vérifiez que lib/ffmpeg/ est bien servi en HTTP.'
         );
     }
     const FFmpeg = FFmpegWASM.FFmpeg;
@@ -1762,7 +1990,7 @@ async function assemble3HourLoopLocal() {
     if (state.isAssembling) return;
 
     if (!state.agnesVideoBlob && !state.agnesVideoUrl) {
-        showToast('Créez d\'abord la vidéo d\'ambiance avec Agnes', 'error');
+        showToast('Créez d\'abord la vidéo d\'ambiance (Agnes ou locale)', 'error');
         return;
     }
     if (!state.audioFile) {
@@ -1786,6 +2014,12 @@ async function assemble3HourLoopLocal() {
     updateGenerateBtn();
 
     const duration = state.loopDuration || 10800;
+    const isWebm = !!(state.agnesVideoBlob &&
+        state.agnesVideoBlob.type &&
+        state.agnesVideoBlob.type.indexOf('webm') !== -1);
+    const videoInName = isWebm ? 'input.webm' : 'input.mp4';
+
+    // Commande canonique (après normalisation éventuelle WebM→MP4)
     const args = [
         '-stream_loop', '-1', '-i', 'input.mp4',
         '-stream_loop', '-1', '-i', 'input.mp3',
@@ -1800,6 +2034,7 @@ async function assemble3HourLoopLocal() {
     cmdBox.textContent =
         '$ ' + state.ffmpegCommand +
         '\n# durée : ' + duration + 's (' + formatDuration(duration) + ')' +
+        '\n# source : ' + (state.videoSource || 'inconnue') +
         '\n# moteur : FFmpeg.wasm · 100% navigateur · pas de VPS';
     cmdBox.classList.add('visible');
 
@@ -1824,14 +2059,32 @@ async function assemble3HourLoopLocal() {
         const ffmpeg = await ensureFFmpegLoaded(setProg);
         if (state.stopRequested) throw new Error('Arrêt demandé');
 
-        setProg(12, 'Chargement de la vidéo Agnes dans le FS virtuel…');
+        setProg(12, 'Chargement de la boucle courte dans le FS virtuel…');
         const fetchFile = FFmpegUtil.fetchFile;
         const videoBytes = await fetchFile(state.agnesVideoBlob);
-        await ffmpeg.writeFile('input.mp4', videoBytes);
+        await ffmpeg.writeFile(videoInName, videoBytes);
+
+        // Si WebM (fallback local non converti), normaliser en MP4 d'abord
+        if (isWebm) {
+            setProg(18, 'Normalisation WebM → MP4…');
+            let ok = false;
+            const tries = [
+                ['-i', 'input.webm', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', 'input.mp4'],
+                ['-i', 'input.webm', '-c:v', 'mpeg4', '-q:v', '5', '-an', 'input.mp4']
+            ];
+            for (let i = 0; i < tries.length && !ok; i++) {
+                try {
+                    await ffmpeg.exec(tries[i]);
+                    ok = true;
+                } catch (e) {
+                    log('Norm. échouée : ' + e.message);
+                }
+            }
+            if (!ok) throw new Error('Impossible de convertir la boucle WebM en MP4');
+        }
 
         setProg(22, 'Chargement de la musique…');
         const audioBytes = await fetchFile(state.audioFile);
-        // Toujours nommé input.mp3 pour la commande canonique (FFmpeg détecte le format)
         await ffmpeg.writeFile('input.mp3', audioBytes);
 
         if (state.stopRequested) throw new Error('Arrêt demandé');
@@ -2151,6 +2404,8 @@ function runSelfValidation() {
     const volInput = document.getElementById('music-volume');
     const crossfadeToggle = document.getElementById('crossfade-toggle');
     const aiCheckbox = document.getElementById('ai-content-checkbox');
+    const localFallbackToggle = document.getElementById('local-fallback-toggle');
+    const localOnlyToggle = document.getElementById('local-only-toggle');
 
     themeSelect.value = state.ambianceConfig.themeId || 'capybara-zen';
     if (!state.ambianceConfig.visualPrompt) {
@@ -2163,6 +2418,8 @@ function runSelfValidation() {
     document.getElementById('music-volume-value').textContent = volInput.value + '%';
     crossfadeToggle.checked = state.crossfadeEnabled !== false;
     if (aiCheckbox) aiCheckbox.checked = !!state.aiContentDeclared;
+    if (localFallbackToggle) localFallbackToggle.checked = state.localFallbackEnabled !== false;
+    if (localOnlyToggle) localOnlyToggle.checked = !!state.localOnlyMode;
 
     document.getElementById('api-save-btn').addEventListener('click', saveAgnesKey);
     document.getElementById('stop-btn').addEventListener('click', stopGeneration);
@@ -2201,6 +2458,24 @@ function runSelfValidation() {
         state.crossfadeEnabled = e.target.checked;
         saveStateToIDB();
     });
+    if (localFallbackToggle) {
+        localFallbackToggle.addEventListener('change', function (e) {
+            state.localFallbackEnabled = e.target.checked;
+            updateGenerateBtn();
+        });
+    }
+    if (localOnlyToggle) {
+        localOnlyToggle.addEventListener('change', function (e) {
+            state.localOnlyMode = e.target.checked;
+            updateGenerateBtn();
+            showToast(
+                e.target.checked
+                    ? 'Mode 100 % local activé — Agnes ignoré'
+                    : 'Mode Agnes réactivé (fallback local si 503)',
+                e.target.checked ? 'warn' : 'success'
+            );
+        });
+    }
     aiCheckbox.addEventListener('change', function (e) {
         state.aiContentDeclared = e.target.checked;
         if (e.target.checked) {
