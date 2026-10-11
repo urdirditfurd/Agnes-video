@@ -1,20 +1,36 @@
-# Ambiance Animation Studio — serveur HTTP Windows (sans Python)
-# Usage: powershell -ExecutionPolicy Bypass -File serve.ps1
+# Serveur HTTP Windows (TcpListener) — PAS besoin d'admin ni de Python
+# Evite les erreurs HttpListener / URL ACL sur Windows.
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $Root) { $Root = Get-Location }
 Set-Location $Root
+
+function Write-Log($msg) {
+  $line = "[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg
+  Write-Host $line
+  try { Add-Content -Path (Join-Path $Root "demarrer-log.txt") -Value $line -Encoding UTF8 } catch {}
+}
+
+Write-Log "Dossier: $Root"
 
 $Index = Join-Path $Root "index.html"
 $Ffmpeg = Join-Path $Root "lib\ffmpeg\ffmpeg.js"
-if (-not (Test-Path $Index)) {
-  Write-Host "ERREUR: index.html introuvable dans $Root" -ForegroundColor Red
+if (-not (Test-Path -LiteralPath $Index)) {
+  Write-Host ""
+  Write-Host "ERREUR: index.html introuvable." -ForegroundColor Red
+  Write-Host "Placez ce script DANS le dossier ambiance-animation-studio"
+  Write-Host ""
   exit 1
 }
-if (-not (Test-Path $Ffmpeg)) {
-  Write-Host "ERREUR: lib\ffmpeg\ manquant — dossier incomplet." -ForegroundColor Red
+if (-not (Test-Path -LiteralPath $Ffmpeg)) {
+  Write-Host ""
+  Write-Host "ERREUR: lib\ffmpeg\ manquant (dossier incomplet)." -ForegroundColor Red
+  Write-Host "Telechargez le ZIP complet depuis GitHub, pas seulement index.html"
+  Write-Host ""
   exit 1
 }
+Write-Log "Pack OK (index.html + lib/ffmpeg)"
 
 $Mime = @{
   ".html" = "text/html; charset=utf-8"
@@ -37,100 +53,106 @@ $Mime = @{
   ".map"  = "application/json"
 }
 
-function Test-PortFree([int]$Port) {
-  try {
-    $l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
-    $l.Start()
-    $l.Stop()
-    return $true
-  } catch {
-    return $false
+function Get-FreePort {
+  foreach ($p in 8765, 8766, 8767, 8768, 8769, 8770) {
+    try {
+      $l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), $p
+      $l.Start()
+      $l.Stop()
+      return $p
+    } catch {}
   }
+  return $null
 }
 
-$Port = $null
-foreach ($p in 8765, 8766, 8767, 8768, 8769, 8770) {
-  if (Test-PortFree $p) { $Port = $p; break }
-}
+$Port = Get-FreePort
 if (-not $Port) {
-  Write-Host "ERREUR: aucun port libre (8765-8770)." -ForegroundColor Red
+  Write-Host "ERREUR: ports 8765-8770 tous occupes." -ForegroundColor Red
+  Write-Host "Fermez les anciennes fenetres noires / serveurs."
   exit 1
 }
 
-$Prefix = "http://127.0.0.1:$Port/"
-$Listener = [System.Net.HttpListener]::new()
-$Listener.Prefixes.Add($Prefix)
+$Listener = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), $Port
 try {
   $Listener.Start()
 } catch {
-  Write-Host ""
-  Write-Host "ERREUR: impossible d'ecouter $Prefix" -ForegroundColor Red
-  Write-Host $_.Exception.Message
-  Write-Host "Astuce: ouvrez PowerShell en Administrateur une fois, ou utilisez un autre port."
-  Write-Host ""
+  Write-Host "ERREUR demarrage port $Port : $($_.Exception.Message)" -ForegroundColor Red
   exit 1
 }
 
+$Url = "http://127.0.0.1:$Port/"
 Write-Host ""
-Write-Host "============================================"
-Write-Host " Ambiance Animation Studio — serveur OK"
-Write-Host "============================================"
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host " Ambiance Animation Studio — SERVEUR OK" -ForegroundColor Green
+Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Ouvrez dans Chrome / Edge :"
+Write-Host "  Copiez cette adresse dans Chrome :" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "     $Prefix" -ForegroundColor Green
+Write-Host "     $Url" -ForegroundColor Green
 Write-Host ""
-Write-Host "  NE FERMEZ PAS cette fenetre."
-Write-Host "  Ctrl+C pour arreter."
+Write-Host "  NE FERMEZ PAS cette fenetre !" -ForegroundColor Yellow
+Write-Host "  Pour arreter : Ctrl+C" -ForegroundColor Yellow
 Write-Host ""
+Write-Log "Serveur ecoute sur $Url"
 
 try {
-  Start-Process $Prefix
-} catch {}
+  Start-Process $Url
+  Write-Log "Navigateur ouvert"
+} catch {
+  Write-Log "Ouverture navigateur ignoree"
+}
+
+function Send-Response($stream, $status, $contentType, $bytes) {
+  $header = "HTTP/1.1 $status`r`nContent-Type: $contentType`r`nContent-Length: $($bytes.Length)`r`nCache-Control: no-cache`r`nConnection: close`r`n`r`n"
+  $hdrBytes = [Text.Encoding]::ASCII.GetBytes($header)
+  $stream.Write($hdrBytes, 0, $hdrBytes.Length)
+  if ($bytes.Length -gt 0) { $stream.Write($bytes, 0, $bytes.Length) }
+  $stream.Flush()
+}
 
 try {
-  while ($Listener.IsListening) {
-    $ctx = $Listener.GetContext()
-    $req = $ctx.Request
-    $res = $ctx.Response
+  while ($true) {
+    $client = $Listener.AcceptTcpClient()
     try {
-      $rel = [Uri]::UnescapeDataString($req.Url.AbsolutePath.TrimStart("/"))
+      $client.ReceiveTimeout = 15000
+      $client.SendTimeout = 60000
+      $stream = $client.GetStream()
+      $buffer = New-Object byte[] 8192
+      $read = $stream.Read($buffer, 0, $buffer.Length)
+      if ($read -le 0) { $client.Close(); continue }
+      $reqText = [Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+      $first = ($reqText -split "`r`n")[0]
+      if ($first -notmatch "^(GET|HEAD) (.+) HTTP/") {
+        Send-Response $stream "400 Bad Request" "text/plain" ([Text.Encoding]::UTF8.GetBytes("Bad Request"))
+        $client.Close(); continue
+      }
+      $rawPath = $Matches[2].Split("?")[0]
+      $rel = [Uri]::UnescapeDataString($rawPath.TrimStart("/"))
       if ([string]::IsNullOrWhiteSpace($rel)) { $rel = "index.html" }
-      $rel = $rel -replace "/", "\"
+      $rel = $rel -replace "/", [IO.Path]::DirectorySeparatorChar
       if ($rel.Contains("..")) {
-        $res.StatusCode = 403
-        $res.Close()
-        continue
+        Send-Response $stream "403 Forbidden" "text/plain" ([Text.Encoding]::UTF8.GetBytes("Forbidden"))
+        $client.Close(); continue
       }
       $path = Join-Path $Root $rel
-      if (-not (Test-Path $path) -or (Get-Item $path).PSIsContainer) {
-        $res.StatusCode = 404
-        $bytes404 = [Text.Encoding]::UTF8.GetBytes("404 Not Found")
-        $res.ContentLength64 = $bytes404.Length
-        $res.OutputStream.Write($bytes404, 0, $bytes404.Length)
-        $res.Close()
-        continue
+      if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).PSIsContainer) {
+        Write-Log "404 $rawPath"
+        Send-Response $stream "404 Not Found" "text/plain; charset=utf-8" ([Text.Encoding]::UTF8.GetBytes("404 Not Found"))
+        $client.Close(); continue
       }
       $ext = [IO.Path]::GetExtension($path).ToLowerInvariant()
       $ctype = $Mime[$ext]
       if (-not $ctype) { $ctype = "application/octet-stream" }
       $bytes = [IO.File]::ReadAllBytes($path)
-      $res.StatusCode = 200
-      $res.ContentType = $ctype
-      $res.Headers.Add("Cache-Control", "no-cache")
-      $res.ContentLength64 = $bytes.Length
-      $res.OutputStream.Write($bytes, 0, $bytes.Length)
-      $res.Close()
-      Write-Host ("{0} {1}" -f $res.StatusCode, $req.Url.AbsolutePath)
+      Write-Log ("200 {0} ({1} o)" -f $rawPath, $bytes.Length)
+      Send-Response $stream "200 OK" $ctype $bytes
+      $client.Close()
     } catch {
-      try {
-        $res.StatusCode = 500
-        $res.Close()
-      } catch {}
-      Write-Host ("500 {0}" -f $_.Exception.Message)
+      Write-Log ("ERR requete: {0}" -f $_.Exception.Message)
+      try { $client.Close() } catch {}
     }
   }
 } finally {
-  $Listener.Stop()
-  $Listener.Close()
+  try { $Listener.Stop() } catch {}
+  Write-Log "Serveur arrete"
 }
