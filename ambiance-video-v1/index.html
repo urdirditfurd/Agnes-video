@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Ambiance Video Studio v1 — Lofi / Cozy 3H</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Ambiance Video Studio v1.2 — Lofi / Cozy 3H</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f1a1f'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23e8a85c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -664,15 +667,16 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 <header>
     <h1 class="brand">Ambiance Video Studio</h1>
     <p class="subtitle">Téléversez votre image, animez-la avec Agnes, assemblez une boucle Lofi de 3 heures — 100&nbsp;% dans le navigateur (FFmpeg.wasm).</p>
-    <span class="version-pill">v1 · local · 3 heures</span>
+    <span class="version-pill">v1.2 · local par défaut · 3 heures</span>
 </header>
 
 <div class="info-banner">
     <div class="badge-row">
-        <span class="badge-soft teal">Sans Pollinations</span>
-        <span class="badge-soft amber">FFmpeg.wasm local</span>
+        <span class="badge-soft teal">Mode local par défaut</span>
+        <span class="badge-soft amber">FFmpeg.wasm · sans VPS</span>
     </div>
-    <strong>Flux robuste :</strong> votre image → courte vidéo Agnes (boucle) → musique → assemblage 3H dans le navigateur. Aucun serveur VPS requis pour le montage.
+    <strong>Flux robuste :</strong> votre image → boucle Ken Burns locale (Agnes optionnel) → musique → assemblage 3H dans le navigateur.
+    Si vous voyez encore « tentative dans 120s », faites un rechargement forcé (Ctrl+Shift+R).
 </div>
 
 <!-- Clé Agnes -->
@@ -687,7 +691,7 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
     </div>
     <div class="image-gen-status">
         Image : <strong>votre fichier</strong> (JPEG / PNG / WebP)<br>
-        Animation : <strong>Agnes</strong> (10–15 s, boucle)<br>
+        Animation : <strong>Ken Burns local</strong> (défaut) · Agnes optionnel<br>
         Assemblage 3H : <strong>FFmpeg.wasm</strong> (navigateur)
     </div>
     <div class="api-hint">
@@ -737,12 +741,12 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
                 <p class="hint-text">Conseil : testez d'abord en 1 min. Une vraie 3H peut consommer beaucoup de RAM navigateur.</p>
             </div>
             <div class="check-row" style="margin-top:0.4rem;">
-                <input type="checkbox" id="local-fallback-toggle" checked>
-                <label for="local-fallback-toggle">Si Agnes est saturé (503) → bascule auto vers boucle locale Ken Burns (recommandé)</label>
+                <input type="checkbox" id="local-only-toggle" checked>
+                <label for="local-only-toggle">Mode 100&nbsp;% local (recommandé — ignore Agnes, pas d'attente 503)</label>
             </div>
             <div class="check-row" style="margin-top:0.35rem;">
-                <input type="checkbox" id="local-only-toggle">
-                <label for="local-only-toggle">Mode 100&nbsp;% local (ignorer Agnes, animer l'image dans le navigateur)</label>
+                <input type="checkbox" id="local-fallback-toggle" checked>
+                <label for="local-fallback-toggle">Si Agnes est tenté et saturé → bascule auto locale (max 3 essais × 8/16/24s)</label>
             </div>
         </div>
     </div>
@@ -968,7 +972,7 @@ const state = {
     ffmpegInstance: null,
     ffmpegLoaded: false,
     localFallbackEnabled: true,  // bascule auto si Agnes 503
-    localOnlyMode: false,        // ignorer Agnes
+    localOnlyMode: true,         // par défaut : ignorer Agnes (évite les attentes 503)
     videoSource: null            // 'agnes' | 'local'
 };
 
@@ -1508,65 +1512,48 @@ function classifyError(error) {
 }
 
 /**
- * Fetch Agnes avec backoff court (max 3 tentatives).
- * En cas de 503 persistant → erreur typée AGNES_SATURATED pour bascule locale.
+ * Fetch Agnes — 1 seul essai rapide.
+ * Dès le premier 503/429/5xx → AGNES_SATURATED (bascule locale immédiate, zéro attente 120s).
  */
 async function apiFetch(url, options, label) {
     options = options || {};
     label = label || 'Agnes';
-    const maxAttempts = 3;
-    let lastError = null;
-    let saw503 = false;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        if (state.stopRequested) throw new Error('Arrêt demandé');
-        try {
-            const sep = url.indexOf('?') !== -1 ? '&' : '?';
-            const urlB = url + sep + '_t=' + Date.now() + '_a=' + attempt;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(function () { controller.abort(); }, 45000);
-            const res = await fetch(urlB, Object.assign({}, options, {
-                signal: controller.signal,
-                cache: 'no-store',
-                mode: 'cors'
-            }));
-            clearTimeout(timeoutId);
+    if (state.stopRequested) throw new Error('Arrêt demandé');
 
-            if (res.status === 503 || res.status === 429 || res.status >= 500) {
-                saw503 = true;
-                const waitSec = [8, 16, 24][attempt] || 24;
-                log(label + ' HTTP ' + res.status + ' — retry ' + (attempt + 1) + '/' + maxAttempts);
-                if (attempt < maxAttempts - 1) {
-                    setStatus(
-                        'Serveur Agnes occupé (' + (attempt + 1) + '/' + maxAttempts +
-                        ') — nouvelle tentative dans ' + waitSec + 's…' +
-                        (state.localFallbackEnabled ? ' puis bascule locale' : '')
-                    );
-                    await sleep(waitSec * 1000);
-                    continue;
-                }
-                break;
-            }
-            return res;
-        } catch (e) {
-            lastError = e;
-            if (e.message === 'Arrêt demandé') throw e;
-            if (attempt < maxAttempts - 1) {
-                const waitSec = 8 + attempt * 8;
-                setStatus(label + ' : retry dans ' + waitSec + 's… (' + (attempt + 1) + '/' + maxAttempts + ')');
-                await sleep(waitSec * 1000);
-            }
+    try {
+        const sep = url.indexOf('?') !== -1 ? '&' : '?';
+        const urlB = url + sep + '_t=' + Date.now();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(function () { controller.abort(); }, 20000);
+        const res = await fetch(urlB, Object.assign({}, options, {
+            signal: controller.signal,
+            cache: 'no-store',
+            mode: 'cors'
+        }));
+        clearTimeout(timeoutId);
+
+        if (res.status === 503 || res.status === 429 || res.status >= 500) {
+            log(label + ' HTTP ' + res.status + ' — bascule locale immédiate (pas de retry long)');
+            setStatus('Agnes saturé (HTTP ' + res.status + ') — bascule locale immédiate…');
+            const err = new Error(
+                'Serveur Agnes saturé. Bascule automatique vers la boucle locale.'
+            );
+            err.code = 'AGNES_SATURATED';
+            throw err;
         }
+        return res;
+    } catch (e) {
+        if (e.message === 'Arrêt demandé' || e.code === 'AGNES_SATURATED') throw e;
+        if (e.name === 'AbortError') {
+            const err = new Error('Agnes timeout — bascule locale.');
+            err.code = 'AGNES_SATURATED';
+            throw err;
+        }
+        const err = new Error('Échec ' + label + ' : ' + (e.message || 'réseau'));
+        err.code = 'AGNES_FAILED';
+        throw err;
     }
-
-    const err = new Error(
-        saw503
-            ? 'Serveur Agnes saturé. Veuillez réessayer dans quelques minutes ou utiliser une autre clé API.'
-            : ('Échec ' + label + ' après ' + maxAttempts + ' tentatives' +
-                (lastError ? ' : ' + lastError.message : ''))
-    );
-    err.code = saw503 ? 'AGNES_SATURATED' : 'AGNES_FAILED';
-    throw err;
 }
 
 /**
