@@ -2176,11 +2176,17 @@ function downloadFinalFilm() {
     showToast('Aucun fichier à télécharger', 'error');
 }
 
-// ── Métadonnées YouTube Lofi / Ambiance ──────────────────────────
+// ── Métadonnées YouTube Lofi / Ambiance (SEO & monétisation) ─────
+/**
+ * Génère 3 titres SEO, une description chaleureuse avec crédits musicaux,
+ * hashtags lofi, chapitrage automatique 0h / 1h / 2h, et tags monétisation.
+ * Remplace entièrement l'ancien générateur Kids / COPPA.
+ */
 function generateYouTubeMetadata() {
     const theme = getTheme();
-    const hours = Math.round(state.loopDuration / 3600);
+    const hours = Math.round(state.loopDuration / 3600) || 3;
     const hoursLabel = hours + 'H';
+    const bpmHint = state.audioBpm ? ('Tempo détecté : ~' + state.audioBpm + ' BPM.\n') : '';
 
     const titles = [
         theme.emoji + ' ' + theme.label + ' ' + hoursLabel + ' — Musique Lofi pour Étudier, Dormir et Se Détendre',
@@ -2193,7 +2199,9 @@ function generateYouTubeMetadata() {
         titles[0] = '🍊 Pluie Douce & Capybara Zen 3H 🌧️ Musique Lofi pour Étudier, Dormir et Se Détendre';
     }
 
-    const chapterLines = theme.chapters.map(function (c) {
+    // Chapitrage automatique adapté à la durée choisie
+    const chapters = buildAutoChapters(theme, state.loopDuration);
+    const chapterLines = chapters.map(function (c) {
         return c.t + ' ' + c.title;
     }).join('\n');
 
@@ -2201,10 +2209,13 @@ function generateYouTubeMetadata() {
         'Bienvenue dans cet espace doux et feutré. Laissez ' + theme.label +
         ' vous accompagner pendant ' + formatDuration(state.loopDuration) +
         ' de musique lofi et d\'ambiance cozy.\n\n' +
-        'Parfait pour étudier, travailler, lire ou s\'endormir.\n\n' +
+        'Parfait pour étudier, travailler, lire ou s\'endormir. Installez-vous confortablement, ' +
+        'baissez les lumières, et laissez la boucle faire le reste.\n\n' +
+        bpmHint +
         '———\n' +
         'Crédits musicaux : [Nom du morceau / Artiste] — licence libre de droits (placeholder)\n' +
-        'Visuel : généré avec assistance IA (Pollinations' + (getAgnesKey() ? ' / Agnes' : '') + ')\n' +
+        'Visuel : généré avec assistance IA (Pollinations' + (getAgnesKey() ? ' / Agnes' : '') +
+        ') — contenu modifié ou synthétique déclaré.\n' +
         '———\n\n' +
         'Chapitrage\n' + chapterLines + '\n\n' +
         theme.hashtags + '\n' +
@@ -2212,12 +2223,42 @@ function generateYouTubeMetadata() {
 
     const tags = [
         'lofi', 'lofi hip hop', 'musique lofi', 'étudier', 'dormir', 'se détendre',
-        'ambiance', 'cozy', '3 heures', '3 hours lofi', theme.label.toLowerCase(),
+        'ambiance', 'cozy', hours + ' heures', hours + ' hours lofi', theme.label.toLowerCase(),
         'musique apaisante', 'focus music', 'rain sounds', 'study music',
-        'chill beats', 'background music', 'relaxation', 'sommeil', 'concentration'
+        'chill beats', 'background music', 'relaxation', 'sommeil', 'concentration',
+        'youtube monétisation', 'longform lofi'
     ].join(', ');
 
-    return { titles: titles, description: description, tags: tags, themeId: theme.id };
+    return { titles: titles, description: description, tags: tags, themeId: theme.id, chapters: chapters };
+}
+
+/** Chapitrage automatique 00:00 / 1/3 / 2/3 de la durée */
+function buildAutoChapters(theme, durationSec) {
+    const base = (theme && theme.chapters) || [
+        { title: 'Début de l\'ambiance' },
+        { title: 'Ambiance profonde' },
+        { title: 'Nuit calme' }
+    ];
+    const d = durationSec || 10800;
+    const t1 = Math.floor(d / 3);
+    const t2 = Math.floor((2 * d) / 3);
+    return [
+        { t: formatChapterTimecode(0), title: base[0].title },
+        { t: formatChapterTimecode(t1), title: base[1].title },
+        { t: formatChapterTimecode(t2), title: base[2].title }
+    ];
+}
+
+function formatChapterTimecode(totalSec) {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = Math.floor(totalSec % 60);
+    if (h > 0) {
+        return String(h).padStart(2, '0') + ':' +
+            String(m).padStart(2, '0') + ':' +
+            String(s).padStart(2, '0');
+    }
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
 function displayYouTubeMetadata() {
