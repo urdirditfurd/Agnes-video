@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Ambiance Video Studio v1.6 — Lofi / Cozy 3H</title>
+<title>Ambiance Video Studio v1.7 — Lofi / Cozy 3H</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f1a1f'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23e8a85c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -667,7 +667,7 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 <header>
     <h1 class="brand">Ambiance Video Studio</h1>
     <p class="subtitle">Téléversez votre image, animez-la avec Agnes, assemblez une boucle Lofi de 3 heures — 100&nbsp;% dans le navigateur (FFmpeg.wasm).</p>
-    <span class="version-pill">v1.6 · serveur multithread + FFmpeg préchargé</span>
+    <span class="version-pill">v1.7 · qualité + bitrate optimisé · ETA</span>
 </header>
 
 <!-- Bannière critique si ouvert en file:// ou sans lib/ffmpeg -->
@@ -762,6 +762,15 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
                 </select>
                 <p class="hint-text">Conseil : testez d'abord en 1 min. Une vraie 3H peut consommer beaucoup de RAM navigateur.</p>
             </div>
+            <div class="control-row">
+                <label class="control-label" for="quality-preset-select">Qualité vidéo (taille fichier 3H)</label>
+                <select id="quality-preset-select">
+                    <option value="low">Basse — ~700 kb/s · ~350–400 Mo / 3H (recommandé RAM limitée)</option>
+                    <option value="medium" selected>Moyenne — ~1100 kb/s · ~500–600 Mo / 3H</option>
+                    <option value="high">Haute — ~1800 kb/s · ~850–950 Mo / 3H (plus de RAM)</option>
+                </select>
+                <p class="hint-text" id="quality-size-hint">Estimation : calculez après choix durée + qualité. La boucle courte est compressée puis assemblée en <code>-c:v copy</code> (rapide, sans OOM).</p>
+            </div>
             <div class="check-row" style="margin-top:0.4rem;">
                 <input type="checkbox" id="local-only-toggle" checked>
                 <label for="local-only-toggle">Mode 100&nbsp;% local (recommandé — ignore Agnes, pas d'attente 503)</label>
@@ -844,6 +853,11 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
     <div class="progress-bar-container" id="assembly-progress" style="display:none;">
         <div class="progress-bar-fill" id="assembly-progress-fill"></div>
     </div>
+    <div id="assembly-progress-meta" style="display:none; font-size:0.72rem; color:var(--ink-dim); text-align:center; margin-top:0.35rem; font-variant-numeric:tabular-nums;">
+        <span id="assembly-pct">0%</span>
+        <span aria-hidden="true"> · </span>
+        <span id="assembly-eta">ETA —</span>
+    </div>
     <div id="assembly-status" style="font-size:0.78rem; color:var(--ink-dim); text-align:center; margin-top:0.45rem;"></div>
     <div class="ffmpeg-cmd-box" id="ffmpeg-cmd-box"></div>
 </div>
@@ -917,6 +931,40 @@ const LOOP_PROMPT_KEYWORDS =
 /** Chemins locaux FFmpeg.wasm (même origine que index.html) */
 const FFMPEG_LIB_BASE = new URL('lib/ffmpeg/', window.location.href).href;
 
+/**
+ * Presets lofi : on compresse la boucle COURTE (10 s) puis -c:v copy sur 3H.
+ * Ré-encoder 3H en libx264 dans FFmpeg.wasm → OOM (Array buffer allocation failed).
+ */
+const QUALITY_PRESETS = {
+    low: {
+        id: 'low',
+        label: 'Basse',
+        videoBitrate: '700k',
+        audioBitrate: '96k',
+        maxrate: '700k',
+        bufsize: '1400k',
+        crf: 28
+    },
+    medium: {
+        id: 'medium',
+        label: 'Moyenne',
+        videoBitrate: '1100k',
+        audioBitrate: '128k',
+        maxrate: '1100k',
+        bufsize: '2200k',
+        crf: 26
+    },
+    high: {
+        id: 'high',
+        label: 'Haute',
+        videoBitrate: '1800k',
+        audioBitrate: '160k',
+        maxrate: '1800k',
+        bufsize: '3600k',
+        crf: 23
+    }
+};
+
 const AMBIANCE_THEMES = {
     'capybara-zen': {
         id: 'capybara-zen',
@@ -972,6 +1020,7 @@ const state = {
         seed: 42
     },
     loopDuration: 10800, // 3 heures en secondes
+    qualityPreset: 'medium', // 'low' | 'medium' | 'high'
     // Image utilisateur (remplace Pollinations)
     userImageFile: null,
     userImageDataURL: null,
@@ -1001,6 +1050,7 @@ const state = {
     ffmpegLoaded: false,
     ffmpegBlobURLs: null,        // { core, wasm } préchargés
     ffmpegPrefetchPromise: null,
+    ffmpegProgressHandler: null, // (e) => void — swappable pour ETA assemblage
     serverReachable: true,
     localFallbackEnabled: true,  // bascule auto si Agnes 503
     localOnlyMode: true,         // par défaut : ignorer Agnes (évite les attentes 503)
@@ -1028,6 +1078,7 @@ async function saveStateToIDB() {
         const payload = {
             ambianceConfig: state.ambianceConfig,
             loopDuration: state.loopDuration,
+            qualityPreset: state.qualityPreset,
             musicVolume: state.musicVolume,
             crossfadeEnabled: state.crossfadeEnabled,
             aiContentDeclared: state.aiContentDeclared,
@@ -1060,6 +1111,9 @@ async function loadStateFromIDB() {
             state.ambianceConfig = Object.assign({}, state.ambianceConfig, payload.ambianceConfig);
         }
         if (typeof payload.loopDuration === 'number') state.loopDuration = payload.loopDuration;
+        if (payload.qualityPreset && QUALITY_PRESETS[payload.qualityPreset]) {
+            state.qualityPreset = payload.qualityPreset;
+        }
         if (typeof payload.musicVolume === 'number') state.musicVolume = payload.musicVolume;
         if (typeof payload.crossfadeEnabled === 'boolean') state.crossfadeEnabled = payload.crossfadeEnabled;
         if (typeof payload.aiContentDeclared === 'boolean') state.aiContentDeclared = payload.aiContentDeclared;
@@ -1105,6 +1159,9 @@ function formatFetchError(err) {
     const msg = (err && err.message) ? String(err.message) : String(err || 'erreur réseau');
     if (/Failed to fetch|NetworkError|ERR_CONNECTION_REFUSED|Load failed/i.test(msg)) {
         return 'Serveur local arrêté (port 8765). Relancez demarrer.bat / demarrer.sh — ne fermez pas la fenêtre — puis rechargez la page.';
+    }
+    if (/Array buffer allocation|Out of memory|allocation failed|Invalid array length/i.test(msg)) {
+        return 'Mémoire insuffisante (Array buffer). Choisissez qualité Basse ou une durée plus courte.';
     }
     return msg;
 }
@@ -2088,13 +2145,15 @@ async function createLocalAmbientLoop(onProgress) {
 function buildWebmToMp4Args(inputName, outputName, durationSec) {
     const fps = 30;
     const frames = Math.max(1, Math.round(Number(durationSec) * fps));
+    const profile = getQualityProfile(state.qualityPreset);
     return [
         [
             '-fflags', '+genpts',
             '-i', inputName,
             '-vf', 'fps=' + fps + ',setpts=N/' + fps + '/TB,format=yuv420p',
             '-frames:v', String(frames),
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+            '-c:v', 'libx264', '-preset', 'ultrafast',
+            '-b:v', profile.videoBitrate, '-maxrate', profile.maxrate, '-bufsize', profile.bufsize,
             '-an', '-movflags', '+faststart',
             outputName
         ],
@@ -2103,7 +2162,8 @@ function buildWebmToMp4Args(inputName, outputName, durationSec) {
             '-vf', 'fps=' + fps + ',format=yuv420p',
             '-r', String(fps),
             '-frames:v', String(frames),
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+            '-c:v', 'libx264', '-preset', 'ultrafast',
+            '-b:v', profile.videoBitrate,
             '-an',
             outputName
         ],
@@ -2121,6 +2181,95 @@ function buildWebmToMp4Args(inputName, outputName, durationSec) {
 /** Alias rétrocompatible */
 async function createLocalKenBurnsLoop(onProgress) {
     return createLocalAmbientLoop(onProgress);
+}
+
+function getQualityProfile(preset) {
+    return QUALITY_PRESETS[preset] || QUALITY_PRESETS.medium;
+}
+
+function parseBitrateKbps(value) {
+    const n = parseInt(String(value), 10);
+    return Number.isFinite(n) ? n : 0;
+}
+
+/** Estimation Mo (vidéo + audio) pour une durée donnée */
+function estimateOutputSizeMb(durationSec, profile) {
+    const kbps = parseBitrateKbps(profile.videoBitrate) + parseBitrateKbps(profile.audioBitrate);
+    return (kbps * Math.max(1, Number(durationSec) || 0)) / 8 / 1024;
+}
+
+function formatEtaSeconds(sec) {
+    const s = Math.max(0, Math.round(sec));
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    if (m < 60) return m + 'm ' + r + 's';
+    const h = Math.floor(m / 60);
+    return h + 'h ' + (m % 60) + 'm';
+}
+
+function updateQualitySizeHint() {
+    const hint = document.getElementById('quality-size-hint');
+    if (!hint) return;
+    const profile = getQualityProfile(state.qualityPreset);
+    const duration = state.loopDuration || 10800;
+    const mb = estimateOutputSizeMb(duration, profile);
+    hint.innerHTML =
+        'Estimation <strong>~' + mb.toFixed(0) + ' Mo</strong> pour ' + formatDuration(duration) +
+        ' · vidéo ' + profile.videoBitrate + ' + audio ' + profile.audioBitrate +
+        '. Compression de la boucle 10&nbsp;s puis assemblage <code>-c:v copy</code> (évite OOM).';
+}
+
+/**
+ * Compresse la boucle courte vers le bitrate du preset (10 s seulement).
+ * C’est ici qu’on gagne 60–70 % de poids sur le fichier 3H final.
+ */
+function buildShortLoopCompressArgs(inputName, outputName, profile) {
+    return [
+        '-i', inputName,
+        '-vf', 'fps=30,format=yuv420p',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-b:v', profile.videoBitrate,
+        '-maxrate', profile.maxrate,
+        '-bufsize', profile.bufsize,
+        '-an',
+        '-movflags', '+faststart',
+        outputName
+    ];
+}
+
+function buildAssembleArgs(duration, profile, vol, withVolumeFilter) {
+    const args = [
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-map', '0:v:0',
+        '-map', '1:a:0',
+        '-c:v', 'copy',
+        '-c:a', 'aac',
+        '-b:a', profile.audioBitrate,
+        '-t', String(duration),
+        '-shortest',
+        '-movflags', '+faststart'
+    ];
+    if (withVolumeFilter === 'filter:a') {
+        args.splice(args.indexOf('-b:a') + 2, 0, '-filter:a', 'volume=' + vol.toFixed(2));
+    } else if (withVolumeFilter === 'af') {
+        args.splice(args.indexOf('-b:a') + 2, 0, '-af', 'volume=' + vol.toFixed(2));
+    }
+    args.push('output_3h.mp4');
+    return args;
+}
+
+async function abortFFmpegInstance() {
+    if (!state.ffmpegInstance) return;
+    try {
+        state.ffmpegInstance.terminate();
+    } catch (e) { /* ignore */ }
+    state.ffmpegInstance = null;
+    state.ffmpegLoaded = false;
+    state.ffmpegProgressHandler = null;
+    log('FFmpeg.wasm terminé (annulation / reset)');
 }
 
 function isFileProtocol() {
@@ -2274,6 +2423,13 @@ function stopGeneration() {
     if (!state.isRunning && !state.isAssembling) return;
     state.stopRequested = true;
     setStatus('Arrêt en cours…');
+    const statusEl = document.getElementById('assembly-status');
+    if (statusEl && state.isAssembling) {
+        statusEl.textContent = '⏹ Arrêt demandé — interruption FFmpeg…';
+    }
+    if (state.isAssembling) {
+        abortFFmpegInstance();
+    }
 }
 
 // ── FFmpeg.wasm — assemblage 3H local ────────────────────────────
@@ -2302,6 +2458,10 @@ async function ensureFFmpegLoaded(onProgress) {
         if (e && e.message) log('ffmpeg: ' + e.message);
     });
     ffmpeg.on('progress', function (e) {
+        if (typeof state.ffmpegProgressHandler === 'function') {
+            state.ffmpegProgressHandler(e);
+            return;
+        }
         if (!onProgress || !e) return;
         const pct = Math.max(0, Math.min(99, Math.round((e.progress || 0) * 100)));
         onProgress(pct, 'Encodage FFmpeg.wasm… ' + pct + '%');
@@ -2345,10 +2505,13 @@ async function ensureFFmpegLoaded(onProgress) {
 
 /**
  * Cœur du système — assemble une boucle longue durée 100 % navigateur.
- * Vidéo bouclée + audio utilisateur bouclé, mapping explicite :
- *   -stream_loop -1 -i input.mp4
- *   -stream_loop -1 -i input_audio.mp3
- *   -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -t 10800 -shortest
+ *
+ * Stratégie anti-OOM (Array buffer allocation failed) :
+ *  1) Normaliser WebM → MP4 si besoin
+ *  2) Compresser la boucle COURTE au bitrate du preset (libx264 ultrafast)
+ *  3) Assembler 3H avec -c:v copy + audio AAC (rapide, peu de RAM)
+ *
+ * Ne JAMAIS ré-encoder les 3 heures en libx264 dans FFmpeg.wasm.
  */
 async function assemble3HourLoopLocal() {
     if (state.isAssembling) return;
@@ -2368,16 +2531,24 @@ async function assemble3HourLoopLocal() {
     const finalFilmEl = document.getElementById('final-film');
     const progressContainer = document.getElementById('assembly-progress');
     const progressFill = document.getElementById('assembly-progress-fill');
+    const progressMeta = document.getElementById('assembly-progress-meta');
+    const pctEl = document.getElementById('assembly-pct');
+    const etaEl = document.getElementById('assembly-eta');
     const statusEl = document.getElementById('assembly-status');
     const cmdBox = document.getElementById('ffmpeg-cmd-box');
 
     finalFilmEl.classList.add('visible');
     progressContainer.style.display = 'block';
+    if (progressMeta) progressMeta.style.display = 'block';
     progressFill.style.width = '0%';
+    if (pctEl) pctEl.textContent = '0%';
+    if (etaEl) etaEl.textContent = 'ETA —';
     document.getElementById('stop-btn').classList.add('visible');
     updateGenerateBtn();
 
     const duration = state.loopDuration || 10800;
+    const profile = getQualityProfile(state.qualityPreset);
+    const estMb = estimateOutputSizeMb(duration, profile);
     const shortVideoBlob = state.agnesVideoBlob;
     const isWebm = !!(shortVideoBlob &&
         shortVideoBlob.type &&
@@ -2385,43 +2556,51 @@ async function assemble3HourLoopLocal() {
     const videoInName = isWebm ? 'input.webm' : 'input.mp4';
     const vol = Math.max(0.05, Math.min(1, state.musicVolume || 0.7));
 
-    // Mapping EXPLICITE vidéo (0) + audio utilisateur (1) — évite une sortie muette
-    const args = [
-        '-stream_loop', '-1', '-i', 'input.mp4',
-        '-stream_loop', '-1', '-i', 'input_audio.mp3',
-        '-map', '0:v:0',
-        '-map', '1:a:0',
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        '-b:a', '192k',
-        '-filter:a', 'volume=' + vol.toFixed(2),
-        '-t', String(duration),
-        '-shortest',
-        'output_3h.mp4'
-    ];
+    const args = buildAssembleArgs(duration, profile, vol, 'filter:a');
     state.ffmpegCommand = 'ffmpeg ' + args.join(' ');
     cmdBox.textContent =
+        '$ # 1) compress boucle 10s → ' + profile.videoBitrate + '\n' +
+        '$ ffmpeg ' + buildShortLoopCompressArgs('input.mp4', 'loop_opt.mp4', profile).join(' ') + '\n' +
+        '$ # 2) assemble copy\n' +
         '$ ' + state.ffmpegCommand +
         '\n# durée : ' + duration + 's (' + formatDuration(duration) + ')' +
+        '\n# qualité : ' + profile.label + ' · ~' + estMb.toFixed(0) + ' Mo estimés' +
         '\n# audio : ' + (state.audioFile.name || 'input_audio.mp3') +
         ' · volume ' + Math.round(vol * 100) + '%' +
         '\n# source vidéo : ' + (state.videoSource || 'inconnue') +
         '\n# moteur : FFmpeg.wasm · 100% navigateur';
     cmdBox.classList.add('visible');
 
-    const setProg = function (pct, msg) {
-        progressFill.style.width = pct + '%';
+    const setProg = function (pct, msg, etaSec) {
+        const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+        progressFill.style.width = clamped + '%';
+        if (pctEl) pctEl.textContent = clamped + '%';
+        if (etaEl) {
+            etaEl.textContent = (etaSec == null || etaSec < 0)
+                ? 'ETA —'
+                : ('ETA ~' + formatEtaSeconds(etaSec));
+        }
         if (msg) statusEl.textContent = msg;
     };
 
+    let phaseStart = performance.now();
+
     try {
         await ensureWakeLockActive();
-        log('═══ ASSEMBLAGE FFMPEG.WASM ' + duration + 's + AUDIO ═══');
+        log('═══ ASSEMBLAGE FFMPEG.WASM ' + duration + 's + AUDIO · ' + profile.id + ' ═══');
         log('Audio fichier : ' + state.audioFile.name + ' (' + state.audioFile.size + ' o)');
+        log('Taille estimée : ~' + estMb.toFixed(0) + ' Mo');
 
-        if (duration >= 3600) {
+        if (estMb > 1100) {
             showToast(
-                'Assemblage long (' + formatDuration(duration) + ') — gardez l\'onglet ouvert',
+                'Fichier estimé ~' + estMb.toFixed(0) + ' Mo — risque OOM. Qualité Basse recommandée.',
+                'warn',
+                5500
+            );
+        } else if (duration >= 3600) {
+            showToast(
+                'Assemblage ' + formatDuration(duration) + ' · ~' + estMb.toFixed(0) +
+                    ' Mo — gardez l\'onglet ouvert (Arrêter = annuler)',
                 'warn',
                 4500
             );
@@ -2434,11 +2613,12 @@ async function assemble3HourLoopLocal() {
         const fetchFile = FFmpegUtil.fetchFile;
 
         // 1) Vidéo courte
-        setProg(12, 'Écriture input.mp4 (boucle visuelle)…');
+        setProg(10, 'Écriture boucle visuelle…');
         await ffmpeg.writeFile(videoInName, await fetchFile(shortVideoBlob));
+        if (state.stopRequested) throw new Error('Arrêt demandé');
 
         if (isWebm) {
-            setProg(18, 'Normalisation WebM → MP4 (fps=30, sans duplication)…');
+            setProg(16, 'Normalisation WebM → MP4 (fps=30)…');
             let ok = false;
             const tries = buildWebmToMp4Args('input.webm', 'input.mp4', 10);
             for (let i = 0; i < tries.length && !ok; i++) {
@@ -2451,58 +2631,105 @@ async function assemble3HourLoopLocal() {
                 }
             }
             if (!ok) throw new Error('Impossible de convertir la boucle WebM en MP4');
+            try { await ffmpeg.deleteFile('input.webm'); } catch (e) { /* ignore */ }
         }
 
-        // 2) Audio utilisateur — OBLIGATOIRE avant exec
-        setProg(25, 'Écriture input_audio.mp3 (musique uploadée)…');
-        if (!state.audioFile) {
-            throw new Error('Aucun fichier audio — téléversez une musique avant d\'assembler');
+        // 2) Compression boucle courte au bitrate cible (gain de poids 3H)
+        setProg(22, 'Compression boucle 10s → ' + profile.videoBitrate + ' (' + profile.label + ')…');
+        phaseStart = performance.now();
+        state.ffmpegProgressHandler = function (e) {
+            if (!e) return;
+            const ratio = Math.max(0, Math.min(1, e.progress || 0));
+            const pct = 22 + Math.round(ratio * 10);
+            const elapsed = (performance.now() - phaseStart) / 1000;
+            const eta = ratio > 0.05 ? (elapsed / ratio) - elapsed : -1;
+            setProg(pct, 'Compression boucle… ' + Math.round(ratio * 100) + '%', eta);
+        };
+        try {
+            const compressArgs = buildShortLoopCompressArgs('input.mp4', 'loop_opt.mp4', profile);
+            log('compress try: ffmpeg ' + compressArgs.join(' '));
+            await ffmpeg.exec(compressArgs);
+            try { await ffmpeg.deleteFile('input.mp4'); } catch (e) { /* ignore */ }
+            await ffmpeg.rename('loop_opt.mp4', 'input.mp4');
+            log('Boucle compressée OK · preset ' + profile.id);
+        } catch (compErr) {
+            log('Compression boucle ignorée (copie brute) : ' + compErr.message);
+            try { await ffmpeg.deleteFile('loop_opt.mp4'); } catch (e) { /* ignore */ }
         }
-        await ffmpeg.writeFile('input_audio.mp3', await fetchFile(state.audioFile));
-        log('FS virtuel : input.mp4 + input_audio.mp3 prêts');
-
+        state.ffmpegProgressHandler = null;
         if (state.stopRequested) throw new Error('Arrêt demandé');
 
-        setProg(35, 'Mixage vidéo + audio en boucle ' + formatDuration(duration) + '…');
-        log('ffmpeg.exec ' + JSON.stringify(args));
+        // 3) Audio
+        setProg(34, 'Écriture input_audio.mp3…');
+        await ffmpeg.writeFile('input_audio.mp3', await fetchFile(state.audioFile));
+        log('FS virtuel : input.mp4 (optimisé) + input_audio.mp3 prêts');
+        if (state.stopRequested) throw new Error('Arrêt demandé');
 
+        // 4) Assemblage copy (rapide)
+        setProg(38, 'Mixage vidéo + audio · ' + formatDuration(duration) + '…');
+        phaseStart = performance.now();
+        state.ffmpegProgressHandler = function (e) {
+            if (!e) return;
+            const ratio = Math.max(0, Math.min(1, e.progress || 0));
+            const pct = 38 + Math.round(ratio * 50);
+            const elapsed = (performance.now() - phaseStart) / 1000;
+            const eta = ratio > 0.02 ? (elapsed / ratio) - elapsed : -1;
+            setProg(
+                pct,
+                'Assemblage ' + Math.round(ratio * 100) + '% · ' + formatDuration(duration) +
+                    ' · ' + profile.label,
+                eta
+            );
+        };
+
+        log('ffmpeg.exec ' + JSON.stringify(args));
         try {
             await ffmpeg.exec(args);
         } catch (execErr) {
-            // Repli sans filtre volume si le build wasm le refuse
+            if (state.stopRequested) throw new Error('Arrêt demandé');
             log('Exec avec volume échoué — retry -af / sans filtre : ' + execErr.message);
-            const argsAf = [
-                '-stream_loop', '-1', '-i', 'input.mp4',
-                '-stream_loop', '-1', '-i', 'input_audio.mp3',
-                '-map', '0:v:0', '-map', '1:a:0',
-                '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
-                '-af', 'volume=' + vol.toFixed(2),
-                '-t', String(duration), '-shortest', 'output_3h.mp4'
-            ];
+            const argsAf = buildAssembleArgs(duration, profile, vol, 'af');
             try {
                 await ffmpeg.exec(argsAf);
                 state.ffmpegCommand = 'ffmpeg ' + argsAf.join(' ');
             } catch (execErr2) {
-                const argsPlain = [
-                    '-stream_loop', '-1', '-i', 'input.mp4',
-                    '-stream_loop', '-1', '-i', 'input_audio.mp3',
-                    '-map', '0:v:0', '-map', '1:a:0',
-                    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
-                    '-t', String(duration), '-shortest', 'output_3h.mp4'
-                ];
+                if (state.stopRequested) throw new Error('Arrêt demandé');
+                const argsPlain = buildAssembleArgs(duration, profile, vol, null);
                 log('Retry sans volume : ' + JSON.stringify(argsPlain));
                 await ffmpeg.exec(argsPlain);
                 state.ffmpegCommand = 'ffmpeg ' + argsPlain.join(' ');
             }
             cmdBox.textContent = '$ ' + state.ffmpegCommand +
-                '\n# audio : ' + (state.audioFile.name || 'input_audio.mp3');
+                '\n# qualité : ' + profile.label + ' · audio : ' +
+                (state.audioFile.name || 'input_audio.mp3');
         }
-
+        state.ffmpegProgressHandler = null;
         if (state.stopRequested) throw new Error('Arrêt demandé');
 
-        setProg(90, 'Lecture du fichier final…');
-        const data = await ffmpeg.readFile('output_3h.mp4');
-        const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+        setProg(90, 'Lecture du fichier final (~' + estMb.toFixed(0) + ' Mo)…');
+        let data;
+        try {
+            data = await ffmpeg.readFile('output_3h.mp4');
+        } catch (readErr) {
+            const raw = String((readErr && readErr.message) || readErr || '');
+            if (/Array buffer allocation|Out of memory|Invalid array length|allocation failed/i.test(raw)) {
+                throw new Error(
+                    'Mémoire insuffisante (~' + estMb.toFixed(0) +
+                    ' Mo). Choisissez qualité Basse ou une durée plus courte, puis réessayez.'
+                );
+            }
+            throw readErr;
+        }
+
+        let buffer;
+        try {
+            buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+        } catch (sliceErr) {
+            throw new Error(
+                'Mémoire insuffisante lors de la copie du MP4 (~' + estMb.toFixed(0) +
+                ' Mo). Passez en qualité Basse.'
+            );
+        }
         const blob = new Blob([buffer], { type: 'video/mp4' });
 
         if (!blob || blob.size < 1000) {
@@ -2523,29 +2750,37 @@ async function assemble3HourLoopLocal() {
             await ffmpeg.deleteFile('input.mp4');
             await ffmpeg.deleteFile('input_audio.mp3');
             await ffmpeg.deleteFile('output_3h.mp4');
-            if (isWebm) await ffmpeg.deleteFile('input.webm');
         } catch (e) { /* ignore */ }
 
-        setProg(100, '✅ Boucle ' + formatDuration(duration) + ' + audio prête · ' +
-            (blob.size / 1024 / 1024).toFixed(1) + ' Mo');
+        const mb = blob.size / 1024 / 1024;
+        setProg(100, '✅ Boucle ' + formatDuration(duration) + ' · ' + profile.label +
+            ' · ' + mb.toFixed(1) + ' Mo', 0);
         document.getElementById('download-btn').classList.add('visible');
         displayYouTubeMetadata();
         showToast(
-            'Assemblage terminé (vidéo + musique) · ' + (blob.size / 1024 / 1024).toFixed(1) + ' Mo',
+            'Assemblage terminé · ' + mb.toFixed(1) + ' Mo (' + profile.label + ')',
             'success',
             5000
         );
-        log('Sortie OK · ' + blob.size + ' octets · audio inclus');
+        log('Sortie OK · ' + blob.size + ' octets · preset ' + profile.id);
 
         try {
             finalFilmEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (e) { /* ignore */ }
     } catch (e) {
-        const errMsg = formatFetchError(e);
+        let errMsg = formatFetchError(e);
+        const raw = String((e && e.message) || e || '');
+        if (/Arrêt demandé|aborted|terminate/i.test(raw)) {
+            errMsg = 'Assemblage annulé';
+        } else if (/Array buffer allocation|Out of memory|allocation failed/i.test(raw)) {
+            errMsg =
+                'Mémoire insuffisante (Array buffer). Choisissez qualité Basse ou testez en 1 min.';
+        }
         log('Erreur FFmpeg.wasm : ' + errMsg);
         statusEl.textContent = '❌ ' + errMsg;
-        showToast(errMsg, 'error', 7000);
+        showToast(errMsg, errMsg === 'Assemblage annulé' ? 'warn' : 'error', 7000);
     } finally {
+        state.ffmpegProgressHandler = null;
         state.isAssembling = false;
         state.stopRequested = false;
         document.getElementById('stop-btn').classList.remove('visible');
@@ -2817,6 +3052,7 @@ function runSelfValidation() {
     const themeSelect = document.getElementById('theme-select');
     const promptTa = document.getElementById('visual-prompt');
     const durationSelect = document.getElementById('loop-duration-select');
+    const qualitySelect = document.getElementById('quality-preset-select');
     const volInput = document.getElementById('music-volume');
     const crossfadeToggle = document.getElementById('crossfade-toggle');
     const aiCheckbox = document.getElementById('ai-content-checkbox');
@@ -2830,6 +3066,11 @@ function runSelfValidation() {
         promptTa.value = state.ambianceConfig.visualPrompt;
     }
     durationSelect.value = String(state.loopDuration || 10800);
+    if (qualitySelect) {
+        qualitySelect.value = QUALITY_PRESETS[state.qualityPreset] ? state.qualityPreset : 'medium';
+        state.qualityPreset = qualitySelect.value;
+    }
+    updateQualitySizeHint();
     volInput.value = String(Math.round((state.musicVolume || 0.7) * 100));
     document.getElementById('music-volume-value').textContent = volInput.value + '%';
     crossfadeToggle.checked = state.crossfadeEnabled !== false;
@@ -2862,9 +3103,21 @@ function runSelfValidation() {
     });
     durationSelect.addEventListener('change', function (e) {
         state.loopDuration = parseInt(e.target.value, 10) || 10800;
+        updateQualitySizeHint();
         saveStateToIDB();
         showToast('Durée boucle : ' + formatDuration(state.loopDuration), 'success');
     });
+    if (qualitySelect) {
+        qualitySelect.addEventListener('change', function (e) {
+            const v = e.target.value;
+            state.qualityPreset = QUALITY_PRESETS[v] ? v : 'medium';
+            updateQualitySizeHint();
+            saveStateToIDB();
+            const p = getQualityProfile(state.qualityPreset);
+            const mb = estimateOutputSizeMb(state.loopDuration || 10800, p);
+            showToast('Qualité ' + p.label + ' · ~' + mb.toFixed(0) + ' Mo estimés', 'success');
+        });
+    }
     volInput.addEventListener('input', function (e) {
         state.musicVolume = parseInt(e.target.value, 10) / 100;
         document.getElementById('music-volume-value').textContent = e.target.value + '%';
@@ -2987,7 +3240,7 @@ function runSelfValidation() {
         }, 15000);
     }
 
-    log('Ambiance Video Studio v1.6 prêt — FFmpeg préchargé + serveur multithread');
+    log('Ambiance Video Studio v1.7 prêt — qualité/bitrate + ETA + annulation');
 })();
 </script>
 </body>
