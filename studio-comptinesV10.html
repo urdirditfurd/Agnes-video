@@ -2153,6 +2153,34 @@ function isUnattendedMode() {
     return !!(nightModeEnabled || optimizeModeEnabled);
 }
 
+/** Lightweight health check — does not create a video job. */
+async function probeAgnesApi() {
+    const key = getAgnesKey();
+    if (!key) return { ok: false, reason: 'no-key' };
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(AGNES_API_BASE + '/models', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + key },
+            cache: 'no-store',
+            mode: 'cors',
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.status === 401) return { ok: false, reason: 'auth', status: 401 };
+        if (res.status === 503 || res.status === 502 || res.status === 504) {
+            return { ok: false, reason: 'down', status: res.status };
+        }
+        if (res.ok) return { ok: true, status: res.status };
+        // Autres 4xx : API joignable
+        if (res.status >= 400 && res.status < 500) return { ok: true, status: res.status };
+        return { ok: false, reason: 'down', status: res.status };
+    } catch (e) {
+        return { ok: false, reason: 'network', message: e.message || String(e) };
+    }
+}
+
 function updateGenModesUI() {
     const box = document.getElementById('gen-modes');
     const opt = document.getElementById('optimize-mode-toggle');
@@ -2198,22 +2226,54 @@ async function setNightMode(on) {
     updateFilmDashboard();
 }
 
-/** Pause longue quand Agnes est en panne — évite de brûler toutes les scènes en 503. */
+/**
+ * Pause quand Agnes est en panne — sonde /models périodiquement et reprend
+ * dès que l'API répond (évite d'attendre 3–15 min aveugles + créations 503 inutiles).
+ */
 async function waitForAgnesRecovery(severity) {
     const level = Math.max(1, severity || 1);
-    const maxWait = nightModeEnabled ? 900 : (optimizeModeEnabled ? 420 : 180);
-    const base = nightModeEnabled ? 180 : (optimizeModeEnabled ? 120 : 60);
-    const waitSec = Math.min(Math.round(base * Math.pow(1.4, Math.min(level - 1, 7))), maxWait);
-    log('⏳ Pause récupération Agnes : ' + waitSec + 's (niveau ' + level + ')' +
-        (nightModeEnabled ? ' · mode nuit' : ''));
+    const maxWait = nightModeEnabled ? 1800 : (optimizeModeEnabled ? 600 : 240);
+    const base = nightModeEnabled ? 120 : (optimizeModeEnabled ? 90 : 60);
+    const waitSec = Math.min(Math.round(base * Math.pow(1.35, Math.min(level - 1, 8))), maxWait);
+    const probeEvery = nightModeEnabled ? 30 : 20;
+    log('⏳ Agnes indisponible — veille ' + waitSec + 's max (niveau ' + level + ')' +
+        (nightModeEnabled ? ' · mode nuit' : '') + ' · sonde /models toutes les ' + probeEvery + 's');
+
     for (let r = waitSec; r > 0; r--) {
         if (state.stopRequested) return;
         while (state.paused && !state.stopRequested) await sleep(500);
         if (state.stopRequested) return;
-        setStatus('Agnes indisponible — reprise auto dans ' + r + 's…');
+
+        // Sonde périodique : reprise anticipée dès retour API
+        if ((waitSec - r) % probeEvery === 0) {
+            setStatus('Agnes indisponible — sonde API… (reprise auto)');
+            const probe = await probeAgnesApi();
+            if (probe.ok) {
+                log('✅ Agnes de nouveau joignable (HTTP ' + (probe.status || 200) +
+                    ') — reprise anticipée');
+                setStatus('Agnes de retour — reprise…');
+                agnesConsecutiveOutages = Math.max(0, agnesConsecutiveOutages - 1);
+                return;
+            }
+            if (probe.reason === 'auth') {
+                log('❌ Sonde Agnes : clé invalide (401)');
+                throw new Error('AGNES_AUTH_INVALID');
+            }
+            const detail = probe.status ? ('HTTP ' + probe.status) : (probe.message || probe.reason);
+            log('Sonde Agnes : toujours down (' + detail + ')');
+        }
+
+        setStatus('Agnes indisponible — veille ' + r + 's (sonde auto, pas d\'abandon)…');
         await sleep(1000);
         if (r % 45 === 0) await ensureWakeLockActive();
     }
+    // Dernière sonde avant de sortir du plafond
+    const last = await probeAgnesApi();
+    if (last.ok) {
+        log('✅ Agnes joignable en fin de veille — reprise');
+        return;
+    }
+    log('⏳ Fin de veille Agnes — nouvel essai création quand même');
 }
 
 /** Après pollSceneVideo (qui avale les erreurs) : retry unattended ou hard-fail. */
@@ -2506,12 +2566,12 @@ async function generateFallbackImage(prompt) {
 // AGNES API
 // ══════════════════════════════════════════════════════════════════
 async function apiFetch(url, options = {}, label = 'API') {
-    // En mode nuit/opt : moins de tentatives courtes — la pause récupération gère le long terme
-    const maxAttempts = nightModeEnabled ? 4 : (optimizeModeEnabled ? 5 : 6);
+    // Nuit/opt : peu de retries courts — la veille + sonde /models gère le long terme
+    const maxAttempts = nightModeEnabled ? 3 : (optimizeModeEnabled ? 4 : 6);
     let lastError = null;
     const wait503 = nightModeEnabled
-        ? [20, 40, 60, 90]
-        : (optimizeModeEnabled ? [20, 40, 60, 90, 120] : [15, 30, 45, 60, 90, 120]);
+        ? [15, 30, 45]
+        : (optimizeModeEnabled ? [20, 40, 60, 90] : [15, 30, 45, 60, 90, 120]);
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
@@ -2765,12 +2825,43 @@ async function generateAllScenes(options) {
     log('═══ ÉTAPE 2 : Vidéos Agnes ═══');
     if (isUnattendedMode()) {
         log('Mode ' + (nightModeEnabled ? 'nuit/agent' : 'optimisation') +
-            ' : pause récupération sur 503 (pas d\'abandon en chaîne)');
+            ' : sonde /models + veille sur 503 (pas d\'abandon en chaîne)');
+    }
+    setStatus('Étape 2/2 : contrôle Agnes…');
+    // Avant de brûler des créations : attendre que l'API soit joignable
+    if (isUnattendedMode() && !state.stopRequested) {
+        let gate = await probeAgnesApi();
+        if (gate.reason === 'auth') {
+            log('❌ Clé Agnes invalide avant étape vidéo');
+            showToast('Clé Agnes invalide — colle une nouvelle clé sk-…', 'error', 8000);
+            setStatus('Clé Agnes invalide');
+            return;
+        }
+        let gateRound = 0;
+        while (!gate.ok && !state.stopRequested) {
+            gateRound++;
+            agnesConsecutiveOutages = Math.max(agnesConsecutiveOutages, gateRound);
+            log('Agnes down avant étape 2 — veille (ronde ' + gateRound + ')');
+            try {
+                await waitForAgnesRecovery(Math.min(gateRound, 8));
+            } catch (e) {
+                if (e.message === 'AGNES_AUTH_INVALID') {
+                    showToast('Clé Agnes invalide — colle une nouvelle clé sk-…', 'error', 8000);
+                    setStatus('Clé Agnes invalide');
+                    return;
+                }
+                throw e;
+            }
+            gate = await probeAgnesApi();
+            if (!gate.ok && !nightModeEnabled && gateRound >= 3) break;
+        }
+        if (gate.ok) log('✅ Agnes OK — démarrage vidéos');
+        else log('⚠ Agnes encore instable — tentative vidéos quand même');
     }
     setStatus('Étape 2/2 : génération des vidéos…');
 
     let nightPass = 0;
-    const maxNightPasses = nightModeEnabled ? 40 : (optimizeModeEnabled ? 3 : 1);
+    const maxNightPasses = nightModeEnabled ? 80 : (optimizeModeEnabled ? 5 : 1);
 
     while (nightPass < maxNightPasses && !state.stopRequested) {
         nightPass++;
@@ -2780,7 +2871,16 @@ async function generateAllScenes(options) {
             );
             if (!pending.length) break;
             log('═══ Mode nuit/opt — passe ' + nightPass + ' : ' + pending.length + ' scène(s) à reprendre ═══');
-            await waitForAgnesRecovery(Math.min(nightPass, 6));
+            try {
+                await waitForAgnesRecovery(Math.min(nightPass, 8));
+            } catch (e) {
+                if (e.message === 'AGNES_AUTH_INVALID') {
+                    showToast('Clé Agnes invalide — colle une nouvelle clé sk-…', 'error', 8000);
+                    setStatus('Clé Agnes invalide');
+                    return;
+                }
+                throw e;
+            }
             for (const s of pending) {
                 s.status = (s.imageDataUri || s.hadImage || s.videoId) ? 'image-done' : 'pending';
                 s.error = null;
