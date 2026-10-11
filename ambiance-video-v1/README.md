@@ -1,40 +1,46 @@
-# Ambiance Video Studio v1
+# Ambiance Video Studio v1.3
 
-Application web pour créer une boucle Lofi/Cozy de 3 heures — **sans Pollinations** et **sans serveur VPS**.
+## ⚠️ Ne téléchargez PAS seulement `index.html`
 
-## Flux
+Si vous ouvrez `index (9).html` depuis **Téléchargements** (`file://`), vous obtiendrez :
+- `ERR_FILE_NOT_FOUND` sur `ffmpeg.js` / `util.js`
+- `FFmpeg.wasm non chargé`
+- Agnes 503 en boucle
+- **Aucune vidéo générée**
 
-1. Téléversez votre **image** (mascotte / décor)  
-2. Téléversez votre **musique** libre de droits (MP3 / WAV)  
-3. Ajoutez une **clé Agnes** → animation en courte vidéo bouclable (10–15 s)  
-4. **Assembler 3H** via **FFmpeg.wasm** dans le navigateur
-
-## Fichiers
+## Contenu obligatoire du pack
 
 ```
 ambiance-video-v1/
-├── index.html          # Application autonome
+├── index.html
+├── demarrer.bat      ← Windows
+├── demarrer.sh       ← Mac / Linux
 ├── README.md
-└── lib/ffmpeg/         # FFmpeg.wasm (même origine — requis)
+└── lib/ffmpeg/       ← OBLIGATOIRE (~31 Mo)
     ├── ffmpeg.js
-    ├── 814.ffmpeg.js   # Worker
     ├── util.js
+    ├── 814.ffmpeg.js
     ├── ffmpeg-core.js
     └── ffmpeg-core.wasm
 ```
 
-Servez le dossier via un serveur HTTP local (les Workers ne fonctionnent pas en `file://`) :
+## Démarrage correct (Windows)
+
+1. Copiez le dossier **complet** `ambiance-video-v1` (pas un HTML seul)
+2. Double-cliquez **`demarrer.bat`**
+3. Le navigateur s’ouvre sur **http://127.0.0.1:8765/**
+4. Image + musique → **Créer la boucle locale** → **Assembler 3H**
+
+## Démarrage (Mac / Linux)
 
 ```bash
-cd ambiance-video-v1 && python3 -m http.server 8765
-# → http://127.0.0.1:8765/
+cd ambiance-video-v1
+chmod +x demarrer.sh
+./demarrer.sh
 ```
 
-## Commande FFmpeg exécutée localement
+## Flux
 
-```text
-ffmpeg -stream_loop -1 -i input.mp4 -stream_loop -1 -i input.mp3 \
-  -c:v copy -c:a aac -b:a 192k -t 10800 -shortest output_3h.mp4
-```
-
-Conseil : testez d'abord la durée « 1 min » avant une vraie 3 heures (RAM).
+1. Upload image + musique  
+2. Boucle courte locale Ken Burns (Agnes désactivé par défaut)  
+3. Assemblage 3H avec FFmpeg.wasm dans le navigateur  

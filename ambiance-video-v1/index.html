@@ -6,12 +6,12 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Ambiance Video Studio v1.2 — Lofi / Cozy 3H</title>
+<title>Ambiance Video Studio v1.3 — Lofi / Cozy 3H</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f1a1f'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23e8a85c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- FFmpeg.wasm local (même origine) — évite l'erreur CORS Worker des CDN UMD -->
+<!-- FFmpeg.wasm DOIT être servi en HTTP depuis lib/ffmpeg/ (pas file://, pas HTML seul) -->
 <script src="lib/ffmpeg/ffmpeg.js"></script>
 <script src="lib/ffmpeg/util.js"></script>
 <style>
@@ -667,16 +667,30 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 <header>
     <h1 class="brand">Ambiance Video Studio</h1>
     <p class="subtitle">Téléversez votre image, animez-la avec Agnes, assemblez une boucle Lofi de 3 heures — 100&nbsp;% dans le navigateur (FFmpeg.wasm).</p>
-    <span class="version-pill">v1.2 · local par défaut · 3 heures</span>
+    <span class="version-pill">v1.3 · pack complet + HTTP · 3 heures</span>
 </header>
+
+<!-- Bannière critique si ouvert en file:// ou sans lib/ffmpeg -->
+<div id="file-protocol-banner" style="display:none; background:#5a1a1a; border:2px solid var(--error); border-radius:var(--radius); padding:1rem 1.15rem; margin-bottom:1rem; font-size:0.88rem; line-height:1.5;">
+    <strong style="color:var(--error); display:block; margin-bottom:0.45rem;">⛔ Fichier HTML ouvert incorrectement</strong>
+    Vous avez ouvert un <code>index.html</code> seul via <code>file://</code> (ex. Téléchargements).
+    FFmpeg.wasm est introuvable → <strong>aucune vidéo 3H ne peut être assemblée</strong>.<br><br>
+    <strong>Correct :</strong> utilisez le dossier complet <code>ambiance-video-v1/</code> (avec <code>lib/ffmpeg/</code>) puis :
+    <ol style="margin:0.5rem 0 0 1.2rem;">
+        <li>Windows : double-cliquez <code>demarrer.bat</code></li>
+        <li>Mac/Linux : <code>./demarrer.sh</code></li>
+        <li>Ou : <code>python -m http.server 8765</code> dans ce dossier</li>
+        <li>Ouvrez <code>http://127.0.0.1:8765/</code> (pas le fichier local)</li>
+    </ol>
+</div>
 
 <div class="info-banner">
     <div class="badge-row">
         <span class="badge-soft teal">Mode local par défaut</span>
         <span class="badge-soft amber">FFmpeg.wasm · sans VPS</span>
     </div>
-    <strong>Flux robuste :</strong> votre image → boucle Ken Burns locale (Agnes optionnel) → musique → assemblage 3H dans le navigateur.
-    Si vous voyez encore « tentative dans 120s », faites un rechargement forcé (Ctrl+Shift+R).
+    <strong>Important :</strong> ne téléchargez pas seulement le HTML.
+    Servez le dossier complet via <code>demarrer.bat</code> / <code>demarrer.sh</code> → <code>http://127.0.0.1:8765/</code>
 </div>
 
 <!-- Clé Agnes -->
@@ -1757,48 +1771,75 @@ async function createLocalKenBurnsLoop(onProgress) {
     }
     log('WebM local · ' + webmBlob.size + ' octets');
 
-    // Convertir en MP4 pour l'assemblage -stream_loop -c:v copy
-    if (onProgress) onProgress('Conversion WebM → MP4 (FFmpeg.wasm)…');
-    const ffmpeg = await ensureFFmpegLoaded(function (pct, msg) {
-        if (onProgress) onProgress(msg || ('FFmpeg ' + pct + '%'));
-    });
-    const fetchFile = FFmpegUtil.fetchFile;
-    await ffmpeg.writeFile('local_in.webm', await fetchFile(webmBlob));
-
-    let converted = false;
-    const encoders = [
-        ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', '23'],
-        ['-c:v', 'mpeg4', '-q:v', '5'],
-        ['-c:v', 'libvpx', '-b:v', '2M']
-    ];
-    for (let i = 0; i < encoders.length; i++) {
-        try {
-            const args = ['-i', 'local_in.webm']
-                .concat(encoders[i])
-                .concat(['-an', '-t', String(durationSec), 'loop_short.mp4']);
-            log('convert try: ffmpeg ' + args.join(' '));
-            await ffmpeg.exec(args);
-            const data = await ffmpeg.readFile('loop_short.mp4');
-            if (data && data.byteLength > 1000) {
-                const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-                const mp4Blob = new Blob([buffer], { type: 'video/mp4' });
-                try {
-                    await ffmpeg.deleteFile('local_in.webm');
-                    await ffmpeg.deleteFile('loop_short.mp4');
-                } catch (e) { /* ignore */ }
-                converted = true;
-                log('MP4 local OK · ' + mp4Blob.size + ' octets');
-                return mp4Blob;
-            }
-        } catch (encErr) {
-            log('Encodeur échoué : ' + encErr.message);
-        }
+    // Conversion MP4 optionnelle (nécessite FFmpeg.wasm via HTTP + lib/)
+    if (!isFFmpegAvailable()) {
+        log('FFmpeg absent — conservation WebM (ouvrez via demarrer.bat pour le MP4 3H)');
+        if (onProgress) onProgress('Boucle WebM prête (servez le dossier pour assembler en MP4 3H)');
+        return webmBlob;
     }
 
-    if (!converted) {
-        // Dernier recours : utiliser le WebM tel quel (assemble réencodera)
-        log('Conversion MP4 impossible — conservation WebM');
-        return webmBlob;
+    try {
+        if (onProgress) onProgress('Conversion WebM → MP4 (FFmpeg.wasm)…');
+        const ffmpeg = await ensureFFmpegLoaded(function (pct, msg) {
+            if (onProgress) onProgress(msg || ('FFmpeg ' + pct + '%'));
+        });
+        const fetchFile = FFmpegUtil.fetchFile;
+        await ffmpeg.writeFile('local_in.webm', await fetchFile(webmBlob));
+
+        const encoders = [
+            ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', '23'],
+            ['-c:v', 'mpeg4', '-q:v', '5']
+        ];
+        for (let i = 0; i < encoders.length; i++) {
+            try {
+                const args = ['-i', 'local_in.webm']
+                    .concat(encoders[i])
+                    .concat(['-an', '-t', String(durationSec), 'loop_short.mp4']);
+                log('convert try: ffmpeg ' + args.join(' '));
+                await ffmpeg.exec(args);
+                const data = await ffmpeg.readFile('loop_short.mp4');
+                if (data && data.byteLength > 1000) {
+                    const buffer = data.buffer.slice(
+                        data.byteOffset,
+                        data.byteOffset + data.byteLength
+                    );
+                    const mp4Blob = new Blob([buffer], { type: 'video/mp4' });
+                    try {
+                        await ffmpeg.deleteFile('local_in.webm');
+                        await ffmpeg.deleteFile('loop_short.mp4');
+                    } catch (e) { /* ignore */ }
+                    log('MP4 local OK · ' + mp4Blob.size + ' octets');
+                    return mp4Blob;
+                }
+            } catch (encErr) {
+                log('Encodeur échoué : ' + encErr.message);
+            }
+        }
+    } catch (e) {
+        log('Conversion FFmpeg ignorée : ' + e.message);
+    }
+
+    log('Conservation WebM');
+    return webmBlob;
+}
+
+function isFileProtocol() {
+    return location.protocol === 'file:';
+}
+
+function isFFmpegAvailable() {
+    return typeof FFmpegWASM !== 'undefined' && typeof FFmpegUtil !== 'undefined';
+}
+
+function updateEnvironmentBanner() {
+    const banner = document.getElementById('file-protocol-banner');
+    if (!banner) return;
+    const bad = isFileProtocol() || !isFFmpegAvailable();
+    banner.style.display = bad ? 'block' : 'none';
+    if (bad) {
+        state.localOnlyMode = true;
+        const t = document.getElementById('local-only-toggle');
+        if (t) t.checked = true;
     }
 }
 
@@ -1837,11 +1878,12 @@ async function startAmbianceGeneration() {
         return;
     }
 
-    const useLocalOnly = state.localOnlyMode || !getAgnesKey();
-    if (!useLocalOnly && !getAgnesKey()) {
-        showToast('Ajoutez une clé API Agnes ou activez le mode local', 'error');
-        return;
+    // Jamais Agnes depuis file:// ou HTML seul (ancien index (9).html, etc.)
+    if (isFileProtocol() || !isFFmpegAvailable()) {
+        state.localOnlyMode = true;
+        updateEnvironmentBanner();
     }
+    const useLocalOnly = state.localOnlyMode || !getAgnesKey() || isFileProtocol();
 
     state.isRunning = true;
     state.stopRequested = false;
@@ -1857,10 +1899,21 @@ async function startAmbianceGeneration() {
     try {
         if (useLocalOnly) {
             log('═══ MODE LOCAL (sans Agnes) ═══');
-            showToast('Mode local — Agnes ignoré', 'warn', 2500);
+            showToast('Mode local — génération Ken Burns…', 'warn', 2500);
             const blob = await createLocalKenBurnsLoop(setStatus);
             presentShortLoop(blob, 'locale');
-            showToast('Boucle locale prête — lancez l\'assemblage 3H', 'success', 4000);
+            if (!isFFmpegAvailable()) {
+                document.getElementById('download-btn').classList.add('visible');
+                state.finalFilmBlob = blob;
+                state.finalFilmUrl = state.agnesVideoUrl;
+                showToast(
+                    'Boucle courte prête (WebM). Pour le MP4 3H : lancez demarrer.bat puis http://127.0.0.1:8765/',
+                    'warn',
+                    7000
+                );
+            } else {
+                showToast('Boucle locale prête — lancez l\'assemblage 3H', 'success', 4000);
+            }
             return;
         }
 
@@ -1932,9 +1985,11 @@ async function ensureFFmpegLoaded(onProgress) {
     if (state.ffmpegLoaded && state.ffmpegInstance) {
         return state.ffmpegInstance;
     }
-    if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
+    if (!isFFmpegAvailable()) {
         throw new Error(
-            'FFmpeg.wasm non chargé. Vérifiez que lib/ffmpeg/ est bien servi en HTTP.'
+            isFileProtocol()
+                ? 'Vous avez ouvert le HTML en file://. Lancez demarrer.bat (ou python -m http.server 8765) dans le dossier ambiance-video-v1 complet, puis ouvrez http://127.0.0.1:8765/'
+                : 'FFmpeg.wasm introuvable. Le dossier lib/ffmpeg/ doit accompagner index.html. Ne téléchargez pas le HTML seul.'
         );
     }
     const FFmpeg = FFmpegWASM.FFmpeg;
@@ -2372,12 +2427,15 @@ function runSelfValidation() {
         console.error('[AmbianceStudio] Commande FFmpeg invalide');
         return false;
     }
-    if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
-        console.error('[AmbianceStudio] FFmpeg.wasm non chargé (lib/ffmpeg/)');
+    if (!isFFmpegAvailable()) {
+        console.warn(
+            '[AmbianceStudio] FFmpeg.wasm absent — ouvrez via demarrer.bat / http://127.0.0.1:8765/ (pas file://)'
+        );
+        updateEnvironmentBanner();
         return false;
     }
 
-    log('Auto-validation OK — image→Agnes→FFmpeg.wasm 3H');
+    log('Auto-validation OK — image→Ken Burns→FFmpeg.wasm 3H');
     return true;
 }
 
@@ -2533,9 +2591,26 @@ function runSelfValidation() {
 
     updateApiPanel();
     updateWakeStatus();
+    updateEnvironmentBanner();
     updateGenerateBtn();
     runSelfValidation();
-    log('Ambiance Video Studio v1 prêt — flux image→Agnes→FFmpeg.wasm');
+
+    if (isFileProtocol()) {
+        showToast(
+            'file:// détecté — lancez demarrer.bat puis http://127.0.0.1:8765/',
+            'error',
+            8000
+        );
+        log('ATTENTION: ouvert en file:// — pack incomplet ou mauvais lancement');
+    } else if (!isFFmpegAvailable()) {
+        showToast(
+            'lib/ffmpeg/ manquant — utilisez le dossier ambiance-video-v1 complet',
+            'error',
+            8000
+        );
+    }
+
+    log('Ambiance Video Studio v1.3 prêt — mode local · HTTP requis pour FFmpeg');
 })();
 </script>
 </body>
