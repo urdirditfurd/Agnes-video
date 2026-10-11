@@ -2248,6 +2248,9 @@ async function handlePostPollOutcome(scene) {
 const POLLINATIONS_FREE_MODELS = ['turbo', 'flux'];
 const pollinationsBlockedModels = {}; // model -> timestamp blacklist
 let pollinationsPreferredModel = 'turbo';
+/** Soft cooldown after intermittent 402 (ms timestamp). Avoids local fallback every other scene. */
+let pollinationsQuotaCoolUntil = 0;
+let pollinationsConsecutive402 = 0;
 
 function getPollinationsModels() {
     const now = Date.now();
@@ -2255,11 +2258,9 @@ function getPollinationsModels() {
         const until = pollinationsBlockedModels[m] || 0;
         return until < now;
     });
-    // Optimisation / nuit : turbo seul (évite flux 402 + pause inutile)
+    // Optimisation / nuit : turbo seul (évite flux 402)
     if (optimizeModeEnabled || nightModeEnabled) {
-        available = available.filter(m => m === 'turbo');
-        if (!available.length) available = ['turbo'];
-        return available;
+        return ['turbo'];
     }
     if (!available.length) return POLLINATIONS_FREE_MODELS.slice();
     // Prefer last working model first
@@ -2280,29 +2281,51 @@ function blacklistPollinationsModel(model, minutes) {
     }
 }
 
-async function generateImageWithPollinations(prompt, retries = 4) {
-    const now = Date.now();
-    const elapsed = now - state.lastPollinationsCall;
-    // Intervalle plus court si on est déjà sur turbo (moins de 402 inutiles)
-    const minInterval = pollinationsPreferredModel === 'turbo'
-        ? Math.min(POLLINATIONS_MIN_INTERVAL_MS, 18000)
-        : POLLINATIONS_MIN_INTERVAL_MS;
-    if (elapsed < minInterval && state.lastPollinationsCall > 0) {
-        const wait = minInterval - elapsed;
-        log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's');
-        setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
-        await sleep(wait);
+async function waitPollinationsQuotaRecovery(severity) {
+    const level = Math.max(1, severity || 1);
+    // Intermittent 402: short pause then retry (logs show next call often succeeds)
+    const waitSec = Math.min(30 + level * 25, nightModeEnabled ? 180 : 120);
+    pollinationsQuotaCoolUntil = Date.now() + waitSec * 1000;
+    log('⏳ Pollinations quota 402 — pause ' + waitSec + 's puis retry turbo (pas de fallback local)');
+    for (let r = waitSec; r > 0; r--) {
+        if (state.stopRequested) return;
+        while (state.paused && !state.stopRequested) await sleep(500);
+        if (state.stopRequested) return;
+        setStatus('Quota Pollinations — retry image dans ' + r + 's…');
+        await sleep(1000);
     }
-    state.lastPollinationsCall = Date.now();
+}
+
+async function generateImageWithPollinations(prompt, retries = 4) {
+    const unattended = isUnattendedMode();
+    // En mode nuit/opt : beaucoup plus de retries avec pauses — éviter les images locales
+    const maxAttempts = unattended ? 14 : retries;
 
     // Prompt compact + locks en tête (évite de perdre le personnage/décor si tronqué)
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 1600));
     let lastError = null;
     const models = getPollinationsModels();
 
-    for (let attempt = 0; attempt < retries; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
-        // Tourne sur les modèles encore disponibles (skip flux blacklisté)
+
+        // Intervalle adaptatif : plus long après des 402, et en mode opt/nuit
+        const baseInterval = unattended
+            ? 24000
+            : (pollinationsPreferredModel === 'turbo'
+                ? Math.min(POLLINATIONS_MIN_INTERVAL_MS, 18000)
+                : POLLINATIONS_MIN_INTERVAL_MS);
+        const coolLeft = Math.max(0, pollinationsQuotaCoolUntil - Date.now());
+        const minInterval = Math.max(baseInterval, coolLeft);
+        const elapsed = Date.now() - state.lastPollinationsCall;
+        if (elapsed < minInterval && state.lastPollinationsCall > 0) {
+            const wait = minInterval - elapsed;
+            log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's');
+            setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
+            await sleep(wait);
+        }
+        state.lastPollinationsCall = Date.now();
+
         const model = models[attempt % models.length];
         const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
         const seed = state.seed + attempt;
@@ -2312,7 +2335,7 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             '&_=' + cacheBuster;
 
         try {
-            log('Pollinations [' + model + '] tentative ' + (attempt + 1) + '/' + retries);
+            log('Pollinations [' + model + '] tentative ' + (attempt + 1) + '/' + maxAttempts);
             setStatus('Image [' + model + '] tentative ' + (attempt + 1) + '…');
 
             const controller = new AbortController();
@@ -2321,20 +2344,24 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             clearTimeout(timeoutId);
 
             if (res.status === 401 || res.status === 402) {
-                // Ne PAS attendre 45s : passer immédiatement au modèle suivant
-                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota) → modèle suivant sans pause');
-                blacklistPollinationsModel(model, 180);
-                // Retirer aussi de la liste locale pour cette boucle
+                pollinationsConsecutive402++;
+                if (unattended) {
+                    // 402 intermittent : pause + retry turbo (NE PAS fallback local tout de suite)
+                    log('Pollinations [' + model + '] HTTP ' + res.status +
+                        ' (quota) — récupération #' + pollinationsConsecutive402);
+                    await waitPollinationsQuotaRecovery(pollinationsConsecutive402);
+                    continue;
+                }
+                // Mode standard : essayer autre modèle sans longue pause
+                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota) → modèle suivant');
+                blacklistPollinationsModel(model, 30);
                 const idx = models.indexOf(model);
                 if (idx >= 0) models.splice(idx, 1);
-                if (!models.length) {
-                    log('Tous les modèles Pollinations en 402 — fallback local');
-                    break;
-                }
+                if (!models.length) break;
                 continue;
             }
             if (res.status === 429) {
-                const wait429 = [20, 35, 50][Math.min(attempt, 2)] * 1000;
+                const wait429 = [25, 40, 60][Math.min(attempt, 2)] * 1000;
                 log('Pollinations [' + model + '] 429 — pause ' + (wait429 / 1000) + 's');
                 await sleep(wait429);
                 state.lastPollinationsCall = Date.now();
@@ -2350,6 +2377,8 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             if (!blob.type.startsWith('image/')) throw new Error('Réponse non-image');
 
             pollinationsPreferredModel = model;
+            pollinationsConsecutive402 = 0;
+            pollinationsQuotaCoolUntil = 0;
             log('✅ Image générée avec ' + model);
             return await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -2360,14 +2389,16 @@ async function generateImageWithPollinations(prompt, retries = 4) {
         } catch (e) {
             if (e.name === 'AbortError') log('Pollinations [' + model + '] timeout');
             else { lastError = e; log('Pollinations [' + model + '] échec : ' + e.message); }
-            if (attempt < retries - 1) {
-                await sleep(4000);
+            if (attempt < maxAttempts - 1) {
+                const backoff = unattended ? Math.min(8000 + attempt * 2000, 30000) : 4000;
+                await sleep(backoff);
                 state.lastPollinationsCall = Date.now();
             }
         }
     }
 
-    log('⚠️ Pollinations saturé — fallback local (les vidéos Agnes peuvent quand même marcher)');
+    // Dernier recours uniquement — en mode nuit on a déjà beaucoup retried
+    log('⚠️ Pollinations saturé après ' + maxAttempts + ' tentatives — fallback local');
     setStatus('Fallback image de secours…');
     return await generateFallbackImage(prompt);
 }
