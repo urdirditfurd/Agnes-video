@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Ambiance Video Studio v1.3 — Lofi / Cozy 3H</title>
+<title>Ambiance Video Studio v1.4 — Lofi / Cozy 3H</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f1a1f'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23e8a85c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -667,7 +667,7 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 <header>
     <h1 class="brand">Ambiance Video Studio</h1>
     <p class="subtitle">Téléversez votre image, animez-la avec Agnes, assemblez une boucle Lofi de 3 heures — 100&nbsp;% dans le navigateur (FFmpeg.wasm).</p>
-    <span class="version-pill">v1.3 · pack complet + HTTP · 3 heures</span>
+    <span class="version-pill">v1.4 · cadre fixe + audio mixé · 3 heures</span>
 </header>
 
 <!-- Bannière critique si ouvert en file:// ou sans lib/ffmpeg -->
@@ -895,7 +895,13 @@ const IDB_NAME = 'AmbianceVideoStudioV1';
 const IDB_STORE = 'projectState';
 const IDB_VERSION = 2;
 
-/** Mots-clés stricts pour une boucle Agnes parfaite */
+/** Préfixe STRICT — cadre caméra verrouillé (Agnes) */
+const STATIC_CAMERA_PREFIX =
+    'STATIC CAMERA. ABSOLUTELY NO ZOOM. NO PAN. NO CAMERA MOVEMENT. ' +
+    'ONLY internal elements move (steam rising, snow falling, plant glowing). ' +
+    'The frame borders must remain 100% locked. ';
+
+/** Mots-clés complémentaires pour une boucle Agnes */
 const LOOP_PROMPT_KEYWORDS =
     'seamless loop, subtle ambient motion only, gentle breathing or steam, ' +
     'NO camera panning, NO zooming, static frame composition, perfect loopable ending, 10 seconds duration';
@@ -1287,12 +1293,13 @@ function updateApiPanel() {
 function buildVideoPrompt() {
     const theme = getTheme();
     const userPart = (document.getElementById('visual-prompt').value || '').trim();
-    const base = userPart ||
-        ('Animate this still image as a cozy lofi ambiance scene. ' + theme.motionHint + '.');
-    // Force les mots-clés de boucle
-    let prompt = base;
+    const body = userPart ||
+        ('Animate this still image as a cozy lofi ambiance scene. ' + theme.motionHint +
+            '. Only internal elements move.');
+    // Instructions STRICTES en tête + mots-clés boucle
+    let prompt = STATIC_CAMERA_PREFIX + body;
     if (prompt.toLowerCase().indexOf('seamless loop') === -1) {
-        prompt += '. ' + LOOP_PROMPT_KEYWORDS;
+        prompt += ' ' + LOOP_PROMPT_KEYWORDS;
     }
     state.ambianceConfig.visualPrompt = prompt;
     return prompt;
@@ -1303,10 +1310,27 @@ function applyThemeDefaults(themeId) {
     const theme = getTheme();
     const ta = document.getElementById('visual-prompt');
     if (ta && (!ta.value.trim() || themeId !== 'custom')) {
-        ta.value = 'Animate this uploaded image: ' + theme.motionHint + '. Keep composition identical. ' + LOOP_PROMPT_KEYWORDS;
+        ta.value = STATIC_CAMERA_PREFIX +
+            'Animate this uploaded image: ' + theme.motionHint +
+            '. Keep composition identical. ' + LOOP_PROMPT_KEYWORDS;
         state.ambianceConfig.visualPrompt = ta.value;
     }
     saveStateToIDB();
+}
+
+/** Type de particules selon le thème (overlay uniquement — cadre figé) */
+function getParticleStyle() {
+    const id = state.ambianceConfig.themeId;
+    switch (id) {
+        case 'capybara-zen': return 'steam-snow';
+        case 'chat-boulanger': return 'rain';
+        case 'robot-jardinier': return 'glow-dust';
+        case 'custom': return 'dust';
+        default: {
+            const _exhaustive = id;
+            return 'dust';
+        }
+    }
 }
 
 // ── Bouton principal ─────────────────────────────────────────────
@@ -1686,11 +1710,85 @@ function pickRecorderMime() {
 }
 
 /**
- * Boucle locale Ken Burns (10 s) depuis l'image utilisateur.
- * 1) Capture canvas → WebM (MediaRecorder)
- * 2) Conversion WebM → MP4 via FFmpeg.wasm (pour -c:v copy ensuite)
+ * Initialise les particules d'ambiance (neige, pluie, vapeur, poussière).
+ * Le cadre image reste 100 % statique — seul l'overlay bouge.
  */
-async function createLocalKenBurnsLoop(onProgress) {
+function createAmbientParticles(style, width, height) {
+    const particles = [];
+    const count = style === 'rain' ? 90 : 55;
+    for (let i = 0; i < count; i++) {
+        particles.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: style === 'rain' ? (0.6 + Math.random() * 0.8) : (1.2 + Math.random() * 2.8),
+            vy: style === 'rain'
+                ? (6 + Math.random() * 10)
+                : (style === 'steam-snow' ? -(0.4 + Math.random() * 1.2) : -(0.2 + Math.random() * 0.7)),
+            vx: style === 'rain'
+                ? (-1.2 + Math.random() * 0.4)
+                : ((Math.random() - 0.5) * 0.6),
+            a: 0.25 + Math.random() * 0.55,
+            len: style === 'rain' ? (8 + Math.random() * 14) : 0
+        });
+    }
+    return particles;
+}
+
+/** Dessine l'overlay de particules (ne touche JAMAIS au fond) */
+function drawAmbientParticles(ctx, particles, style, width, height, dt) {
+    for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+
+        if (style === 'rain') {
+            if (p.y > height + 20) { p.y = -20; p.x = Math.random() * width; }
+            if (p.x < -20) p.x = width + 10;
+            ctx.strokeStyle = 'rgba(180, 210, 230,' + p.a + ')';
+            ctx.lineWidth = p.r;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + p.vx * 2, p.y + p.len);
+            ctx.stroke();
+        } else if (style === 'steam-snow') {
+            // Moitié vapeur (montante, large), moitié neige (tombante)
+            if (i % 2 === 0) {
+                if (p.y < -20) { p.y = height + 10; p.x = Math.random() * width; }
+                ctx.fillStyle = 'rgba(255,255,255,' + (p.a * 0.45) + ')';
+            } else {
+                // Neige : inverser vy si encore négatif
+                if (p.vy < 0) p.vy = 0.5 + Math.random() * 1.5;
+                if (p.y > height + 10) { p.y = -10; p.x = Math.random() * width; }
+                ctx.fillStyle = 'rgba(255,255,255,' + p.a + ')';
+            }
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (style === 'glow-dust') {
+            if (p.y < -20) { p.y = height + 10; p.x = Math.random() * width; }
+            ctx.fillStyle = 'rgba(120, 255, 200,' + (p.a * 0.7) + ')';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // dust
+            if (p.y < -20) { p.y = height + 10; p.x = Math.random() * width; }
+            if (p.x < -10) p.x = width + 5;
+            if (p.x > width + 10) p.x = -5;
+            ctx.fillStyle = 'rgba(255, 230, 180,' + (p.a * 0.65) + ')';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+/**
+ * Boucle locale à CADRE STATIQUE (10 s).
+ * Image de fond figée + particules animées en overlay (pas de Ken Burns / scale).
+ * Puis conversion WebM → MP4 via FFmpeg.wasm si disponible.
+ */
+async function createLocalAmbientLoop(onProgress) {
     if (!state.userImageDataURL) {
         throw new Error('Veuillez d\'abord téléverser une image');
     }
@@ -1703,14 +1801,17 @@ async function createLocalKenBurnsLoop(onProgress) {
         throw new Error('MediaRecorder WebM non supporté par ce navigateur');
     }
 
-    if (onProgress) onProgress('Animation locale Ken Burns…');
-    log('═══ BOUCLE LOCALE KEN BURNS ═══');
+    const style = getParticleStyle();
+    if (onProgress) onProgress('Animation locale — cadre fixe + particules (' + style + ')…');
+    log('═══ BOUCLE LOCALE CADRE STATIQUE · ' + style + ' ═══');
 
     const img = await loadImageElement(state.userImageDataURL);
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
+    const particles = createAmbientParticles(style, width, height);
+
     const stream = canvas.captureStream(fps);
     const recorder = new MediaRecorder(stream, {
         mimeType: mime,
@@ -1729,6 +1830,7 @@ async function createLocalKenBurnsLoop(onProgress) {
     recorder.start(200);
     const start = performance.now();
     const totalMs = durationSec * 1000;
+    let lastNow = start;
 
     await new Promise(function (resolve) {
         function frame(now) {
@@ -1737,22 +1839,19 @@ async function createLocalKenBurnsLoop(onProgress) {
                 resolve();
                 return;
             }
-            const t = Math.min(1, (now - start) / totalMs);
-            // Zoom 100% → 105% puis retour (boucle douce)
-            const pulse = t < 0.5 ? (t * 2) : (2 - t * 2);
-            const scale = 1 + 0.05 * pulse;
-            const iw = img.width;
-            const ih = img.height;
-            const cover = Math.max(width / iw, height / ih) * scale;
-            const dw = iw * cover;
-            const dh = ih * cover;
-            const dx = (width - dw) / 2;
-            const dy = (height - dh) / 2;
+            const elapsed = now - start;
+            const dt = Math.min(2.5, (now - lastNow) / (1000 / fps));
+            lastNow = now;
+
+            // 1) Fond 100 % STATIQUE — aucun scale / translate / zoom
             ctx.fillStyle = '#0c1418';
             ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, dx, dy, dw, dh);
+            ctx.drawImage(img, 0, 0, width, height);
 
-            if (t < 1) {
+            // 2) Overlay particules uniquement
+            drawAmbientParticles(ctx, particles, style, width, height, dt);
+
+            if (elapsed < totalMs) {
                 requestAnimationFrame(frame);
             } else {
                 resolve();
@@ -1771,9 +1870,8 @@ async function createLocalKenBurnsLoop(onProgress) {
     }
     log('WebM local · ' + webmBlob.size + ' octets');
 
-    // Conversion MP4 optionnelle (nécessite FFmpeg.wasm via HTTP + lib/)
     if (!isFFmpegAvailable()) {
-        log('FFmpeg absent — conservation WebM (ouvrez via demarrer.bat pour le MP4 3H)');
+        log('FFmpeg absent — conservation WebM');
         if (onProgress) onProgress('Boucle WebM prête (servez le dossier pour assembler en MP4 3H)');
         return webmBlob;
     }
@@ -1821,6 +1919,11 @@ async function createLocalKenBurnsLoop(onProgress) {
 
     log('Conservation WebM');
     return webmBlob;
+}
+
+/** Alias rétrocompatible */
+async function createLocalKenBurnsLoop(onProgress) {
+    return createLocalAmbientLoop(onProgress);
 }
 
 function isFileProtocol() {
@@ -2024,9 +2127,10 @@ async function ensureFFmpegLoaded(onProgress) {
 
 /**
  * Cœur du système — assemble une boucle longue durée 100 % navigateur.
- * Commande exacte :
- *   -stream_loop -1 -i input.mp4 -stream_loop -1 -i input.mp3
- *   -c:v copy -c:a aac -b:a 192k -t 10800 -shortest output_3h.mp4
+ * Vidéo bouclée + audio utilisateur bouclé, mapping explicite :
+ *   -stream_loop -1 -i input.mp4
+ *   -stream_loop -1 -i input_audio.mp3
+ *   -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -t 10800 -shortest
  */
 async function assemble3HourLoopLocal() {
     if (state.isAssembling) return;
@@ -2056,18 +2160,23 @@ async function assemble3HourLoopLocal() {
     updateGenerateBtn();
 
     const duration = state.loopDuration || 10800;
-    const isWebm = !!(state.agnesVideoBlob &&
-        state.agnesVideoBlob.type &&
-        state.agnesVideoBlob.type.indexOf('webm') !== -1);
+    const shortVideoBlob = state.agnesVideoBlob;
+    const isWebm = !!(shortVideoBlob &&
+        shortVideoBlob.type &&
+        shortVideoBlob.type.indexOf('webm') !== -1);
     const videoInName = isWebm ? 'input.webm' : 'input.mp4';
+    const vol = Math.max(0.05, Math.min(1, state.musicVolume || 0.7));
 
-    // Commande canonique (après normalisation éventuelle WebM→MP4)
+    // Mapping EXPLICITE vidéo (0) + audio utilisateur (1) — évite une sortie muette
     const args = [
         '-stream_loop', '-1', '-i', 'input.mp4',
-        '-stream_loop', '-1', '-i', 'input.mp3',
+        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-map', '0:v:0',
+        '-map', '1:a:0',
         '-c:v', 'copy',
         '-c:a', 'aac',
         '-b:a', '192k',
+        '-filter:a', 'volume=' + vol.toFixed(2),
         '-t', String(duration),
         '-shortest',
         'output_3h.mp4'
@@ -2076,8 +2185,10 @@ async function assemble3HourLoopLocal() {
     cmdBox.textContent =
         '$ ' + state.ffmpegCommand +
         '\n# durée : ' + duration + 's (' + formatDuration(duration) + ')' +
-        '\n# source : ' + (state.videoSource || 'inconnue') +
-        '\n# moteur : FFmpeg.wasm · 100% navigateur · pas de VPS';
+        '\n# audio : ' + (state.audioFile.name || 'input_audio.mp3') +
+        ' · volume ' + Math.round(vol * 100) + '%' +
+        '\n# source vidéo : ' + (state.videoSource || 'inconnue') +
+        '\n# moteur : FFmpeg.wasm · 100% navigateur';
     cmdBox.classList.add('visible');
 
     const setProg = function (pct, msg) {
@@ -2087,7 +2198,8 @@ async function assemble3HourLoopLocal() {
 
     try {
         await ensureWakeLockActive();
-        log('═══ ASSEMBLAGE FFMPEG.WASM ' + duration + 's ═══');
+        log('═══ ASSEMBLAGE FFMPEG.WASM ' + duration + 's + AUDIO ═══');
+        log('Audio fichier : ' + state.audioFile.name + ' (' + state.audioFile.size + ' o)');
 
         if (duration >= 3600) {
             showToast(
@@ -2101,14 +2213,14 @@ async function assemble3HourLoopLocal() {
         const ffmpeg = await ensureFFmpegLoaded(setProg);
         if (state.stopRequested) throw new Error('Arrêt demandé');
 
-        setProg(12, 'Chargement de la boucle courte dans le FS virtuel…');
         const fetchFile = FFmpegUtil.fetchFile;
-        const videoBytes = await fetchFile(state.agnesVideoBlob);
-        await ffmpeg.writeFile(videoInName, videoBytes);
 
-        // Si WebM (fallback local non converti), normaliser en MP4 d'abord
+        // 1) Vidéo courte
+        setProg(12, 'Écriture input.mp4 (boucle visuelle)…');
+        await ffmpeg.writeFile(videoInName, await fetchFile(shortVideoBlob));
+
         if (isWebm) {
-            setProg(18, 'Normalisation WebM → MP4…');
+            setProg(18, 'Normalisation WebM → MP4 (sans piste audio)…');
             let ok = false;
             const tries = [
                 ['-i', 'input.webm', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', 'input.mp4'],
@@ -2125,16 +2237,50 @@ async function assemble3HourLoopLocal() {
             if (!ok) throw new Error('Impossible de convertir la boucle WebM en MP4');
         }
 
-        setProg(22, 'Chargement de la musique…');
-        const audioBytes = await fetchFile(state.audioFile);
-        await ffmpeg.writeFile('input.mp3', audioBytes);
+        // 2) Audio utilisateur — OBLIGATOIRE avant exec
+        setProg(25, 'Écriture input_audio.mp3 (musique uploadée)…');
+        if (!state.audioFile) {
+            throw new Error('Aucun fichier audio — téléversez une musique avant d\'assembler');
+        }
+        await ffmpeg.writeFile('input_audio.mp3', await fetchFile(state.audioFile));
+        log('FS virtuel : input.mp4 + input_audio.mp3 prêts');
 
         if (state.stopRequested) throw new Error('Arrêt demandé');
 
-        setProg(30, 'Bouclage -stream_loop -1 · cible ' + formatDuration(duration) + '…');
+        setProg(35, 'Mixage vidéo + audio en boucle ' + formatDuration(duration) + '…');
         log('ffmpeg.exec ' + JSON.stringify(args));
 
-        await ffmpeg.exec(args);
+        try {
+            await ffmpeg.exec(args);
+        } catch (execErr) {
+            // Repli sans filtre volume si le build wasm le refuse
+            log('Exec avec volume échoué — retry -af / sans filtre : ' + execErr.message);
+            const argsAf = [
+                '-stream_loop', '-1', '-i', 'input.mp4',
+                '-stream_loop', '-1', '-i', 'input_audio.mp3',
+                '-map', '0:v:0', '-map', '1:a:0',
+                '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+                '-af', 'volume=' + vol.toFixed(2),
+                '-t', String(duration), '-shortest', 'output_3h.mp4'
+            ];
+            try {
+                await ffmpeg.exec(argsAf);
+                state.ffmpegCommand = 'ffmpeg ' + argsAf.join(' ');
+            } catch (execErr2) {
+                const argsPlain = [
+                    '-stream_loop', '-1', '-i', 'input.mp4',
+                    '-stream_loop', '-1', '-i', 'input_audio.mp3',
+                    '-map', '0:v:0', '-map', '1:a:0',
+                    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+                    '-t', String(duration), '-shortest', 'output_3h.mp4'
+                ];
+                log('Retry sans volume : ' + JSON.stringify(argsPlain));
+                await ffmpeg.exec(argsPlain);
+                state.ffmpegCommand = 'ffmpeg ' + argsPlain.join(' ');
+            }
+            cmdBox.textContent = '$ ' + state.ffmpegCommand +
+                '\n# audio : ' + (state.audioFile.name || 'input_audio.mp3');
+        }
 
         if (state.stopRequested) throw new Error('Arrêt demandé');
 
@@ -2144,7 +2290,7 @@ async function assemble3HourLoopLocal() {
         const blob = new Blob([buffer], { type: 'video/mp4' });
 
         if (!blob || blob.size < 1000) {
-            throw new Error('Fichier de sortie vide — vérifiez la vidéo Agnes et l\'audio');
+            throw new Error('Fichier de sortie vide — vérifiez la vidéo et l\'audio');
         }
 
         if (state.finalFilmUrl && state.finalFilmUrl.indexOf('blob:') === 0) {
@@ -2157,19 +2303,23 @@ async function assemble3HourLoopLocal() {
         finalVideo.src = state.finalFilmUrl;
         finalVideo.load();
 
-        // Nettoyage FS virtuel
         try {
             await ffmpeg.deleteFile('input.mp4');
-            await ffmpeg.deleteFile('input.mp3');
+            await ffmpeg.deleteFile('input_audio.mp3');
             await ffmpeg.deleteFile('output_3h.mp4');
+            if (isWebm) await ffmpeg.deleteFile('input.webm');
         } catch (e) { /* ignore */ }
 
-        setProg(100, '✅ Boucle ' + formatDuration(duration) + ' prête · ' +
+        setProg(100, '✅ Boucle ' + formatDuration(duration) + ' + audio prête · ' +
             (blob.size / 1024 / 1024).toFixed(1) + ' Mo');
         document.getElementById('download-btn').classList.add('visible');
         displayYouTubeMetadata();
-        showToast('Assemblage local terminé · ' + (blob.size / 1024 / 1024).toFixed(1) + ' Mo', 'success', 5000);
-        log('Sortie OK · ' + blob.size + ' octets');
+        showToast(
+            'Assemblage terminé (vidéo + musique) · ' + (blob.size / 1024 / 1024).toFixed(1) + ' Mo',
+            'success',
+            5000
+        );
+        log('Sortie OK · ' + blob.size + ' octets · audio inclus');
 
         try {
             finalFilmEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2419,12 +2569,16 @@ function runSelfValidation() {
     }
     const joined = [
         '-stream_loop', '-1', '-i', 'input.mp4',
-        '-stream_loop', '-1', '-i', 'input.mp3',
+        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-map', '0:v:0', '-map', '1:a:0',
         '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
         '-t', '10800', '-shortest', 'output_3h.mp4'
     ].join(' ');
-    if (joined.indexOf('-stream_loop -1') === -1 || joined.indexOf('-t 10800') === -1) {
-        console.error('[AmbianceStudio] Commande FFmpeg invalide');
+    if (joined.indexOf('-stream_loop -1') === -1 ||
+        joined.indexOf('-t 10800') === -1 ||
+        joined.indexOf('input_audio.mp3') === -1 ||
+        joined.indexOf('-map 1:a:0') === -1) {
+        console.error('[AmbianceStudio] Commande FFmpeg invalide (audio)');
         return false;
     }
     if (!isFFmpegAvailable()) {
@@ -2610,7 +2764,7 @@ function runSelfValidation() {
         );
     }
 
-    log('Ambiance Video Studio v1.3 prêt — mode local · HTTP requis pour FFmpeg');
+    log('Ambiance Video Studio v1.4 prêt — cadre fixe + audio mixé');
 })();
 </script>
 </body>
