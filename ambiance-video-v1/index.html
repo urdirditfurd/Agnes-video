@@ -1838,17 +1838,22 @@ function formatDuration(seconds) {
 }
 
 // ── Construction commande FFmpeg ─────────────────────────────────
+/**
+ * Construit la commande FFmpeg canonique pour une boucle longue durée.
+ * Forme exacte attendue par le backend :
+ *   ffmpeg -stream_loop -1 -i video_loop.mp4 -stream_loop -1 -i audio_track.mp3
+ *          -c:v copy -c:a aac -b:a 192k -t 10800 -shortest output_3h.mp4
+ * Le crossfade intelligent est transmis à part (payload) pour que le serveur
+ * l'applique via afade/acrossfade sans casser le -c:v copy.
+ */
 function buildFFmpegCommand(videoInput, audioInput, durationSec, crossfade) {
-    // Cœur du système : boucle infinie vidéo + audio, puis coupe à N secondes
+    const t = durationSec || 10800;
     let cmd = 'ffmpeg -stream_loop -1 -i ' + videoInput +
         ' -stream_loop -1 -i ' + audioInput +
-        ' -c:v copy -c:a aac -b:a 192k -t ' + durationSec + ' -shortest';
-
+        ' -c:v copy -c:a aac -b:a 192k -t ' + t + ' -shortest output_3h.mp4';
     if (crossfade) {
-        // Note backend : crossfade audio appliqué côté serveur via afade / acrossfade
-        cmd += ' # crossfade_audio=' + state.crossfadeDuration + 's';
+        cmd += ' # + crossfade_audio=' + (state.crossfadeDuration || 2.0) + 's (afade serveur)';
     }
-    cmd += ' output_3h.mp4';
     return cmd;
 }
 

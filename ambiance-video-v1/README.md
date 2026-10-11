@@ -19,3 +19,12 @@ Application web autonome pour générer des vidéos d'ambiance Lofi/Cozy de 3 he
 ## Architecture
 
 Fichier unique HTML/CSS/JS (IndexedDB, état global, UI responsive) — même philosophie que Kids Story Studio, refactorisé pour le cas d'usage ambiance/lofi.
+
+## Commande FFmpeg (assemblage 3H)
+
+```bash
+ffmpeg -stream_loop -1 -i video_loop.mp4 -stream_loop -1 -i audio_track.mp3 \
+  -c:v copy -c:a aac -b:a 192k -t 10800 -shortest output_3h.mp4
+```
+
+Avec crossfade intelligent, le client prépare un `filter_complex` `afade` pour le backend (`SERVER_URL` + `/api/assemble`, mode `ambiance_loop_3h`).
