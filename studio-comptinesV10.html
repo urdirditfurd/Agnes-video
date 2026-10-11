@@ -2700,7 +2700,8 @@ async function generateAllScenes(options) {
     log('Personnage lock : ' + (state.canonicalCharacter || '').slice(0, 120) + '…');
     log('Décor lock : ' + (state.canonicalEnvironment || '').slice(0, 120) + '…');
     log('Voice lock : ' + (state.voiceSignature || '').slice(0, 80) + '…');
-    const imgIntervalSec = (optimizeModeEnabled || nightModeEnabled) ? 18 : 28;
+    // Nuit/opt : ~55s anti-402 après quota (sinon 402 + pause à chaque scène)
+    const imgIntervalSec = (optimizeModeEnabled || nightModeEnabled) ? 55 : 28;
     const estImgMin = Math.ceil(state.scenes.length * imgIntervalSec / 60);
     const estVidMin = Math.ceil(state.scenes.length * Math.max(createIntervalMs / 1000 + 50, 120) / 60);
     log('═══ ÉTAPE 1 : Images Pollinations (' + state.scenes.length + ' scènes) ═══');
