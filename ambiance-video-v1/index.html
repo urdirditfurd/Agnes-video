@@ -1446,7 +1446,10 @@ function fileToDataUrl(file) {
     });
 }
 
-/** Image de secours canvas — atmosphère lofi 16:9 */
+/**
+ * Image de secours canvas — atmosphère lofi 16:9
+ * Utilisée si Pollinations est saturé ou hors ligne.
+ */
 async function generateLocalFallbackImage(prompt) {
     const canvas = document.createElement('canvas');
     canvas.width = 1920;
@@ -2176,11 +2179,11 @@ function generateYouTubeMetadata() {
 
     const titles = [
         theme.emoji + ' ' + theme.label + ' ' + hoursLabel + ' — Musique Lofi pour Étudier, Dormir et Se Détendre',
-        theme.emoji + ' Pluie Douce & ' + theme.label + ' ' + hoursLabel + ' ' + theme.emoji.replace(/.$/, '') + ' Ambiance Cozy Focus',
+        theme.emoji + ' Pluie Douce & ' + theme.label + ' ' + hoursLabel + ' 🌧️ Ambiance Cozy Focus',
         '【' + hoursLabel + ' LOFI】' + theme.label + ' — Concentration, Relaxation & Sommeil Profond'
     ];
 
-    // Variante demandée pour Capybara
+    // Variante SEO demandée pour Capybara Zen
     if (theme.id === 'capybara-zen') {
         titles[0] = '🍊 Pluie Douce & Capybara Zen 3H 🌧️ Musique Lofi pour Étudier, Dormir et Se Détendre';
     }
