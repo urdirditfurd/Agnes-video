@@ -1,30 +1,40 @@
 # Ambiance Video Studio v1
 
-Application web autonome pour générer des vidéos d'ambiance Lofi/Cozy de 3 heures, avec musique libre de droits et métadonnées YouTube optimisées pour la monétisation.
+Application web pour créer une boucle Lofi/Cozy de 3 heures — **sans Pollinations** et **sans serveur VPS**.
 
-## Démarrage rapide
+## Flux
 
-1. Ouvrez `index.html` dans un navigateur moderne (Chrome / Edge / Firefox).
-2. (Optionnel) Ajoutez une clé API Agnes pour la génération vidéo courte.
-3. Choisissez une mascotte/thème, générez le prompt, uploadez une musique, puis lancez la génération et l'assemblage 3H.
+1. Téléversez votre **image** (mascotte / décor)  
+2. Téléversez votre **musique** libre de droits (MP3 / WAV)  
+3. Ajoutez une **clé Agnes** → animation en courte vidéo bouclable (10–15 s)  
+4. **Assembler 3H** via **FFmpeg.wasm** dans le navigateur
 
-## Fonctionnalités
+## Fichiers
 
-- Thèmes prêts à l'emploi : Capybara Zen, Robot Jardinier, Chat Boulanger, Prompt libre
-- Génération d'image (Pollinations) + fallback Ken Burns (zoom + calques atmosphère)
-- Boucle audio avec détection BPM et crossfade intelligent
-- Préparation commande FFmpeg pour assemblage 3 heures (`-stream_loop -1 -t 10800`)
-- Générateur SEO YouTube (titres, description, chapitres, case contenu IA)
+```
+ambiance-video-v1/
+├── index.html          # Application autonome
+├── README.md
+└── lib/ffmpeg/         # FFmpeg.wasm (même origine — requis)
+    ├── ffmpeg.js
+    ├── 814.ffmpeg.js   # Worker
+    ├── util.js
+    ├── ffmpeg-core.js
+    └── ffmpeg-core.wasm
+```
 
-## Architecture
-
-Fichier unique HTML/CSS/JS (IndexedDB, état global, UI responsive) — même philosophie que Kids Story Studio, refactorisé pour le cas d'usage ambiance/lofi.
-
-## Commande FFmpeg (assemblage 3H)
+Servez le dossier via un serveur HTTP local (les Workers ne fonctionnent pas en `file://`) :
 
 ```bash
-ffmpeg -stream_loop -1 -i video_loop.mp4 -stream_loop -1 -i audio_track.mp3 \
+cd ambiance-video-v1 && python3 -m http.server 8765
+# → http://127.0.0.1:8765/
+```
+
+## Commande FFmpeg exécutée localement
+
+```text
+ffmpeg -stream_loop -1 -i input.mp4 -stream_loop -1 -i input.mp3 \
   -c:v copy -c:a aac -b:a 192k -t 10800 -shortest output_3h.mp4
 ```
 
-Avec crossfade intelligent, le client prépare un `filter_complex` `afade` pour le backend (`SERVER_URL` + `/api/assemble`, mode `ambiance_loop_3h`).
+Conseil : testez d'abord la durée « 1 min » avant une vraie 3 heures (RAM).
