@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Ambiance Video Studio v1.5 — Lofi / Cozy 3H</title>
+<title>Ambiance Video Studio v1.6 — Lofi / Cozy 3H</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f1a1f'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23e8a85c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -667,7 +667,7 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 <header>
     <h1 class="brand">Ambiance Video Studio</h1>
     <p class="subtitle">Téléversez votre image, animez-la avec Agnes, assemblez une boucle Lofi de 3 heures — 100&nbsp;% dans le navigateur (FFmpeg.wasm).</p>
-    <span class="version-pill">v1.5 · WebM→MP4 fps fixe · 3 heures</span>
+    <span class="version-pill">v1.6 · serveur multithread + FFmpeg préchargé</span>
 </header>
 
 <!-- Bannière critique si ouvert en file:// ou sans lib/ffmpeg -->
@@ -679,9 +679,17 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
     <ol style="margin:0.5rem 0 0 1.2rem;">
         <li>Windows : double-cliquez <code>demarrer.bat</code></li>
         <li>Mac/Linux : <code>./demarrer.sh</code></li>
-        <li>Ou : <code>python -m http.server 8765</code> dans ce dossier</li>
+        <li>Ou : <code>python3 serve.py</code> dans ce dossier</li>
         <li>Ouvrez <code>http://127.0.0.1:8765/</code> (pas le fichier local)</li>
+        <li><strong>Laissez la fenêtre du serveur ouverte</strong> pendant tout l’usage</li>
     </ol>
+</div>
+
+<!-- Bannière si le serveur local (port 8765) ne répond plus -->
+<div id="server-down-banner" style="display:none; background:#5a1a1a; border:2px solid var(--error); border-radius:var(--radius); padding:1rem 1.15rem; margin-bottom:1rem; font-size:0.88rem; line-height:1.5;">
+    <strong style="color:var(--error); display:block; margin-bottom:0.45rem;">⛔ Serveur local arrêté (ERR_CONNECTION_REFUSED)</strong>
+    La page est encore en mémoire, mais <code>lib/ffmpeg/ffmpeg-core.js</code> ne peut plus être téléchargé.<br>
+    <strong>Relancez</strong> <code>demarrer.bat</code> / <code>demarrer.sh</code> (ne fermez pas la fenêtre), puis <strong>rechargez</strong> cette page.
 </div>
 
 <div class="info-banner">
@@ -991,6 +999,9 @@ const state = {
     aiContentDeclared: false,
     ffmpegInstance: null,
     ffmpegLoaded: false,
+    ffmpegBlobURLs: null,        // { core, wasm } préchargés
+    ffmpegPrefetchPromise: null,
+    serverReachable: true,
     localFallbackEnabled: true,  // bascule auto si Agnes 503
     localOnlyMode: true,         // par défaut : ignorer Agnes (évite les attentes 503)
     videoSource: null            // 'agnes' | 'local'
@@ -1056,6 +1067,156 @@ async function loadStateFromIDB() {
     } catch (e) {
         log('IndexedDB load ignoré : ' + e.message);
     }
+}
+
+async function idbGetRaw(key) {
+    const db = await openAmbianceDB();
+    try {
+        return await new Promise(function (resolve, reject) {
+            const tx = db.transaction(IDB_STORE, 'readonly');
+            const req = tx.objectStore(IDB_STORE).get(key);
+            req.onsuccess = function () { resolve(req.result); };
+            req.onerror = function () { reject(req.error); };
+        });
+    } finally {
+        db.close();
+    }
+}
+
+async function idbPutRaw(key, value) {
+    const db = await openAmbianceDB();
+    try {
+        await new Promise(function (resolve, reject) {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put(value, key);
+            tx.oncomplete = function () { resolve(); };
+            tx.onerror = function () { reject(tx.error); };
+        });
+    } finally {
+        db.close();
+    }
+}
+
+function sleepMs(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+function formatFetchError(err) {
+    const msg = (err && err.message) ? String(err.message) : String(err || 'erreur réseau');
+    if (/Failed to fetch|NetworkError|ERR_CONNECTION_REFUSED|Load failed/i.test(msg)) {
+        return 'Serveur local arrêté (port 8765). Relancez demarrer.bat / demarrer.sh — ne fermez pas la fenêtre — puis rechargez la page.';
+    }
+    return msg;
+}
+
+async function probeLocalServer() {
+    if (isFileProtocol()) {
+        state.serverReachable = false;
+        return false;
+    }
+    try {
+        const res = await fetch(FFMPEG_LIB_BASE + 'ffmpeg.js?probe=' + Date.now(), {
+            method: 'GET',
+            cache: 'no-store'
+        });
+        state.serverReachable = res.ok;
+    } catch (e) {
+        state.serverReachable = false;
+    }
+    const banner = document.getElementById('server-down-banner');
+    if (banner) {
+        banner.style.display = (!isFileProtocol() && !state.serverReachable) ? 'block' : 'none';
+    }
+    return state.serverReachable;
+}
+
+/**
+ * Charge un asset FFmpeg (core/wasm) : mémoire → IndexedDB → réseau (retry).
+ * Le préchargement au démarrage évite ERR_CONNECTION_REFUSED si le serveur
+ * est fermé pendant l’enregistrement de la boucle.
+ */
+async function loadFFmpegAssetBuffer(filename, onProgress) {
+    const cacheKey = 'ffmpeg-asset:' + filename;
+    try {
+        const cached = await idbGetRaw(cacheKey);
+        if (cached instanceof ArrayBuffer && cached.byteLength > 1000) {
+            log('FFmpeg cache IDB : ' + filename + ' · ' + cached.byteLength + ' o');
+            return cached;
+        }
+        if (cached && cached.buffer instanceof ArrayBuffer && cached.byteLength > 1000) {
+            const copy = cached.buffer.slice(cached.byteOffset, cached.byteOffset + cached.byteLength);
+            log('FFmpeg cache IDB : ' + filename + ' · ' + copy.byteLength + ' o');
+            return copy;
+        }
+    } catch (e) {
+        log('Cache IDB lu ignoré : ' + e.message);
+    }
+
+    const url = FFMPEG_LIB_BASE + filename;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            if (onProgress) onProgress(attempt === 1 ? 8 : 12, 'Téléchargement ' + filename + ' (essai ' + attempt + '/3)…');
+            const res = await fetch(url, { cache: 'force-cache' });
+            if (!res.ok) throw new Error('HTTP ' + res.status + ' pour ' + filename);
+            const buf = await res.arrayBuffer();
+            if (!buf || buf.byteLength < 1000) throw new Error(filename + ' vide ou tronqué');
+            try {
+                await idbPutRaw(cacheKey, buf);
+            } catch (e) {
+                log('Cache IDB écriture ignorée : ' + e.message);
+            }
+            log('FFmpeg réseau : ' + filename + ' · ' + buf.byteLength + ' o');
+            return buf;
+        } catch (e) {
+            lastErr = e;
+            log('Fetch ' + filename + ' échoué (' + attempt + '/3) : ' + formatFetchError(e));
+            await probeLocalServer();
+            await sleepMs(400 * attempt);
+        }
+    }
+    throw new Error(formatFetchError(lastErr));
+}
+
+async function ensureFFmpegBlobURLs(onProgress) {
+    if (state.ffmpegBlobURLs && state.ffmpegBlobURLs.core && state.ffmpegBlobURLs.wasm) {
+        return state.ffmpegBlobURLs;
+    }
+    if (state.ffmpegPrefetchPromise) {
+        return state.ffmpegPrefetchPromise;
+    }
+    state.ffmpegPrefetchPromise = (async function () {
+        if (onProgress) onProgress(6, 'Préchargement FFmpeg.wasm (core + wasm)…');
+        const coreBuf = await loadFFmpegAssetBuffer('ffmpeg-core.js', onProgress);
+        if (onProgress) onProgress(20, 'Préchargement ffmpeg-core.wasm (~32 Mo)…');
+        const wasmBuf = await loadFFmpegAssetBuffer('ffmpeg-core.wasm', onProgress);
+        const urls = {
+            core: URL.createObjectURL(new Blob([coreBuf], { type: 'text/javascript' })),
+            wasm: URL.createObjectURL(new Blob([wasmBuf], { type: 'application/wasm' }))
+        };
+        state.ffmpegBlobURLs = urls;
+        state.serverReachable = true;
+        const banner = document.getElementById('server-down-banner');
+        if (banner) banner.style.display = 'none';
+        log('FFmpeg blobs prêts (préchargés)');
+        return urls;
+    })();
+    try {
+        return await state.ffmpegPrefetchPromise;
+    } catch (e) {
+        state.ffmpegPrefetchPromise = null;
+        throw e;
+    }
+}
+
+function prefetchFFmpegInBackground() {
+    if (isFileProtocol() || !isFFmpegAvailable()) return;
+    ensureFFmpegBlobURLs(function (pct, msg) {
+        log(msg + (pct != null ? ' (' + pct + '%)' : ''));
+    }).catch(function (e) {
+        log('Préchargement FFmpeg différé : ' + formatFetchError(e));
+        probeLocalServer();
+    });
 }
 
 // ── Utilitaires UI ───────────────────────────────────────────────
@@ -1909,7 +2070,10 @@ async function createLocalAmbientLoop(onProgress) {
             }
         }
     } catch (e) {
-        log('Conversion FFmpeg ignorée : ' + e.message);
+        log('Conversion FFmpeg ignorée : ' + formatFetchError(e));
+        if (onProgress) {
+            onProgress('Boucle WebM prête — FFmpeg indisponible : ' + formatFetchError(e));
+        }
     }
 
     log('Conservation WebM');
@@ -2124,14 +2288,13 @@ async function ensureFFmpegLoaded(onProgress) {
     if (!isFFmpegAvailable()) {
         throw new Error(
             isFileProtocol()
-                ? 'Vous avez ouvert le HTML en file://. Lancez demarrer.bat (ou python -m http.server 8765) dans le dossier ambiance-video-v1 complet, puis ouvrez http://127.0.0.1:8765/'
+                ? 'Vous avez ouvert le HTML en file://. Lancez demarrer.bat (fenêtre ouverte) puis http://127.0.0.1:8765/'
                 : 'FFmpeg.wasm introuvable. Le dossier lib/ffmpeg/ doit accompagner index.html. Ne téléchargez pas le HTML seul.'
         );
     }
     const FFmpeg = FFmpegWASM.FFmpeg;
-    const toBlobURL = FFmpegUtil.toBlobURL;
-    if (!FFmpeg || !toBlobURL) {
-        throw new Error('FFmpegUtil / FFmpegWASM incorrectement importés');
+    if (!FFmpeg) {
+        throw new Error('FFmpegWASM.FFmpeg incorrectement importé');
     }
 
     const ffmpeg = new FFmpeg();
@@ -2145,16 +2308,38 @@ async function ensureFFmpegLoaded(onProgress) {
     });
 
     if (onProgress) onProgress(5, 'Chargement du moteur FFmpeg.wasm local…');
-    // Worker 814.ffmpeg.js résolu via publicPath du script lib/ffmpeg/ffmpeg.js (même origine).
-    // core + wasm en blob URL pour stabiliser le chargement WASM.
-    await ffmpeg.load({
-        coreURL: await toBlobURL(FFMPEG_LIB_BASE + 'ffmpeg-core.js', 'text/javascript'),
-        wasmURL: await toBlobURL(FFMPEG_LIB_BASE + 'ffmpeg-core.wasm', 'application/wasm')
-    });
+    // Prefetch + cache IDB : blobs prêts même si demarrer.bat a été fermé ensuite.
+    // Worker 814.ffmpeg.js reste servi depuis lib/ffmpeg/ (même origine).
+    let urls;
+    try {
+        urls = await ensureFFmpegBlobURLs(onProgress);
+    } catch (e) {
+        await probeLocalServer();
+        throw new Error(formatFetchError(e));
+    }
+
+    try {
+        await ffmpeg.load({
+            coreURL: urls.core,
+            wasmURL: urls.wasm
+        });
+    } catch (e) {
+        // Un seul essai réseau direct si les blobs préchargés sont périmés
+        state.ffmpegBlobURLs = null;
+        state.ffmpegPrefetchPromise = null;
+        if (onProgress) onProgress(10, 'Rechargement FFmpeg depuis le serveur…');
+        const ok = await probeLocalServer();
+        if (!ok) throw new Error(formatFetchError(e));
+        urls = await ensureFFmpegBlobURLs(onProgress);
+        await ffmpeg.load({
+            coreURL: urls.core,
+            wasmURL: urls.wasm
+        });
+    }
 
     state.ffmpegInstance = ffmpeg;
     state.ffmpegLoaded = true;
-    log('FFmpeg.wasm chargé (local)');
+    log('FFmpeg.wasm chargé (local, blobs)');
     return ffmpeg;
 }
 
@@ -2356,9 +2541,10 @@ async function assemble3HourLoopLocal() {
             finalFilmEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (e) { /* ignore */ }
     } catch (e) {
-        log('Erreur FFmpeg.wasm : ' + e.message);
-        statusEl.textContent = '❌ ' + e.message;
-        showToast(e.message, 'error', 6000);
+        const errMsg = formatFetchError(e);
+        log('Erreur FFmpeg.wasm : ' + errMsg);
+        statusEl.textContent = '❌ ' + errMsg;
+        showToast(errMsg, 'error', 7000);
     } finally {
         state.isAssembling = false;
         state.stopRequested = false;
@@ -2793,9 +2979,15 @@ function runSelfValidation() {
             'error',
             8000
         );
+    } else {
+        // Précharge ~32 Mo dès l’ouverture (cache IDB) avant la boucle locale
+        prefetchFFmpegInBackground();
+        setInterval(function () {
+            if (!state.isRunning && !state.isAssembling) probeLocalServer();
+        }, 15000);
     }
 
-    log('Ambiance Video Studio v1.5 prêt — cadre fixe + WebM→MP4 fps=30');
+    log('Ambiance Video Studio v1.6 prêt — FFmpeg préchargé + serveur multithread');
 })();
 </script>
 </body>
