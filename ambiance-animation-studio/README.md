@@ -1,56 +1,41 @@
 # Ambiance Animation Studio
 
-Boucle d’ambiance 10 s à partir de **n’importe quelle image**  
-(cadre fixe — seuls les effets bougent).
+## Démarrer sur Windows (si ça ne marche pas)
 
-## Si le navigateur dit « can't connect to server »
+### Méthode A — la plus simple
 
-Cela signifie que **aucun serveur n’écoute** sur votre PC.  
-`http://127.0.0.1:8765/` ne s’ouvre pas tout seul.
+1. Téléchargez le **ZIP complet** du projet (GitHub → Code → Download ZIP)
+2. Dézippez (clic droit → Extraire)
+3. Ouvrez le dossier jusqu’à voir ces fichiers :
+   - `1-LANCER.bat`
+   - `index.html`
+   - `lib` (dossier)
+4. Double-cliquez **`1-LANCER.bat`**  
+   (ou `LANCER.vbs` si le .bat se ferme tout de suite)
+5. **Laissez la fenêtre ouverte**
+6. Chrome doit s’ouvrir sur `http://127.0.0.1:8765/`
 
-### Windows (recommandé)
+### Méthode B — si A échoue
 
-1. Téléchargez le dossier **complet** `ambiance-animation-studio`  
-   (GitHub → Code → Download ZIP → dézippez)
-2. Entrez dans le dossier (vous devez voir `demarrer.bat` + `lib\ffmpeg\`)
-3. Double-cliquez **`demarrer.bat`**
-4. **Laissez la fenêtre noire ouverte**
-5. Une URL verte apparaît, ex. `http://127.0.0.1:8765/` — ouvrez-la dans Chrome
-
-`demarrer.bat` essaie automatiquement :
-1. Python → 2. PowerShell (**sans Python**) → 3. Node.js
-
-### Si ça échoue encore
-
-Ouvrez **PowerShell** dans le dossier et collez :
+1. Dans le dossier, double-cliquez **`diagnostique.bat`**
+2. Photo / copiez tout le texte
+3. Toujours dans le dossier : barre d’adresse → effacez → tapez `powershell` → Entrée
+4. Collez :
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\serve.ps1
+Set-ExecutionPolicy -Scope Process Bypass -Force; .\serve.ps1
 ```
 
-Puis ouvrez l’URL affichée.
+### Si vous voyez encore « can't connect »
 
-### Mac / Linux
+- La fenêtre noire / PowerShell a été **fermée** → relancez `1-LANCER.bat`
+- Vous avez ouvert seulement `index.html` → **ne pas faire ça**
+- Mauvais dossier (pas de dossier `lib`) → reprise du ZIP complet
+
+Le fichier **`demarrer-log.txt`** est créé automatiquement : envoyez-le pour de l’aide.
+
+## Mac / Linux
 
 ```bash
-cd ambiance-animation-studio
-chmod +x demarrer.sh
 ./demarrer.sh
 ```
-
-## Contenu obligatoire
-
-```
-ambiance-animation-studio/
-├── demarrer.bat      ← Windows
-├── demarrer.sh
-├── serve.py / serve.ps1 / serve.mjs
-├── index.html
-└── lib/ffmpeg/       ← ~31 Mo, obligatoire
-```
-
-## Ne pas faire
-
-- ❌ Double-cliquer seulement `index.html`
-- ❌ Fermer la fenêtre du serveur puis recharger la page
-- ❌ Ouvrir `127.0.0.1` sur un autre ordinateur que celui où tourne `demarrer`
