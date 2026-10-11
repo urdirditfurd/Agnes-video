@@ -1,4 +1,4 @@
-# Ambiance Video Studio v1.3
+# Ambiance Video Studio v1.5
 
 ## ⚠️ Ne téléchargez PAS seulement `index.html`
 
@@ -29,7 +29,8 @@ ambiance-video-v1/
 1. Copiez le dossier **complet** `ambiance-video-v1` (pas un HTML seul)
 2. Double-cliquez **`demarrer.bat`**
 3. Le navigateur s’ouvre sur **http://127.0.0.1:8765/**
-4. Image + musique → **Créer la boucle locale** → **Assembler 3H**
+4. **Hard-reload** (Ctrl+Shift+R) — la console doit afficher `v1.5` et `fps=30`
+5. Image + musique → **Créer la boucle locale** → **Assembler 3H**
 
 ## Démarrage (Mac / Linux)
 
@@ -42,5 +43,7 @@ chmod +x demarrer.sh
 ## Flux
 
 1. Upload image + musique  
-2. Boucle courte locale Ken Burns (Agnes désactivé par défaut)  
-3. Assemblage 3H avec FFmpeg.wasm dans le navigateur  
+2. Boucle courte locale (cadre fixe + particules ; Agnes désactivé par défaut)  
+3. Conversion WebM → MP4 forcée à **30 fps** (`-frames:v` exact — évite le bug Chrome « 1000 fps »)  
+4. Assemblage 3H avec FFmpeg.wasm + audio mixé dans le navigateur  
+

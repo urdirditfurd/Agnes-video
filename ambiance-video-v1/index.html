@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Ambiance Video Studio v1.4 — Lofi / Cozy 3H</title>
+<title>Ambiance Video Studio v1.5 — Lofi / Cozy 3H</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f1a1f'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23e8a85c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -667,7 +667,7 @@ textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 <header>
     <h1 class="brand">Ambiance Video Studio</h1>
     <p class="subtitle">Téléversez votre image, animez-la avec Agnes, assemblez une boucle Lofi de 3 heures — 100&nbsp;% dans le navigateur (FFmpeg.wasm).</p>
-    <span class="version-pill">v1.4 · cadre fixe + audio mixé · 3 heures</span>
+    <span class="version-pill">v1.5 · WebM→MP4 fps fixe · 3 heures</span>
 </header>
 
 <!-- Bannière critique si ouvert en file:// ou sans lib/ffmpeg -->
@@ -1827,37 +1827,38 @@ async function createLocalAmbientLoop(onProgress) {
         recorder.onerror = function () { reject(new Error('Erreur MediaRecorder')); };
     });
 
-    recorder.start(200);
+    // timeslice ≈ 1 frame — réduit les timestamps aberrants Chrome (1k tbr)
+    recorder.start(Math.round(1000 / fps));
     const start = performance.now();
     const totalMs = durationSec * 1000;
-    let lastNow = start;
+    const frameInterval = 1000 / fps;
+    let frameIndex = 0;
+    const totalFrames = durationSec * fps;
 
     await new Promise(function (resolve) {
-        function frame(now) {
+        function tick() {
             if (state.stopRequested) {
                 try { recorder.stop(); } catch (e) { /* ignore */ }
                 resolve();
                 return;
             }
-            const elapsed = now - start;
-            const dt = Math.min(2.5, (now - lastNow) / (1000 / fps));
-            lastNow = now;
-
-            // 1) Fond 100 % STATIQUE — aucun scale / translate / zoom
+            // 1) Fond 100 % STATIQUE
             ctx.fillStyle = '#0c1418';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
+            // 2) Overlay particules (dt = 1 frame)
+            drawAmbientParticles(ctx, particles, style, width, height, 1);
 
-            // 2) Overlay particules uniquement
-            drawAmbientParticles(ctx, particles, style, width, height, dt);
-
-            if (elapsed < totalMs) {
-                requestAnimationFrame(frame);
+            frameIndex++;
+            if (frameIndex < totalFrames) {
+                const target = start + frameIndex * frameInterval;
+                const delay = Math.max(0, target - performance.now());
+                setTimeout(tick, delay);
             } else {
                 resolve();
             }
         }
-        requestAnimationFrame(frame);
+        tick();
     });
 
     if (state.stopRequested) throw new Error('Arrêt demandé');
@@ -1868,7 +1869,7 @@ async function createLocalAmbientLoop(onProgress) {
     if (webmBlob.size < 500) {
         throw new Error('Boucle locale vide — réessayez');
     }
-    log('WebM local · ' + webmBlob.size + ' octets');
+    log('WebM local · ' + webmBlob.size + ' octets · ' + totalFrames + ' frames cibles');
 
     if (!isFFmpegAvailable()) {
         log('FFmpeg absent — conservation WebM');
@@ -1877,24 +1878,18 @@ async function createLocalAmbientLoop(onProgress) {
     }
 
     try {
-        if (onProgress) onProgress('Conversion WebM → MP4 (FFmpeg.wasm)…');
+        if (onProgress) onProgress('Conversion WebM → MP4 (fps=30, sans duplication)…');
         const ffmpeg = await ensureFFmpegLoaded(function (pct, msg) {
             if (onProgress) onProgress(msg || ('FFmpeg ' + pct + '%'));
         });
         const fetchFile = FFmpegUtil.fetchFile;
         await ffmpeg.writeFile('local_in.webm', await fetchFile(webmBlob));
 
-        const encoders = [
-            ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', '23'],
-            ['-c:v', 'mpeg4', '-q:v', '5']
-        ];
-        for (let i = 0; i < encoders.length; i++) {
+        const variants = buildWebmToMp4Args('local_in.webm', 'loop_short.mp4', durationSec);
+        for (let i = 0; i < variants.length; i++) {
             try {
-                const args = ['-i', 'local_in.webm']
-                    .concat(encoders[i])
-                    .concat(['-an', '-t', String(durationSec), 'loop_short.mp4']);
-                log('convert try: ffmpeg ' + args.join(' '));
-                await ffmpeg.exec(args);
+                log('convert try: ffmpeg ' + variants[i].join(' '));
+                await ffmpeg.exec(variants[i]);
                 const data = await ffmpeg.readFile('loop_short.mp4');
                 if (data && data.byteLength > 1000) {
                     const buffer = data.buffer.slice(
@@ -1906,7 +1901,7 @@ async function createLocalAmbientLoop(onProgress) {
                         await ffmpeg.deleteFile('local_in.webm');
                         await ffmpeg.deleteFile('loop_short.mp4');
                     } catch (e) { /* ignore */ }
-                    log('MP4 local OK · ' + mp4Blob.size + ' octets');
+                    log('MP4 local OK · ' + mp4Blob.size + ' octets (sans frame dupliquées)');
                     return mp4Blob;
                 }
             } catch (encErr) {
@@ -1919,6 +1914,44 @@ async function createLocalAmbientLoop(onProgress) {
 
     log('Conservation WebM');
     return webmBlob;
+}
+
+/**
+ * Chrome MediaRecorder produit souvent un WebM à « 1000 fps » (1k tbr).
+ * Sans correction, FFmpeg duplique >1000 frames pour -t 10.
+ * On force fps=30 + -frames:v exact.
+ */
+function buildWebmToMp4Args(inputName, outputName, durationSec) {
+    const fps = 30;
+    const frames = Math.max(1, Math.round(Number(durationSec) * fps));
+    return [
+        [
+            '-fflags', '+genpts',
+            '-i', inputName,
+            '-vf', 'fps=' + fps + ',setpts=N/' + fps + '/TB,format=yuv420p',
+            '-frames:v', String(frames),
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+            '-an', '-movflags', '+faststart',
+            outputName
+        ],
+        [
+            '-i', inputName,
+            '-vf', 'fps=' + fps + ',format=yuv420p',
+            '-r', String(fps),
+            '-frames:v', String(frames),
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+            '-an',
+            outputName
+        ],
+        [
+            '-i', inputName,
+            '-vf', 'fps=' + fps + ',format=yuv420p',
+            '-frames:v', String(frames),
+            '-c:v', 'mpeg4', '-q:v', '5',
+            '-an',
+            outputName
+        ]
+    ];
 }
 
 /** Alias rétrocompatible */
@@ -2220,14 +2253,12 @@ async function assemble3HourLoopLocal() {
         await ffmpeg.writeFile(videoInName, await fetchFile(shortVideoBlob));
 
         if (isWebm) {
-            setProg(18, 'Normalisation WebM → MP4 (sans piste audio)…');
+            setProg(18, 'Normalisation WebM → MP4 (fps=30, sans duplication)…');
             let ok = false;
-            const tries = [
-                ['-i', 'input.webm', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', 'input.mp4'],
-                ['-i', 'input.webm', '-c:v', 'mpeg4', '-q:v', '5', '-an', 'input.mp4']
-            ];
+            const tries = buildWebmToMp4Args('input.webm', 'input.mp4', 10);
             for (let i = 0; i < tries.length && !ok; i++) {
                 try {
+                    log('norm try: ffmpeg ' + tries[i].join(' '));
                     await ffmpeg.exec(tries[i]);
                     ok = true;
                 } catch (e) {
@@ -2764,7 +2795,7 @@ function runSelfValidation() {
         );
     }
 
-    log('Ambiance Video Studio v1.4 prêt — cadre fixe + audio mixé');
+    log('Ambiance Video Studio v1.5 prêt — cadre fixe + WebM→MP4 fps=30');
 })();
 </script>
 </body>
