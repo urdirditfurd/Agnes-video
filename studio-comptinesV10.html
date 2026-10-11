@@ -157,6 +157,24 @@
         font-size: 0.7rem; cursor: pointer; font-family: inherit; font-weight: 600;
     }
 
+    .gen-modes {
+        margin-top: 0.65rem; padding: 0.7rem 0.85rem;
+        border-radius: 12px; border: 2px solid var(--border);
+        background: linear-gradient(180deg, #fffaf2, #f4f8ff);
+    }
+    .gen-modes .mode-toggle {
+        display: flex; align-items: center; gap: 0.55rem;
+        font-size: 0.82rem; font-weight: 700; color: var(--ink);
+        cursor: pointer; margin: 0.25rem 0;
+    }
+    .gen-modes .mode-toggle input { accent-color: var(--pink); width: 1.05rem; height: 1.05rem; }
+    .gen-modes .mode-hint {
+        margin: 0 0 0.55rem 1.6rem; font-size: 0.7rem; color: var(--ink-dim); line-height: 1.35;
+    }
+    .gen-modes .mode-hint:last-child { margin-bottom: 0; }
+    .gen-modes.night-on { border-color: #5b6cff; background: linear-gradient(180deg, #eef0ff, #fffaf2); }
+    .gen-modes.opt-on { border-color: var(--orange); }
+
     .audio-zone {
         border: 3px dashed var(--blue); border-radius: var(--radius);
         padding: 1.4rem 1rem; text-align: center; cursor: pointer;
@@ -533,6 +551,19 @@
         <span id="wake-status-text">💤 Veille automatique</span>
         <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
     </div>
+
+    <div class="gen-modes" id="gen-modes">
+        <label class="mode-toggle">
+            <input type="checkbox" id="optimize-mode-toggle">
+            <span>⚡ Mode optimisation</span>
+        </label>
+        <p class="mode-hint">Images turbo uniquement · pas de pause 45s sur flux 402 · cooldown Agnes intelligent · ETA réaliste</p>
+        <label class="mode-toggle">
+            <input type="checkbox" id="night-mode-toggle">
+            <span>🌙 Mode nuit (agent)</span>
+        </label>
+        <p class="mode-hint">Écran allumé · ne pas abandonner les scènes sur 503 · pause récupération puis reprise auto jusqu'au matin</p>
+    </div>
 </div>
 
 <div class="resume-banner" id="resume-banner">
@@ -616,6 +647,7 @@
     </div>
     <div class="dash-row">Durée est. : <strong id="dash-duration">—</strong></div>
     <div class="dash-row">Temps écoulé : <strong id="dash-elapsed">—</strong> · restant : <strong id="dash-eta">—</strong></div>
+    <div class="dash-row" id="dash-modes">Modes : —</div>
     <div class="dash-row" id="dash-save-status">💾 Sauvegarde auto activée</div>
     <div class="dash-actions">
         <button type="button" class="primary" id="dash-pause-btn">⏸ Pause</button>
@@ -810,12 +842,18 @@ let createIntervalMs = 90000;
 const CREATE_INTERVAL_MIN = 75000; // 75s — suffisant si le poll précédent a déjà consommé le cooldown
 const CREATE_INTERVAL_MAX = 150000;
 let lastAgnesCreateAt = 0;
+let nightModeEnabled = false;
+let optimizeModeEnabled = false;
+let agnesConsecutiveOutages = 0;
+let agnesLastSuccessAt = 0;
 
 const POLL_INTERVAL_SEC = 10;
 const MAX_POLL_ATTEMPTS = 100;
 
 const AGNES_KEY_STORAGE = 'agnes_api_key';
 const WAKE_LOCK_PREF = 'agnes_wakelock_enabled';
+const NIGHT_MODE_PREF = 'kids_story_night_mode';
+const OPTIMIZE_MODE_PREF = 'kids_story_optimize_mode';
 const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
 
 const MAX_VISIBLE_QUEUE = 30;
@@ -1067,12 +1105,29 @@ function updateFilmDashboard() {
     const started = state.filmStartedAt || Date.now();
     const elapsed = (Date.now() - started) / 1000;
     document.getElementById('dash-elapsed').textContent = formatDurationHuman(elapsed);
+    const remaining = Math.max(0, total - vidOk);
     let eta = '—';
-    if (vidOk > 0 && vidOk < total) {
-        const per = elapsed / vidOk;
-        eta = formatDurationHuman(per * (total - vidOk));
+    if (remaining > 0) {
+        // ~75–90s cooldown + ~40–60s poll/génération par scène (hors pannes Agnes)
+        const nominalPerScene = Math.max(createIntervalMs / 1000 + 50, 120);
+        if (vidOk >= 3 && agnesConsecutiveOutages === 0) {
+            const measured = elapsed / vidOk;
+            // Ignore ETA gonflé par d'anciennes pannes (> 8 min/scène)
+            const per = measured > 0 && measured < 480 ? measured : nominalPerScene;
+            eta = formatDurationHuman(per * remaining);
+        } else {
+            eta = '~' + formatDurationHuman(nominalPerScene * remaining);
+        }
     }
     document.getElementById('dash-eta').textContent = eta;
+    const modesEl = document.getElementById('dash-modes');
+    if (modesEl) {
+        const bits = [];
+        if (optimizeModeEnabled) bits.push('⚡ optimisation');
+        if (nightModeEnabled) bits.push('🌙 nuit/agent');
+        if (agnesConsecutiveOutages > 0) bits.push('⏳ récupération Agnes ×' + agnesConsecutiveOutages);
+        modesEl.textContent = 'Modes : ' + (bits.length ? bits.join(' · ') : 'standard');
+    }
     const pauseBtn = document.getElementById('dash-pause-btn');
     if (pauseBtn) pauseBtn.textContent = state.paused ? '▶ Reprendre' : '⏸ Pause';
 }
@@ -2089,6 +2144,163 @@ function classifyError(error) {
     return { type: 'unknown', retryable: true, wait: 30000 };
 }
 
+function isAgnesTransientError(error) {
+    const msg = ((error && error.message) || String(error) || '').toLowerCase();
+    return /503|429|502|504|failed to fetch|network|timeout|échec après|connection|quic|name_not_resolved|err_/.test(msg);
+}
+
+function isUnattendedMode() {
+    return !!(nightModeEnabled || optimizeModeEnabled);
+}
+
+/** Lightweight health check — does not create a video job. */
+async function probeAgnesApi() {
+    const key = getAgnesKey();
+    if (!key) return { ok: false, reason: 'no-key' };
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(AGNES_API_BASE + '/models', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + key },
+            cache: 'no-store',
+            mode: 'cors',
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.status === 401) return { ok: false, reason: 'auth', status: 401 };
+        if (res.status === 503 || res.status === 502 || res.status === 504) {
+            return { ok: false, reason: 'down', status: res.status };
+        }
+        if (res.ok) return { ok: true, status: res.status };
+        // Autres 4xx : API joignable
+        if (res.status >= 400 && res.status < 500) return { ok: true, status: res.status };
+        return { ok: false, reason: 'down', status: res.status };
+    } catch (e) {
+        return { ok: false, reason: 'network', message: e.message || String(e) };
+    }
+}
+
+function updateGenModesUI() {
+    const box = document.getElementById('gen-modes');
+    const opt = document.getElementById('optimize-mode-toggle');
+    const night = document.getElementById('night-mode-toggle');
+    if (opt) opt.checked = optimizeModeEnabled;
+    if (night) night.checked = nightModeEnabled;
+    if (box) {
+        box.classList.toggle('opt-on', optimizeModeEnabled);
+        box.classList.toggle('night-on', nightModeEnabled);
+    }
+}
+
+async function setOptimizeMode(on) {
+    optimizeModeEnabled = !!on;
+    try { localStorage.setItem(OPTIMIZE_MODE_PREF, optimizeModeEnabled ? '1' : '0'); } catch (e) { /* ignore */ }
+    if (optimizeModeEnabled) {
+        pollinationsPreferredModel = 'turbo';
+        blacklistPollinationsModel('flux', 240);
+        log('⚡ Mode optimisation ON — Pollinations turbo uniquement');
+        showToast('Mode optimisation activé', 'success');
+    } else {
+        log('⚡ Mode optimisation OFF');
+    }
+    updateGenModesUI();
+    updateFilmDashboard();
+}
+
+async function setNightMode(on) {
+    nightModeEnabled = !!on;
+    try { localStorage.setItem(NIGHT_MODE_PREF, nightModeEnabled ? '1' : '0'); } catch (e) { /* ignore */ }
+    if (nightModeEnabled) {
+        if (!optimizeModeEnabled) await setOptimizeMode(true);
+        wakeLockEnabled = true;
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) { /* ignore */ }
+        await activateWakeLock();
+        updateWakeStatus();
+        log('🌙 Mode nuit ON — agent de reprise + écran allumé');
+        showToast('Mode nuit activé — la génération peut tourner jusqu\'au matin', 'success', 5000);
+    } else {
+        log('🌙 Mode nuit OFF');
+    }
+    updateGenModesUI();
+    updateFilmDashboard();
+}
+
+/**
+ * Pause quand Agnes est en panne — sonde /models périodiquement et reprend
+ * dès que l'API répond (évite d'attendre 3–15 min aveugles + créations 503 inutiles).
+ */
+async function waitForAgnesRecovery(severity) {
+    const level = Math.max(1, severity || 1);
+    const maxWait = nightModeEnabled ? 1800 : (optimizeModeEnabled ? 600 : 240);
+    const base = nightModeEnabled ? 120 : (optimizeModeEnabled ? 90 : 60);
+    const waitSec = Math.min(Math.round(base * Math.pow(1.35, Math.min(level - 1, 8))), maxWait);
+    const probeEvery = nightModeEnabled ? 30 : 20;
+    log('⏳ Agnes indisponible — veille ' + waitSec + 's max (niveau ' + level + ')' +
+        (nightModeEnabled ? ' · mode nuit' : '') + ' · sonde /models toutes les ' + probeEvery + 's');
+
+    for (let r = waitSec; r > 0; r--) {
+        if (state.stopRequested) return;
+        while (state.paused && !state.stopRequested) await sleep(500);
+        if (state.stopRequested) return;
+
+        // Sonde périodique : reprise anticipée dès retour API
+        if ((waitSec - r) % probeEvery === 0) {
+            setStatus('Agnes indisponible — sonde API… (reprise auto)');
+            const probe = await probeAgnesApi();
+            if (probe.ok) {
+                log('✅ Agnes de nouveau joignable (HTTP ' + (probe.status || 200) +
+                    ') — reprise anticipée');
+                setStatus('Agnes de retour — reprise…');
+                agnesConsecutiveOutages = Math.max(0, agnesConsecutiveOutages - 1);
+                return;
+            }
+            if (probe.reason === 'auth') {
+                log('❌ Sonde Agnes : clé invalide (401)');
+                throw new Error('AGNES_AUTH_INVALID');
+            }
+            const detail = probe.status ? ('HTTP ' + probe.status) : (probe.message || probe.reason);
+            log('Sonde Agnes : toujours down (' + detail + ')');
+        }
+
+        setStatus('Agnes indisponible — veille ' + r + 's (sonde auto, pas d\'abandon)…');
+        await sleep(1000);
+        if (r % 45 === 0) await ensureWakeLockActive();
+    }
+    // Dernière sonde avant de sortir du plafond
+    const last = await probeAgnesApi();
+    if (last.ok) {
+        log('✅ Agnes joignable en fin de veille — reprise');
+        return;
+    }
+    log('⏳ Fin de veille Agnes — nouvel essai création quand même');
+}
+
+/** Après pollSceneVideo (qui avale les erreurs) : retry unattended ou hard-fail. */
+async function handlePostPollOutcome(scene) {
+    if (scene.status === 'done') {
+        agnesConsecutiveOutages = 0;
+        agnesLastSuccessAt = Date.now();
+        return 'done';
+    }
+    if (state.stopRequested || (scene.progress === 'Arrêté')) return 'stop';
+    const errMsg = scene.error || scene.progress || '';
+    if (isUnattendedMode() && isAgnesTransientError({ message: errMsg })) {
+        if (scene.status === 'failed' && state.failed > 0) state.failed--;
+        agnesConsecutiveOutages++;
+        log('[Scène ' + (scene.index + 1) + '] Poll/téléchargement transitoire — récupération');
+        scene.status = scene.videoId ? 'processing' : 'image-done';
+        scene.error = null;
+        scene.progress = 'Retry…';
+        await persistCheckpoint();
+        renderQueue();
+        updateFilmDashboard();
+        await waitForAgnesRecovery(agnesConsecutiveOutages);
+        return 'retry';
+    }
+    return 'fail';
+}
+
 // ══════════════════════════════════════════════════════════════════
 // POLLINATIONS
 // ══════════════════════════════════════════════════════════════════
@@ -2096,13 +2308,26 @@ function classifyError(error) {
 const POLLINATIONS_FREE_MODELS = ['turbo', 'flux'];
 const pollinationsBlockedModels = {}; // model -> timestamp blacklist
 let pollinationsPreferredModel = 'turbo';
+/** Soft cooldown after intermittent 402 (ms timestamp). Avoids local fallback every other scene. */
+let pollinationsQuotaCoolUntil = 0;
+let pollinationsConsecutive402 = 0;
+/** Adaptive gap between Pollinations calls (ms). Elevates after 402 so next scene doesn't burn attempt 1. */
+let pollinationsSafeIntervalMs = 24000;
+const POLLINATIONS_SAFE_MIN_MS = 24000;
+const POLLINATIONS_SAFE_ELEVATED_MS = 55000;
+const POLLINATIONS_SAFE_MAX_MS = 75000;
+let pollinationsSuccessStreak = 0;
 
 function getPollinationsModels() {
     const now = Date.now();
-    const available = POLLINATIONS_FREE_MODELS.filter(m => {
+    let available = POLLINATIONS_FREE_MODELS.filter(m => {
         const until = pollinationsBlockedModels[m] || 0;
         return until < now;
     });
+    // Optimisation / nuit : turbo seul (évite flux 402)
+    if (optimizeModeEnabled || nightModeEnabled) {
+        return ['turbo'];
+    }
     if (!available.length) return POLLINATIONS_FREE_MODELS.slice();
     // Prefer last working model first
     const preferred = pollinationsPreferredModel;
@@ -2122,29 +2347,85 @@ function blacklistPollinationsModel(model, minutes) {
     }
 }
 
-async function generateImageWithPollinations(prompt, retries = 4) {
-    const now = Date.now();
-    const elapsed = now - state.lastPollinationsCall;
-    // Intervalle plus court si on est déjà sur turbo (moins de 402 inutiles)
-    const minInterval = pollinationsPreferredModel === 'turbo'
-        ? Math.min(POLLINATIONS_MIN_INTERVAL_MS, 18000)
-        : POLLINATIONS_MIN_INTERVAL_MS;
-    if (elapsed < minInterval && state.lastPollinationsCall > 0) {
-        const wait = minInterval - elapsed;
-        log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's');
-        setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
-        await sleep(wait);
+function bumpPollinationsSafeInterval(reason) {
+    const prev = pollinationsSafeIntervalMs;
+    pollinationsSafeIntervalMs = Math.min(
+        POLLINATIONS_SAFE_MAX_MS,
+        Math.max(POLLINATIONS_SAFE_ELEVATED_MS, pollinationsSafeIntervalMs + 5000)
+    );
+    pollinationsSuccessStreak = 0;
+    if (pollinationsSafeIntervalMs !== prev) {
+        log('⏱ Espacement Pollinations → ' + Math.round(pollinationsSafeIntervalMs / 1000) +
+            's (' + reason + ')');
     }
-    state.lastPollinationsCall = Date.now();
+}
+
+function decayPollinationsSafeInterval() {
+    if (pollinationsSafeIntervalMs <= POLLINATIONS_SAFE_MIN_MS) return;
+    pollinationsSuccessStreak++;
+    // Après 3 succès d'affilée sans 402, assouplir progressivement
+    if (pollinationsSuccessStreak >= 3) {
+        const prev = pollinationsSafeIntervalMs;
+        pollinationsSafeIntervalMs = Math.max(
+            POLLINATIONS_SAFE_MIN_MS,
+            pollinationsSafeIntervalMs - 5000
+        );
+        if (pollinationsSafeIntervalMs !== prev) {
+            log('⏱ Espacement Pollinations → ' + Math.round(pollinationsSafeIntervalMs / 1000) +
+                's (assoupli)');
+        }
+    }
+}
+
+async function waitPollinationsQuotaRecovery(severity) {
+    const level = Math.max(1, severity || 1);
+    bumpPollinationsSafeInterval('402');
+    // Pause courte : le prochain appel respectera aussi pollinationsSafeIntervalMs
+    const waitSec = Math.min(25 + level * 15, nightModeEnabled ? 120 : 90);
+    pollinationsQuotaCoolUntil = Date.now() + waitSec * 1000;
+    log('⏳ Pollinations quota 402 — pause ' + waitSec + 's puis retry turbo (pas de fallback local)');
+    for (let r = waitSec; r > 0; r--) {
+        if (state.stopRequested) return;
+        while (state.paused && !state.stopRequested) await sleep(500);
+        if (state.stopRequested) return;
+        setStatus('Quota Pollinations — retry image dans ' + r + 's…');
+        await sleep(1000);
+    }
+}
+
+async function generateImageWithPollinations(prompt, retries = 4) {
+    const unattended = isUnattendedMode();
+    // En mode nuit/opt : beaucoup plus de retries avec pauses — éviter les images locales
+    const maxAttempts = unattended ? 14 : retries;
 
     // Prompt compact + locks en tête (évite de perdre le personnage/décor si tronqué)
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 1600));
     let lastError = null;
     const models = getPollinationsModels();
+    let recoveredFrom402 = false;
 
-    for (let attempt = 0; attempt < retries; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
-        // Tourne sur les modèles encore disponibles (skip flux blacklisté)
+
+        // Intervalle adaptatif : après des 402, espacer ~55s pour éviter l'échec systématique #1
+        const baseInterval = unattended
+            ? pollinationsSafeIntervalMs
+            : (pollinationsPreferredModel === 'turbo'
+                ? Math.min(POLLINATIONS_MIN_INTERVAL_MS, 18000)
+                : POLLINATIONS_MIN_INTERVAL_MS);
+        const coolLeft = Math.max(0, pollinationsQuotaCoolUntil - Date.now());
+        const minInterval = Math.max(baseInterval, coolLeft);
+        const elapsed = Date.now() - state.lastPollinationsCall;
+        if (elapsed < minInterval && state.lastPollinationsCall > 0) {
+            const wait = minInterval - elapsed;
+            log('Rate limit Pollinations : attente ' + Math.ceil(wait / 1000) + 's' +
+                (unattended && pollinationsSafeIntervalMs >= POLLINATIONS_SAFE_ELEVATED_MS
+                    ? ' (anti-402)' : ''));
+            setStatus('Respect du quota gratuit… (' + Math.ceil(wait / 1000) + 's)');
+            await sleep(wait);
+        }
+        state.lastPollinationsCall = Date.now();
+
         const model = models[attempt % models.length];
         const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
         const seed = state.seed + attempt;
@@ -2154,7 +2435,7 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             '&_=' + cacheBuster;
 
         try {
-            log('Pollinations [' + model + '] tentative ' + (attempt + 1) + '/' + retries);
+            log('Pollinations [' + model + '] tentative ' + (attempt + 1) + '/' + maxAttempts);
             setStatus('Image [' + model + '] tentative ' + (attempt + 1) + '…');
 
             const controller = new AbortController();
@@ -2163,27 +2444,40 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             clearTimeout(timeoutId);
 
             if (res.status === 401 || res.status === 402) {
-                // Ne PAS attendre 45s : passer immédiatement au modèle suivant
-                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota) → modèle suivant sans pause');
-                blacklistPollinationsModel(model, 180);
-                // Retirer aussi de la liste locale pour cette boucle
+                pollinationsConsecutive402++;
+                recoveredFrom402 = true;
+                if (unattended) {
+                    // 402 intermittent : pause + retry turbo (NE PAS fallback local tout de suite)
+                    log('Pollinations [' + model + '] HTTP ' + res.status +
+                        ' (quota) — récupération #' + pollinationsConsecutive402);
+                    await waitPollinationsQuotaRecovery(pollinationsConsecutive402);
+                    continue;
+                }
+                // Mode standard : essayer autre modèle sans longue pause
+                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota) → modèle suivant');
+                blacklistPollinationsModel(model, 30);
                 const idx = models.indexOf(model);
                 if (idx >= 0) models.splice(idx, 1);
-                if (!models.length) {
-                    log('Tous les modèles Pollinations en 402 — fallback local');
-                    break;
-                }
+                if (!models.length) break;
                 continue;
             }
             if (res.status === 429) {
-                const wait429 = [20, 35, 50][Math.min(attempt, 2)] * 1000;
+                bumpPollinationsSafeInterval('429');
+                const wait429 = [25, 40, 60][Math.min(attempt, 2)] * 1000;
                 log('Pollinations [' + model + '] 429 — pause ' + (wait429 / 1000) + 's');
                 await sleep(wait429);
                 state.lastPollinationsCall = Date.now();
                 continue;
             }
             if (res.status >= 500) {
-                await sleep([5, 10, 15][Math.min(attempt, 2)] * 1000);
+                // 500 souvent suivi d'un 402 si on retente trop vite
+                const wait5xx = unattended
+                    ? [20, 35, 50][Math.min(attempt, 2)] * 1000
+                    : [5, 10, 15][Math.min(attempt, 2)] * 1000;
+                log('Pollinations [' + model + '] HTTP ' + res.status +
+                    ' — pause ' + (wait5xx / 1000) + 's');
+                await sleep(wait5xx);
+                state.lastPollinationsCall = Date.now();
                 continue;
             }
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2192,6 +2486,21 @@ async function generateImageWithPollinations(prompt, retries = 4) {
             if (!blob.type.startsWith('image/')) throw new Error('Réponse non-image');
 
             pollinationsPreferredModel = model;
+            if (recoveredFrom402 || pollinationsConsecutive402 > 0) {
+                // Sticky spacing: next scene waits ~55s instead of burning attempt 1 on 402
+                bumpPollinationsSafeInterval('post-402');
+                pollinationsQuotaCoolUntil = Date.now() + pollinationsSafeIntervalMs;
+            } else if (unattended) {
+                decayPollinationsSafeInterval();
+                // Keep at least the current safe gap before the next scene
+                pollinationsQuotaCoolUntil = Date.now() + Math.min(
+                    pollinationsSafeIntervalMs,
+                    POLLINATIONS_SAFE_ELEVATED_MS
+                );
+            } else {
+                pollinationsQuotaCoolUntil = 0;
+            }
+            pollinationsConsecutive402 = 0;
             log('✅ Image générée avec ' + model);
             return await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -2202,14 +2511,16 @@ async function generateImageWithPollinations(prompt, retries = 4) {
         } catch (e) {
             if (e.name === 'AbortError') log('Pollinations [' + model + '] timeout');
             else { lastError = e; log('Pollinations [' + model + '] échec : ' + e.message); }
-            if (attempt < retries - 1) {
-                await sleep(4000);
+            if (attempt < maxAttempts - 1) {
+                const backoff = unattended ? Math.min(8000 + attempt * 2000, 30000) : 4000;
+                await sleep(backoff);
                 state.lastPollinationsCall = Date.now();
             }
         }
     }
 
-    log('⚠️ Pollinations saturé — fallback local (les vidéos Agnes peuvent quand même marcher)');
+    // Dernier recours uniquement — en mode nuit on a déjà beaucoup retried
+    log('⚠️ Pollinations saturé après ' + maxAttempts + ' tentatives — fallback local');
     setStatus('Fallback image de secours…');
     return await generateFallbackImage(prompt);
 }
@@ -2255,8 +2566,12 @@ async function generateFallbackImage(prompt) {
 // AGNES API
 // ══════════════════════════════════════════════════════════════════
 async function apiFetch(url, options = {}, label = 'API') {
-    const maxAttempts = 6;
+    // Nuit/opt : peu de retries courts — la veille + sonde /models gère le long terme
+    const maxAttempts = nightModeEnabled ? 3 : (optimizeModeEnabled ? 4 : 6);
     let lastError = null;
+    const wait503 = nightModeEnabled
+        ? [15, 30, 45]
+        : (optimizeModeEnabled ? [20, 40, 60, 90] : [15, 30, 45, 60, 90, 120]);
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
@@ -2286,7 +2601,7 @@ async function apiFetch(url, options = {}, label = 'API') {
             }
 
             if (res.status === 503) {
-                const wait = [15, 30, 45, 60, 90, 120][Math.min(attempt, 5)];
+                const wait = wait503[Math.min(attempt, wait503.length - 1)];
                 log(label + ' : HTTP 503, attente ' + wait + 's');
                 setStatus('Serveur occupé, attente ' + wait + 's…');
                 await sleep(wait * 1000);
@@ -2313,7 +2628,8 @@ async function apiFetch(url, options = {}, label = 'API') {
 
             if (attempt < maxAttempts - 1) {
                 const jitter = Math.random() * 5000;
-                const totalWait = Math.min(classification.wait + attempt * 10000 + jitter, 120000);
+                const cap = nightModeEnabled ? 90000 : 120000;
+                const totalWait = Math.min(classification.wait + attempt * 10000 + jitter, cap);
                 setStatus('Problème réseau, retry dans ' + Math.round(totalWait / 1000) + 's… (' + (attempt + 1) + '/' + maxAttempts + ')');
                 await sleep(totalWait);
             }
@@ -2444,8 +2760,10 @@ async function generateAllScenes(options) {
     log('Personnage lock : ' + (state.canonicalCharacter || '').slice(0, 120) + '…');
     log('Décor lock : ' + (state.canonicalEnvironment || '').slice(0, 120) + '…');
     log('Voice lock : ' + (state.voiceSignature || '').slice(0, 80) + '…');
-    const estImgMin = Math.ceil(state.scenes.length * 0.4);
-    const estVidMin = Math.ceil(state.scenes.length * 1.5);
+    // Nuit/opt : ~55s anti-402 après quota (sinon 402 + pause à chaque scène)
+    const imgIntervalSec = (optimizeModeEnabled || nightModeEnabled) ? 55 : 28;
+    const estImgMin = Math.ceil(state.scenes.length * imgIntervalSec / 60);
+    const estVidMin = Math.ceil(state.scenes.length * Math.max(createIntervalMs / 1000 + 50, 120) / 60);
     log('═══ ÉTAPE 1 : Images Pollinations (' + state.scenes.length + ' scènes) ═══');
     log('⏱ Estimation : images ~' + estImgMin + ' min · vidéos Agnes ~' + estVidMin + ' min (API séquentielle)');
     setStatus('Étape 1/2 : images 0/' + state.scenes.length + '…');
@@ -2504,105 +2822,243 @@ async function generateAllScenes(options) {
     }
 
     // Phase vidéo : scènes avec image, ou videoId à reprendre, hors done
-    const videoCandidates = state.scenes.filter(s =>
-        s.status === 'done' ? false :
-        (s.imageDataUri || s.videoId || s.status === 'image-done' || s.status === 'creating' || s.status === 'processing')
-    );
-    log('═══ ÉTAPE 2 : Vidéos Agnes (' + videoCandidates.length + ' scènes × ~12s) ═══');
+    log('═══ ÉTAPE 2 : Vidéos Agnes ═══');
+    if (isUnattendedMode()) {
+        log('Mode ' + (nightModeEnabled ? 'nuit/agent' : 'optimisation') +
+            ' : sonde /models + veille sur 503 (pas d\'abandon en chaîne)');
+    }
+    setStatus('Étape 2/2 : contrôle Agnes…');
+    // Avant de brûler des créations : attendre que l'API soit joignable
+    if (isUnattendedMode() && !state.stopRequested) {
+        let gate = await probeAgnesApi();
+        if (gate.reason === 'auth') {
+            log('❌ Clé Agnes invalide avant étape vidéo');
+            showToast('Clé Agnes invalide — colle une nouvelle clé sk-…', 'error', 8000);
+            setStatus('Clé Agnes invalide');
+            return;
+        }
+        let gateRound = 0;
+        while (!gate.ok && !state.stopRequested) {
+            gateRound++;
+            agnesConsecutiveOutages = Math.max(agnesConsecutiveOutages, gateRound);
+            log('Agnes down avant étape 2 — veille (ronde ' + gateRound + ')');
+            try {
+                await waitForAgnesRecovery(Math.min(gateRound, 8));
+            } catch (e) {
+                if (e.message === 'AGNES_AUTH_INVALID') {
+                    showToast('Clé Agnes invalide — colle une nouvelle clé sk-…', 'error', 8000);
+                    setStatus('Clé Agnes invalide');
+                    return;
+                }
+                throw e;
+            }
+            gate = await probeAgnesApi();
+            if (!gate.ok && !nightModeEnabled && gateRound >= 3) break;
+        }
+        if (gate.ok) log('✅ Agnes OK — démarrage vidéos');
+        else log('⚠ Agnes encore instable — tentative vidéos quand même');
+    }
     setStatus('Étape 2/2 : génération des vidéos…');
 
-    let previousVideoContext = '';
-    for (let i = 0; i < state.scenes.length; i++) {
-        while (state.paused && !state.stopRequested) {
-            setStatus('⏸ En pause — cliquez Reprendre');
-            await sleep(500);
-        }
-        if (state.stopRequested) break;
-        const scene = state.scenes[i];
-        if (scene.status === 'done' && scene.videoUrl) {
-            previousVideoContext = scene.text.slice(0, 180);
-            continue;
-        }
-        if (!scene.imageDataUri && !scene.videoId) continue;
-        if (scene.status === 'failed' && scene.error && scene.error.indexOf('Image:') === 0) continue;
+    let nightPass = 0;
+    const maxNightPasses = nightModeEnabled ? 80 : (optimizeModeEnabled ? 5 : 1);
 
-        try {
-            // Reprise poll si videoId déjà connu
-            if (scene.videoId && (scene.status === 'creating' || scene.status === 'processing' || scene.status === 'image-done')) {
-                scene.status = 'processing';
-                setStatus('Reprise poll vidéo ' + (i + 1) + '/' + state.scenes.length + '…');
-                renderQueue();
-                await persistCheckpoint();
-                await pollSceneVideo(scene);
-                if (scene.status === 'done') previousVideoContext = scene.text.slice(0, 180);
+    while (nightPass < maxNightPasses && !state.stopRequested) {
+        nightPass++;
+        if (nightPass > 1) {
+            const pending = state.scenes.filter(s =>
+                s.status === 'failed' && s.error && s.error.indexOf('Image:') !== 0
+            );
+            if (!pending.length) break;
+            log('═══ Mode nuit/opt — passe ' + nightPass + ' : ' + pending.length + ' scène(s) à reprendre ═══');
+            try {
+                await waitForAgnesRecovery(Math.min(nightPass, 8));
+            } catch (e) {
+                if (e.message === 'AGNES_AUTH_INVALID') {
+                    showToast('Clé Agnes invalide — colle une nouvelle clé sk-…', 'error', 8000);
+                    setStatus('Clé Agnes invalide');
+                    return;
+                }
+                throw e;
+            }
+            for (const s of pending) {
+                s.status = (s.imageDataUri || s.hadImage || s.videoId) ? 'image-done' : 'pending';
+                s.error = null;
+                // garder videoId si présent pour reprise poll ; sinon recréer
+                if (state.failed > 0) state.failed--;
+            }
+            await persistCheckpoint();
+        }
+
+        let previousVideoContext = '';
+        let authAbort = false;
+
+        for (let i = 0; i < state.scenes.length; i++) {
+            while (state.paused && !state.stopRequested) {
+                setStatus('⏸ En pause — cliquez Reprendre');
+                await sleep(500);
+            }
+            if (state.stopRequested || authAbort) break;
+            const scene = state.scenes[i];
+            if (scene.status === 'done' && scene.videoUrl) {
+                previousVideoContext = scene.text.slice(0, 180);
                 continue;
             }
+            if (!scene.imageDataUri && !scene.videoId && !(scene.hadImage && nightPass > 1)) continue;
+            if (scene.status === 'failed' && scene.error && scene.error.indexOf('Image:') === 0) continue;
+            // Sur passe 1, ignorer les failed déjà comptés (repris aux passes suivantes)
+            if (nightPass === 1 && scene.status === 'failed') continue;
 
-            if (!scene.imageDataUri) {
-                log('[Scène ' + (i + 1) + '] Pas d\'image en mémoire — régénération…');
-                scene.status = 'generating-image';
-                const promptImg = buildImagePrompt(scene.text, i, state.scenes.length, previousVideoContext);
-                scene.imageDataUri = await generateImageWithPollinations(promptImg, 5);
-                scene.thumbnail = await generateThumbnail(scene.imageDataUri);
-                scene.status = 'image-done';
-                await persistCheckpoint();
-            }
+            let sceneDone = false;
+            let hardFail = false;
+            // En mode nuit : réessayer la même scène indéfiniment (jusqu'à arrêt)
+            // En mode opt : jusqu'à 8 tentatives locales avant de marquer failed (reprise passe suivante)
+            const maxLocalTries = nightModeEnabled ? 999 : (optimizeModeEnabled ? 8 : 1);
 
-            // Respecte le cooldown Agnes uniquement sur le temps restant
-            if (lastAgnesCreateAt > 0) {
-                const since = Date.now() - lastAgnesCreateAt;
-                const leftover = createIntervalMs - since;
-                if (leftover > 1000) {
-                    const waitSec = Math.ceil(leftover / 1000);
-                    log('Cooldown Agnes : ' + waitSec + 's restantes');
-                    for (let r = waitSec; r > 0; r--) {
-                        if (state.stopRequested) break;
-                        while (state.paused && !state.stopRequested) await sleep(500);
-                        setStatus('Pause avant vidéo ' + (i + 1) + '/' + state.scenes.length + ' — ' + r + 's');
-                        await sleep(1000);
+            for (let localTry = 0; localTry < maxLocalTries && !sceneDone && !hardFail && !state.stopRequested; localTry++) {
+                while (state.paused && !state.stopRequested) await sleep(500);
+                if (state.stopRequested) break;
+
+                try {
+                    // Reprise poll si videoId déjà connu
+                    if (scene.videoId && (scene.status === 'creating' || scene.status === 'processing' || scene.status === 'image-done')) {
+                        scene.status = 'processing';
+                        setStatus('Reprise poll vidéo ' + (i + 1) + '/' + state.scenes.length + '…');
+                        renderQueue();
+                        await persistCheckpoint();
+                        await pollSceneVideo(scene);
+                        const outcome = await handlePostPollOutcome(scene);
+                        if (outcome === 'done') {
+                            previousVideoContext = scene.text.slice(0, 180);
+                            sceneDone = true;
+                        } else if (outcome === 'stop') {
+                            hardFail = true;
+                        } else if (outcome === 'fail') {
+                            hardFail = true;
+                        }
+                        // 'retry' → continue localTry
+                        continue;
                     }
+
+                    if (!scene.imageDataUri) {
+                        log('[Scène ' + (i + 1) + '] Pas d\'image en mémoire — régénération…');
+                        scene.status = 'generating-image';
+                        const promptImg = buildImagePrompt(scene.text, i, state.scenes.length, previousVideoContext);
+                        scene.imageDataUri = await generateImageWithPollinations(promptImg, 5);
+                        scene.thumbnail = await generateThumbnail(scene.imageDataUri);
+                        scene.status = 'image-done';
+                        await persistCheckpoint();
+                    }
+
+                    // Respecte le cooldown Agnes uniquement sur le temps restant
+                    if (lastAgnesCreateAt > 0) {
+                        const since = Date.now() - lastAgnesCreateAt;
+                        const leftover = createIntervalMs - since;
+                        if (leftover > 1000) {
+                            const waitSec = Math.ceil(leftover / 1000);
+                            log('Cooldown Agnes : ' + waitSec + 's restantes');
+                            for (let r = waitSec; r > 0; r--) {
+                                if (state.stopRequested) break;
+                                while (state.paused && !state.stopRequested) await sleep(500);
+                                setStatus('Pause avant vidéo ' + (i + 1) + '/' + state.scenes.length + ' — ' + r + 's');
+                                await sleep(1000);
+                            }
+                        }
+                    }
+                    if (state.stopRequested) break;
+
+                    scene.status = 'creating';
+                    scene.error = null;
+                    renderQueue();
+                    updateFilmDashboard();
+                    setStatus('Vidéo ' + (i + 1) + '/' + state.scenes.length + ' (Agnes ~12s)' +
+                        (localTry > 0 ? ' · retry ' + (localTry + 1) : '') + '…');
+                    const prompt = buildVideoPrompt(scene.text, scene.index, state.scenes.length, previousVideoContext);
+                    lastAgnesCreateAt = Date.now();
+                    const videoId = await createVideoTask(scene.imageDataUri, prompt);
+                    scene.videoId = videoId;
+                    scene.startTime = Date.now();
+                    scene.status = 'processing';
+                    agnesConsecutiveOutages = 0;
+                    renderQueue();
+                    await persistCheckpoint();
+
+                    await pollSceneVideo(scene);
+                    const outcome = await handlePostPollOutcome(scene);
+                    if (outcome === 'done') {
+                        previousVideoContext = scene.text.slice(0, 180);
+                        sceneDone = true;
+                    } else if (outcome === 'stop' || outcome === 'fail') {
+                        hardFail = true;
+                    }
+                    // 'retry' → boucle localTry
+
+                } catch (e) {
+                    if (e.message === 'Arrêt demandé') break;
+                    if (e.message === 'AGNES_AUTH_INVALID') {
+                        log('❌ Clé Agnes invalide (HTTP 401 Invalid token)');
+                        showToast('Clé Agnes invalide — colle une nouvelle clé sk-… puis réessaie', 'error', 8000);
+                        setStatus('Clé Agnes invalide');
+                        scene.status = 'failed';
+                        scene.error = 'Vidéo: clé Agnes invalide';
+                        state.failed++;
+                        await persistCheckpoint();
+                        authAbort = true;
+                        hardFail = true;
+                        break;
+                    }
+
+                    const transient = isAgnesTransientError(e);
+                    if (transient && isUnattendedMode()) {
+                        agnesConsecutiveOutages++;
+                        log('[Scène ' + (scene.index + 1) + '] Agnes transitoire : ' + e.message);
+                        // Remettre en image-done pour retry (garder videoId si créé)
+                        if (!scene.videoId) scene.status = 'image-done';
+                        else scene.status = 'processing';
+                        scene.error = null;
+                        await persistCheckpoint();
+                        renderQueue();
+                        updateFilmDashboard();
+                        await waitForAgnesRecovery(agnesConsecutiveOutages);
+                        continue; // même scène
+                    }
+
+                    log('[Scène ' + (scene.index + 1) + '] Vidéo échouée : ' + e.message);
+                    scene.status = 'failed';
+                    scene.error = 'Vidéo: ' + e.message;
+                    state.failed++;
+                    await persistCheckpoint();
+                    renderQueue();
+                    hardFail = true;
                 }
             }
-            if (state.stopRequested) break;
 
-            scene.status = 'creating';
-            renderQueue();
-            updateFilmDashboard();
-            setStatus('Vidéo ' + (i + 1) + '/' + state.scenes.length + ' (Agnes ~12s)…');
-            const prompt = buildVideoPrompt(scene.text, scene.index, state.scenes.length, previousVideoContext);
-            lastAgnesCreateAt = Date.now();
-            const videoId = await createVideoTask(scene.imageDataUri, prompt);
-            scene.videoId = videoId;
-            scene.startTime = Date.now();
-            scene.status = 'processing';
-            renderQueue();
-            await persistCheckpoint();
-
-            await pollSceneVideo(scene);
-            if (scene.status === 'done') previousVideoContext = scene.text.slice(0, 180);
-
-        } catch (e) {
-            if (e.message === 'Arrêt demandé') break;
-            if (e.message === 'AGNES_AUTH_INVALID') {
-                log('❌ Clé Agnes invalide (HTTP 401 Invalid token)');
-                showToast('Clé Agnes invalide — colle une nouvelle clé sk-… puis réessaie', 'error', 8000);
-                setStatus('Clé Agnes invalide');
+            // Mode standard (1 try) ou opt épuisé : déjà failed. Mode nuit ne devrait presque jamais sortir sans done.
+            if (!sceneDone && !hardFail && !state.stopRequested && isUnattendedMode()) {
                 scene.status = 'failed';
-                scene.error = 'Vidéo: clé Agnes invalide';
+                scene.error = 'Vidéo: reprise différée (passe suivante)';
                 state.failed++;
                 await persistCheckpoint();
-                break;
             }
-            log('[Scène ' + (scene.index + 1) + '] Vidéo échouée : ' + e.message);
-            scene.status = 'failed';
-            scene.error = 'Vidéo: ' + e.message;
-            state.failed++;
-            await persistCheckpoint();
-            renderQueue();
+
+            updateFilmDashboard();
+            await ensureWakeLockActive();
         }
 
-        updateFilmDashboard();
+        if (authAbort || state.stopRequested) break;
+        if (!isUnattendedMode()) break;
+
+        const stillFailed = state.scenes.filter(s =>
+            s.status === 'failed' && s.error && s.error.indexOf('Image:') !== 0
+        ).length;
+        const stillTodo = state.scenes.filter(s =>
+            s.status !== 'done' && !(s.status === 'failed' && s.error && s.error.indexOf('Image:') === 0)
+        ).length;
+        if (!stillFailed && !stillTodo) break;
+        if (!stillFailed) break;
+        if (!nightModeEnabled && nightPass >= maxNightPasses) break;
     }
+
     await persistCheckpoint();
 }
 
@@ -3558,8 +4014,14 @@ async function startGeneration() {
     state.durationFrames = parseInt(document.getElementById('duration-select').value, 10) || AGNES_TARGET_FRAMES;
     createIntervalMs = CREATE_INTERVAL_MIN;
     lastAgnesCreateAt = 0;
+    agnesConsecutiveOutages = 0;
+    agnesLastSuccessAt = 0;
     state.currentFilmId = 'film_' + Date.now();
     state.filmStartedAt = Date.now();
+    if (nightModeEnabled && !wakeLockEnabled) {
+        wakeLockEnabled = true;
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) { /* ignore */ }
+    }
 
     document.getElementById('gallery-grid').innerHTML = '';
     document.getElementById('gallery').style.display = 'none';
@@ -3576,6 +4038,10 @@ async function startGeneration() {
     log('Cible : ' + state.targetDurationMinutes + ' min · ' + state.storySegments.length + ' scènes · ' + state.durationFrames + ' frames/clip');
     log('Personnage : ' + state.canonicalCharacter.slice(0, 100) + '…');
     log('Film ID : ' + state.currentFilmId);
+    if (nightModeEnabled) log('🌙 Mode nuit/agent actif — reprise auto jusqu\'à fin ou arrêt');
+    if (optimizeModeEnabled) log('⚡ Mode optimisation actif — turbo + pause intelligente Agnes');
+    const estPerScene = Math.max(createIntervalMs / 1000 + 50, 120);
+    log('⏱ ETA vidéos nominal : ~' + Math.ceil(state.storySegments.length * estPerScene / 60) + ' min (hors panne API)');
     await persistCheckpoint();
 
     try {
@@ -3866,6 +4332,20 @@ async function runDiagnostic() {
 
     try {
         wakeLockEnabled = localStorage.getItem(WAKE_LOCK_PREF) === '1';
+        // Par défaut ON (long-métrage) tant que l'utilisateur n'a pas choisi
+        const optPref = localStorage.getItem(OPTIMIZE_MODE_PREF);
+        const nightPref = localStorage.getItem(NIGHT_MODE_PREF);
+        optimizeModeEnabled = optPref === null ? true : optPref === '1';
+        nightModeEnabled = nightPref === null ? true : nightPref === '1';
+        if (nightModeEnabled) {
+            optimizeModeEnabled = true;
+            wakeLockEnabled = true;
+        }
+        try {
+            if (optPref === null) localStorage.setItem(OPTIMIZE_MODE_PREF, '1');
+            if (nightPref === null) localStorage.setItem(NIGHT_MODE_PREF, '1');
+            if (nightModeEnabled) localStorage.setItem(WAKE_LOCK_PREF, '1');
+        } catch (e2) { /* ignore */ }
         const savedChar = localStorage.getItem(CANONICAL_CHAR_STORAGE);
         if (savedChar) {
             state.canonicalCharacter = savedChar;
@@ -3879,6 +4359,14 @@ async function runDiagnostic() {
             if (ea) ea.value = savedEnv;
         }
     } catch (e) {}
+
+    document.getElementById('optimize-mode-toggle')?.addEventListener('change', (e) => {
+        setOptimizeMode(e.target.checked);
+    });
+    document.getElementById('night-mode-toggle')?.addEventListener('change', (e) => {
+        setNightMode(e.target.checked);
+    });
+    updateGenModesUI();
 
     if (wakeLockEnabled) activateWakeLock().then(updateWakeStatus);
 
