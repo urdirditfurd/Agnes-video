@@ -193,22 +193,36 @@
   }
 
   async function fetchWith503Retry(url, options, label) {
-    var max = 5;
-    var delay = 1500;
+    // 503/429 = saturation côté Agnes (pas un bug local / CORS / clé)
+    var max = 8;
+    var delay = 3000;
+    var lastStatus = 0;
     var lastErr = null;
     for (var i = 0; i < max; i++) {
       try {
         var res = await fetch(url, options);
         if (res.status !== 503 && res.status !== 429) return res;
-        lastErr = new Error((label || 'Agnes') + ' saturé (HTTP ' + res.status + ')');
+        lastStatus = res.status;
+        lastErr = null;
       } catch (e) {
         lastErr = e;
+        lastStatus = 0;
       }
-      setProg(Math.min(55, 20 + i * 5), (label || 'Agnes') + ' — nouvel essai dans ' + Math.round(delay / 1000) + 's…');
+      setProg(
+        Math.min(55, 18 + i * 4),
+        'Agnes saturé côté serveur (HTTP ' + (lastStatus || 'réseau') + ') — nouvel essai ' +
+          (i + 1) + '/' + max + ' dans ' + Math.round(delay / 1000) + 's…'
+      );
       await sleep(delay);
-      delay = Math.min(delay * 2, 20000);
+      delay = Math.min(Math.round(delay * 1.7), 45000);
     }
-    throw lastErr || new Error('Échec réseau Agnes');
+    if (lastStatus === 503 || lastStatus === 429) {
+      throw new Error(
+        'Agnes est saturé côté serveur (HTTP ' + lastStatus + ') — ce n’est pas ton PC ni le HTML. ' +
+        'Réessaie dans quelques minutes (file vidéo pleine).'
+      );
+    }
+    throw lastErr || new Error('Échec réseau vers Agnes');
   }
 
   imageZone.addEventListener('click', function () { imageInput.click(); });
