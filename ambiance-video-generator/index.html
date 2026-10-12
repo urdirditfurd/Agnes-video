@@ -3,39 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ambiance Video Generator</title>
+<title>Ambiance Video Generator — Kling AI</title>
 <style>
-  :root { --bg:#f4f6f8; --card:#fff; --ink:#1a1a1a; --muted:#667085; --blue:#2563eb; --green:#16a34a; --red:#dc2626; --line:#e5e7eb; }
+  :root {
+    --bg: #0f1419;
+    --panel: #1a222c;
+    --ink: #e8eef4;
+    --muted: #8b9aab;
+    --accent: #3d9cf0;
+    --ok: #3dba7a;
+    --err: #e85d5d;
+    --line: #2a3542;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
-  .wrap { max-width:720px; margin:2rem auto; padding:0 1rem 3rem; }
-  .card { background:var(--card); padding:1.75rem; border-radius:14px; box-shadow:0 8px 24px rgba(15,23,42,.06); }
-  h1 { margin:0 0 .35rem; font-size:1.55rem; }
-  .sub { color:var(--muted); margin:0 0 1.4rem; font-size:.95rem; }
-  .zone { border:2px dashed #cbd5e1; padding:1.4rem; text-align:center; border-radius:10px; margin-bottom:.85rem; cursor:pointer; transition:.15s; }
-  .zone:hover { border-color:var(--blue); }
-  .zone.on { border-color:var(--green); background:#f0fdf4; }
-  .zone input { display:none; }
-  .hint { font-size:.82rem; color:var(--muted); margin-top:.4rem; }
-  .api { width:100%; padding:.8rem .9rem; border:1px solid var(--line); border-radius:8px; margin:0 0 1rem; font-family:ui-monospace,monospace; font-size:.9rem; }
-  button { width:100%; border:0; border-radius:8px; padding:1rem; font-size:1rem; font-weight:650; cursor:pointer; background:var(--blue); color:#fff; }
-  button:hover:not(:disabled) { filter:brightness(.95); }
-  button:disabled { background:#cbd5e1; cursor:not-allowed; }
-  .progress { display:none; margin-top:1rem; }
-  .progress.show { display:block; }
-  .bar { height:12px; background:#eef2f7; border-radius:999px; overflow:hidden; }
-  .fill { height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#16a34a); transition:width .25s; }
-  .status { margin-top:.55rem; font-size:.9rem; color:var(--muted); word-break:break-word; }
-  video { width:100%; margin-top:1rem; border-radius:10px; background:#000; display:none; }
-  .dl { display:none; margin-top:.85rem; background:var(--green); }
-  .dl.show { display:block; }
-  .err { color:var(--red); }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #1e3a5f 0%, transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, #1a3d32 0%, transparent 50%),
+      var(--bg);
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 2.25rem 1rem 3.5rem; }
+  h1 {
+    margin: 0 0 .4rem;
+    font-size: clamp(1.7rem, 4vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .sub { color: var(--muted); margin: 0 0 1.6rem; line-height: 1.45; }
+  .zone {
+    border: 1px dashed var(--line);
+    background: rgba(26, 34, 44, 0.72);
+    padding: 1.35rem;
+    text-align: center;
+    border-radius: 12px;
+    margin-bottom: .85rem;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .zone:hover { border-color: var(--accent); }
+  .zone.on { border-color: var(--ok); background: rgba(61, 186, 122, 0.08); }
+  .zone input { display: none; }
+  .hint { font-size: .8rem; color: var(--muted); margin-top: .4rem; }
+  label.field {
+    display: block;
+    font-size: .78rem;
+    color: var(--muted);
+    margin: .15rem 0 .35rem;
+  }
+  .api, .select {
+    width: 100%;
+    padding: .8rem .9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 0 0 1rem;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: .9rem;
+  }
+  .api { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  button {
+    width: 100%;
+    border: 0;
+    border-radius: 10px;
+    padding: 1rem;
+    font-size: 1rem;
+    font-weight: 650;
+    cursor: pointer;
+    background: var(--accent);
+    color: #061018;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.06); }
+  button:disabled { background: #3a4654; color: #7d8a99; cursor: not-allowed; }
+  .progress { display: none; margin-top: 1.1rem; }
+  .progress.show { display: block; }
+  .bar { height: 10px; background: #243040; border-radius: 999px; overflow: hidden; }
+  .fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #3dba7a, #3d9cf0);
+    transition: width .25s;
+  }
+  .status { margin-top: .55rem; font-size: .9rem; color: var(--muted); word-break: break-word; }
+  video {
+    width: 100%;
+    margin-top: 1rem;
+    border-radius: 10px;
+    background: #000;
+    display: none;
+  }
+  .dl { display: none; margin-top: .85rem; background: var(--ok); color: #04140c; }
+  .dl.show { display: block; }
+  .err { color: var(--err); }
 </style>
 </head>
 <body>
-<div class="wrap"><div class="card">
+<div class="wrap">
   <h1>Ambiance Video Generator</h1>
-  <p class="sub">Image → Agnes (10&nbsp;s) → boucle 3&nbsp;h (FFmpeg.wasm) → téléchargement</p>
+  <p class="sub">Image → Kling AI (5–10&nbsp;s, caméra fixe) → boucle 3&nbsp;h (FFmpeg.wasm) → téléchargement MP4</p>
 
   <div class="zone" id="image-zone">
     <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
@@ -46,10 +114,17 @@
   <div class="zone" id="audio-zone">
     <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
     <div id="audio-label">Cliquez pour uploader votre musique (optionnel)</div>
-    <div class="hint">MP3, WAV, OGG</div>
+    <div class="hint">MP3, WAV, OGG — bouclée sur 3&nbsp;h</div>
   </div>
 
-  <input type="password" class="api" id="api-key" placeholder="Clé API Agnes (sk-…)" autocomplete="off">
+  <label class="field" for="api-key">Clé API Kling</label>
+  <input type="password" class="api" id="api-key" placeholder="Bearer API key Kling" autocomplete="off">
+
+  <label class="field" for="duration">Durée clip Kling</label>
+  <select class="select" id="duration">
+    <option value="5" selected>5 secondes</option>
+    <option value="10">10 secondes</option>
+  </select>
 
   <button id="generate-btn" disabled>Générer vidéo 3h</button>
 
@@ -59,8 +134,8 @@
   </div>
 
   <video id="preview" controls playsinline></video>
-  <button class="dl" id="download-btn">Télécharger la vidéo 3h</button>
-</div></div>
+  <button class="dl" id="download-btn">Télécharger MP4 3h</button>
+</div>
 
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
 <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
@@ -68,18 +143,26 @@
 (function () {
   'use strict';
 
-  var AGNES_API = 'https://apihub.agnes-ai.com/v1';
-  var AGNES_POLL = 'https://apihub.agnes-ai.com/agnesapi';
-  var MODEL = 'agnes-video-v2.0';
-  var FRAMES = 241;
-  var FPS = 24;
+  var KLING_API_BASE = 'https://api.klingai.com/v1';
+  // Prefill for local use. Rotate this key if the repo is public — client HTML always exposes it.
+  var KLING_API_KEY = ''; // paste your Kling API key in the UI field
+  var KLING_MODEL = 'kling-v2-6';
   var DURATION_3H = 10800;
   var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+
+  var KLING_PROMPT =
+    'Subtle ambient motion only, gentle breathing, soft light flickering, floating dust particles, gentle water ripples. ' +
+    'STATIC CAMERA. ABSOLUTELY NO ZOOM. NO PAN. NO CAMERA MOVEMENT. ' +
+    'The frame borders must remain 100% locked. Seamless loop, peaceful, relaxing, meditative, 4k, high quality.';
+
+  var KLING_NEGATIVE =
+    'camera movement, zoom in, zoom out, pan, tilt, dolly, tracking shot, orbit, shake, handheld, ' +
+    'perspective change, morphing, warping, text, watermark, low quality';
 
   var state = {
     imageDataURL: null,
     audioFile: null,
-    apiKey: localStorage.getItem('avg_agnes_key') || '',
+    apiKey: localStorage.getItem('avg_kling_key') || KLING_API_KEY,
     isGenerating: false,
     finalBlob: null
   };
@@ -91,6 +174,7 @@
   var audioInput = document.getElementById('audio-input');
   var audioLabel = document.getElementById('audio-label');
   var apiInput = document.getElementById('api-key');
+  var durationSelect = document.getElementById('duration');
   var generateBtn = document.getElementById('generate-btn');
   var progressEl = document.getElementById('progress');
   var fillEl = document.getElementById('fill');
@@ -111,6 +195,16 @@
     generateBtn.disabled = !state.imageDataURL || !state.apiKey || state.isGenerating;
   }
 
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  function stripDataUrlPrefix(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
+    var i = dataUrl.indexOf(',');
+    return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+  }
+
   imageZone.addEventListener('click', function () { imageInput.click(); });
   imageInput.addEventListener('change', function () {
     var file = imageInput.files && imageInput.files[0];
@@ -119,7 +213,7 @@
     reader.onload = function () {
       state.imageDataURL = reader.result;
       imageZone.classList.add('on');
-      imageLabel.textContent = '✅ ' + file.name;
+      imageLabel.textContent = '✓ ' + file.name;
       updateBtn();
     };
     reader.readAsDataURL(file);
@@ -131,82 +225,79 @@
     if (!file) return;
     state.audioFile = file;
     audioZone.classList.add('on');
-    audioLabel.textContent = '✅ ' + file.name;
+    audioLabel.textContent = '✓ ' + file.name;
   });
 
   apiInput.addEventListener('input', function () {
     state.apiKey = apiInput.value.trim();
-    try { localStorage.setItem('avg_agnes_key', state.apiKey); } catch (e) {}
+    try { localStorage.setItem('avg_kling_key', state.apiKey); } catch (e) {}
     updateBtn();
   });
 
-  function sleep(ms) {
-    return new Promise(function (r) { setTimeout(r, ms); });
-  }
-
-  async function createAgnesVideo() {
-    var prompt =
-      'Animate this uploaded image with subtle, gentle, calming movements only. ' +
-      'Keep the composition absolutely static — NO camera movement, NO zoom, NO pan. ' +
-      'Add soft ambient motion: gentle breathing, subtle steam or mist, soft light flicker, ' +
-      'floating dust, or gentle water ripples. Peaceful, relaxing, meditative mood. ' +
-      'Exactly 10 seconds. Seamless loop. Smooth 24fps.';
-
-    var res = await fetch(AGNES_API + '/videos', {
+  async function generateVideoWithKling(imageDataURL, prompt, duration) {
+    var imagePayload = stripDataUrlPrefix(imageDataURL);
+    var res = await fetch(KLING_API_BASE + '/videos/image2video', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + state.apiKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: MODEL,
+        model_name: KLING_MODEL,
         prompt: prompt,
-        image: state.imageDataURL,
-        num_frames: FRAMES,
-        frame_rate: FPS
+        negative_prompt: KLING_NEGATIVE,
+        image: imagePayload,
+        duration: String(duration || '5'),
+        cfg_scale: 0.5,
+        mode: 'std'
       })
     });
 
+    var text = await res.text();
+    var data;
+    try { data = JSON.parse(text); } catch (e) { data = null; }
+
     if (!res.ok) {
-      var t = await res.text();
-      if (res.status === 401) throw new Error('Clé Agnes invalide');
-      if (res.status === 503 || res.status === 429) throw new Error('Agnes saturé — réessayez plus tard');
-      throw new Error('Agnes HTTP ' + res.status + ' — ' + t.slice(0, 180));
+      var msg = (data && data.message) || text.slice(0, 220);
+      if (res.status === 401) throw new Error('Clé Kling invalide');
+      if (res.status === 429) throw new Error('Kling: quota / solde insuffisant — ' + msg);
+      throw new Error('Kling API HTTP ' + res.status + ' — ' + msg);
     }
-    var data = await res.json();
-    var id = data.video_id || data.id || data.task_id;
-    if (!id) throw new Error('Pas de video_id retourné');
-    return id;
+    if (!data || !data.data || !data.data.task_id) {
+      throw new Error('Pas de task_id Kling');
+    }
+    return data.data.task_id;
   }
 
-  async function pollAgnes(videoId) {
-    // court délai initial
-    for (var w = 20; w > 0; w--) {
-      setProg(25, 'Agnes prépare la boucle… ' + w + 's');
-      await sleep(1000);
-    }
-    for (var i = 0; i < 90; i++) {
-      var res = await fetch(AGNES_POLL + '/videos/' + encodeURIComponent(videoId), {
+  async function pollKlingVideo(taskId, onProgress) {
+    var maxAttempts = 120;
+    for (var i = 0; i < maxAttempts; i++) {
+      await sleep(5000);
+      var res = await fetch(KLING_API_BASE + '/videos/image2video/' + encodeURIComponent(taskId), {
         headers: { 'Authorization': 'Bearer ' + state.apiKey }
       });
-      if (!res.ok) {
-        if (res.status === 503) throw new Error('Agnes saturé pendant le polling');
-        throw new Error('Poll HTTP ' + res.status);
-      }
       var data = await res.json();
-      var st = String(data.status || data.state || '').toLowerCase();
-      var p = Number(data.progress) || 0;
-      setProg(30 + Math.min(30, p * 0.3), 'Génération Agnes… ' + (p || (i + 1)));
-      if (st === 'completed' || st === 'succeeded' || st === 'ready' || st === 'done') {
-        var url = data.video_url || data.url || (data.metadata && data.metadata.url) ||
-          (data.output && data.output.url);
-        if (!url) throw new Error('Vidéo prête sans URL');
+      if (!res.ok) {
+        var msg = (data && data.message) || ('HTTP ' + res.status);
+        throw new Error('Poll Kling: ' + msg);
+      }
+      var st = String((data.data && data.data.task_status) || '').toLowerCase();
+      var statusMsg = (data.data && data.data.task_status_msg) || st;
+      if (onProgress) onProgress(st, statusMsg, i);
+
+      if (st === 'succeed' || st === 'succeeded') {
+        var url = data.data.task_result &&
+          data.data.task_result.videos &&
+          data.data.task_result.videos[0] &&
+          data.data.task_result.videos[0].url;
+        if (!url) throw new Error('Kling réussi sans URL vidéo');
         return url;
       }
-      if (st === 'failed' || st === 'error') throw new Error('Échec génération Agnes');
-      await sleep(8000);
+      if (st === 'failed') {
+        throw new Error('Kling failed: ' + (statusMsg || 'unknown'));
+      }
     }
-    throw new Error('Délai maximal dépassé (Agnes)');
+    throw new Error('Délai Kling dépassé (~10 min)');
   }
 
   async function loadFFmpeg(onMsg) {
@@ -220,7 +311,6 @@
       if (e && e.message) console.log('[ffmpeg]', e.message);
     });
     if (onMsg) onMsg('Chargement FFmpeg.wasm (unpkg)…');
-    // toBlobURL évite les erreurs CORS Worker des CDN
     await ffmpeg.load({
       coreURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.js', 'text/javascript'),
       wasmURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.wasm', 'application/wasm')
@@ -229,7 +319,8 @@
   }
 
   /**
-   * Boucle 3h : -c:v copy (pas de ré-encodage 3h → évite OOM navigateur).
+   * Boucle 3h avec -c:v copy (évite OOM libx264 sur 10800s dans le navigateur).
+   * Audio seul est ré-encodé en AAC.
    */
   async function create3HourLoop(videoBlob, audioFile) {
     var ffmpeg = await loadFFmpeg(function (m) { setProg(72, m); });
@@ -267,19 +358,14 @@
     try {
       await ffmpeg.exec(args);
     } catch (e1) {
-      // Repli : si le conteneur Agnes n'est pas copy-friendly, encodeur ultrafast court... non, on tente mpeg4 short then copy is wrong.
-      // Repli audio sans map strict
-      if (audioFile) {
-        setProg(84, 'Repli FFmpeg…');
-        await ffmpeg.exec([
-          '-stream_loop', '-1', '-i', 'input.mp4',
-          '-stream_loop', '-1', '-i', 'input_audio.mp3',
-          '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
-          '-t', String(DURATION_3H), '-shortest', 'output.mp4'
-        ]);
-      } else {
-        throw e1;
-      }
+      if (!audioFile) throw e1;
+      setProg(84, 'Repli FFmpeg…');
+      await ffmpeg.exec([
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
+        '-t', String(DURATION_3H), '-shortest', 'output.mp4'
+      ]);
     }
 
     setProg(95, 'Lecture fichier final…');
@@ -298,29 +384,40 @@
     preview.style.display = 'none';
     state.finalBlob = null;
 
-    try {
-      setProg(8, 'Envoi à Agnes IA…');
-      var videoId = await createAgnesVideo();
-      setProg(20, 'Tâche créée — attente rendu…');
-      var videoUrl = await pollAgnes(videoId);
+    var duration = durationSelect.value || '5';
 
-      setProg(65, 'Téléchargement vidéo Agnes…');
+    try {
+      if (KLING_PROMPT.indexOf('STATIC CAMERA') < 0 || KLING_PROMPT.indexOf('NO ZOOM') < 0) {
+        throw new Error('Prompt Kling invalide (caméra fixe manquante)');
+      }
+
+      setProg(8, 'Envoi à Kling AI…');
+      var taskId = await generateVideoWithKling(state.imageDataURL, KLING_PROMPT, duration);
+      setProg(18, 'Tâche Kling créée — en attente…');
+
+      var videoUrl = await pollKlingVideo(taskId, function (st, msg, i) {
+        var label = st === 'submitted' ? 'En attente' :
+          st === 'processing' ? 'Génération en cours' : (st || '…');
+        setProg(20 + Math.min(40, i * 0.4), 'Kling: ' + label + (msg && msg !== st ? ' — ' + msg : ''));
+      });
+
+      setProg(65, 'Téléchargement vidéo Kling…');
       var vRes = await fetch(videoUrl);
       if (!vRes.ok) throw new Error('Téléchargement vidéo HTTP ' + vRes.status);
       var videoBlob = await vRes.blob();
-      if (videoBlob.size < 500) throw new Error('Vidéo Agnes vide');
+      if (videoBlob.size < 500) throw new Error('Vidéo Kling vide');
 
-      setProg(70, 'Création de la boucle 3h…');
+      setProg(70, 'Assemblage 3h…');
       var finalBlob = await create3HourLoop(videoBlob, state.audioFile);
       state.finalBlob = finalBlob;
 
-      setProg(100, '✅ Vidéo 3h prête · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      setProg(100, '✓ Vidéo 3h prête · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
       preview.src = URL.createObjectURL(finalBlob);
       preview.style.display = 'block';
       downloadBtn.classList.add('show');
     } catch (err) {
       console.error(err);
-      setProg(0, '❌ ' + (err && err.message ? err.message : String(err)), true);
+      setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
     } finally {
       state.isGenerating = false;
       updateBtn();
