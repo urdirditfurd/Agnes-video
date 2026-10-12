@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ambiance Video Generator — Luma AI</title>
+<style>
+  :root {
+    --bg: #10141a;
+    --panel: #1a222c;
+    --ink: #e8eef4;
+    --muted: #8b9aab;
+    --accent: #5eb0ff;
+    --ok: #3dba7a;
+    --err: #e85d5d;
+    --line: #2a3542;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1100px 560px at 8% -8%, #1a3558 0%, transparent 55%),
+      radial-gradient(900px 480px at 100% 0%, #1d3b2f 0%, transparent 50%),
+      var(--bg);
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 2.25rem 1rem 3.5rem; }
+  h1 {
+    margin: 0 0 .4rem;
+    font-size: clamp(1.7rem, 4vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .sub { color: var(--muted); margin: 0 0 1.4rem; line-height: 1.45; }
+  .zone {
+    border: 1px dashed var(--line);
+    background: rgba(26, 34, 44, 0.75);
+    padding: 1.35rem;
+    text-align: center;
+    border-radius: 12px;
+    margin-bottom: .85rem;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .zone:hover { border-color: var(--accent); }
+  .zone.on { border-color: var(--ok); background: rgba(61, 186, 122, 0.08); }
+  .zone input { display: none; }
+  .hint { font-size: .8rem; color: var(--muted); margin-top: .4rem; }
+  label.field {
+    display: block;
+    font-size: .78rem;
+    color: var(--muted);
+    margin: .15rem 0 .35rem;
+  }
+  .api, .select {
+    width: 100%;
+    padding: .8rem .9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 0 0 1rem;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: .9rem;
+  }
+  .api { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  button {
+    width: 100%;
+    border: 0;
+    border-radius: 10px;
+    padding: 1rem;
+    font-size: 1rem;
+    font-weight: 650;
+    cursor: pointer;
+    background: var(--accent);
+    color: #061018;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.06); }
+  button:disabled { background: #3a4654; color: #7d8a99; cursor: not-allowed; }
+  .progress { display: none; margin-top: 1.1rem; }
+  .progress.show { display: block; }
+  .bar { height: 10px; background: #243040; border-radius: 999px; overflow: hidden; }
+  .fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #3dba7a, #5eb0ff);
+    transition: width .25s;
+  }
+  .status { margin-top: .55rem; font-size: .9rem; color: var(--muted); word-break: break-word; }
+  video {
+    width: 100%;
+    margin-top: 1rem;
+    border-radius: 10px;
+    background: #000;
+    display: none;
+  }
+  .dl { display: none; margin-top: .85rem; background: var(--ok); color: #04140c; }
+  .dl.show { display: block; }
+  .err { color: var(--err); }
+  .note {
+    font-size: .82rem;
+    color: var(--muted);
+    margin: 0 0 1rem;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ambiance Video Generator</h1>
+  <p class="sub">Image → Luma Dream Machine (5&nbsp;s, caméra fixe) → boucle 3&nbsp;h (FFmpeg.wasm) → MP4</p>
+  <p class="note">Ouvre cette page via GitHub Pages (recommandé) ou double-clique le HTML. Pas de serveur local requis.</p>
+
+  <div class="zone" id="image-zone">
+    <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
+    <div id="image-label">Cliquez pour uploader votre image</div>
+    <div class="hint">JPG, PNG, WebP — obligatoire</div>
+  </div>
+
+  <div class="zone" id="audio-zone">
+    <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
+    <div id="audio-label">Cliquez pour uploader votre musique (optionnel)</div>
+    <div class="hint">MP3, WAV, OGG — bouclée sur 3&nbsp;h</div>
+  </div>
+
+  <label class="field" for="api-key">Clé API Luma</label>
+  <input type="password" class="api" id="api-key" placeholder="luma-api-…" autocomplete="off">
+
+  <label class="field" for="duration">Durée clip Luma</label>
+  <select class="select" id="duration">
+    <option value="5s" selected>5 secondes (image → vidéo)</option>
+  </select>
+
+  <button id="generate-btn" disabled>Générer vidéo 3h</button>
+
+  <div class="progress" id="progress">
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="status" id="status">Préparation…</div>
+  </div>
+
+  <video id="preview" controls playsinline></video>
+  <button class="dl" id="download-btn">Télécharger MP4 3h</button>
+</div>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // Luma Agents API (clé format luma-api-…). CORS ouvert → HTML seul OK.
+  var LUMA_API_BASE = 'https://agents.lumalabs.ai/v1';
+  var LUMA_API_KEY = 'luma-api-b51fUuecDmyuIJCkVO3ynK0jXBeYumXielsVTwgPwig';
+  var LUMA_MODEL = 'ray-3.2';
+  var DURATION_3H = 10800;
+  var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+
+  var LUMA_PROMPT =
+    'SUBTLE AMBIENT MOTION ONLY. Gentle steam rising, soft light flickering, floating dust particles, gentle water ripples. ' +
+    'ABSOLUTELY NO CAMERA MOVEMENT, NO ZOOM, NO PAN. Static frame composition, seamless loop, peaceful and relaxing mood.';
+
+  var state = {
+    imageDataURL: null,
+    imageMime: 'image/jpeg',
+    audioFile: null,
+    apiKey: localStorage.getItem('avg_luma_key') || LUMA_API_KEY,
+    isGenerating: false,
+    finalBlob: null
+  };
+
+  var imageZone = document.getElementById('image-zone');
+  var imageInput = document.getElementById('image-input');
+  var imageLabel = document.getElementById('image-label');
+  var audioZone = document.getElementById('audio-zone');
+  var audioInput = document.getElementById('audio-input');
+  var audioLabel = document.getElementById('audio-label');
+  var apiInput = document.getElementById('api-key');
+  var durationSelect = document.getElementById('duration');
+  var generateBtn = document.getElementById('generate-btn');
+  var progressEl = document.getElementById('progress');
+  var fillEl = document.getElementById('fill');
+  var statusEl = document.getElementById('status');
+  var preview = document.getElementById('preview');
+  var downloadBtn = document.getElementById('download-btn');
+
+  apiInput.value = state.apiKey;
+
+  function setProg(pct, msg, isErr) {
+    progressEl.classList.add('show');
+    fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (isErr ? ' err' : '');
+  }
+
+  function updateBtn() {
+    generateBtn.disabled = !state.imageDataURL || !state.apiKey || state.isGenerating;
+  }
+
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  function mimeFromDataUrl(dataUrl) {
+    var m = /^data:([^;]+);/i.exec(dataUrl || '');
+    return (m && m[1]) || 'image/jpeg';
+  }
+
+  function formatLumaError(data, fallbackText) {
+    if (!data) return (fallbackText || 'erreur').slice(0, 280);
+    if (typeof data.detail === 'string') return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map(function (item) {
+        if (typeof item === 'string') return item;
+        var loc = Array.isArray(item.loc) ? item.loc.join('.') : '';
+        return (loc ? loc + ': ' : '') + (item.msg || JSON.stringify(item));
+      }).join(' | ');
+    }
+    if (data.detail && typeof data.detail === 'object') {
+      try { return JSON.stringify(data.detail); } catch (e) { /* ignore */ }
+    }
+    if (data.error && data.error.user_message) return data.error.user_message;
+    return (fallbackText || 'erreur').slice(0, 280);
+  }
+
+  /** Resize/compress to JPEG ≤1600px for Luma (avoids huge WebP/PNG 422). */
+  function normalizeImageForLuma(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Lecture image échouée')); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var maxSide = 1600;
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          var scale = Math.min(1, maxSide / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale));
+          var ch = Math.max(1, Math.round(h * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, cw, ch);
+          var dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          resolve({ dataUrl: dataUrl, mime: 'image/jpeg' });
+        };
+        img.onerror = function () { reject(new Error('Image illisible')); };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  imageZone.addEventListener('click', function () { imageInput.click(); });
+  imageInput.addEventListener('change', async function () {
+    var file = imageInput.files && imageInput.files[0];
+    if (!file) return;
+    try {
+      var normalized = await normalizeImageForLuma(file);
+      state.imageDataURL = normalized.dataUrl;
+      state.imageMime = normalized.mime;
+      imageZone.classList.add('on');
+      imageLabel.textContent = '✓ ' + file.name;
+      updateBtn();
+    } catch (err) {
+      setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
+    }
+  });
+
+  audioZone.addEventListener('click', function () { audioInput.click(); });
+  audioInput.addEventListener('change', function () {
+    var file = audioInput.files && audioInput.files[0];
+    if (!file) return;
+    state.audioFile = file;
+    audioZone.classList.add('on');
+    audioLabel.textContent = '✓ ' + file.name;
+  });
+
+  apiInput.addEventListener('input', function () {
+    state.apiKey = apiInput.value.trim();
+    try { localStorage.setItem('avg_luma_key', state.apiKey); } catch (e) {}
+    updateBtn();
+  });
+
+  /** Upload anonyme → URL publique HTTPS (plus fiable que gros base64). */
+  async function uploadImageToPublicHost(dataUrl) {
+    var res = await fetch(dataUrl);
+    var blob = await res.blob();
+    var form = new FormData();
+    form.append('file', blob, 'ambiance.jpg');
+
+    var up = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
+    if (!up.ok) throw new Error('Upload image public HTTP ' + up.status);
+    var data = await up.json();
+    var pageUrl = data && data.data && data.data.url;
+    if (!pageUrl) throw new Error('Pas d’URL publique (tmpfiles)');
+    // Format direct : https://tmpfiles.org/dl/<id>/<name>
+    return pageUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+  }
+
+  function stripDataUrlToRawBase64(dataUrl) {
+    var i = (dataUrl || '').indexOf(',');
+    return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+  }
+
+  async function lumaCreate(body) {
+    var res = await fetch(LUMA_API_BASE + '/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + state.apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    var text = await res.text();
+    var data = null;
+    try { data = JSON.parse(text); } catch (e) { data = null; }
+    return { res: res, text: text, data: data };
+  }
+
+  async function generateVideoWithLuma(imageDataUri, prompt, duration) {
+    // Luma image→vidéo : seulement duration "5s" (pas "9s"/"10s" avec start_frame)
+    var dur = duration === '5s' ? '5s' : '5s';
+    var mediaType = 'image/jpeg';
+    var rawB64 = stripDataUrlToRawBase64(imageDataUri);
+
+    var baseVideo = {
+      resolution: '720p',
+      duration: dur,
+      loop: true
+    };
+
+    // 1) Prefer public URL (docs: use hosted url for larger media)
+    setProg(10, 'Publication image temporaire…');
+    var publicUrl = null;
+    try {
+      publicUrl = await uploadImageToPublicHost(imageDataUri);
+    } catch (upErr) {
+      console.warn('upload public failed, will try inline base64', upErr);
+    }
+
+    var attempts = [];
+    if (publicUrl) {
+      attempts.push({
+        model: LUMA_MODEL,
+        type: 'video',
+        prompt: prompt,
+        aspect_ratio: '16:9',
+        video: Object.assign({}, baseVideo, { start_frame: { url: publicUrl } })
+      });
+    }
+    // 2) Inline raw base64 + media_type (documented shape)
+    attempts.push({
+      model: LUMA_MODEL,
+      type: 'video',
+      prompt: prompt,
+      aspect_ratio: '16:9',
+      video: Object.assign({}, baseVideo, {
+        start_frame: { data: rawB64, media_type: mediaType }
+      })
+    });
+    // 3) data URI + media_type (some gateways accept this)
+    attempts.push({
+      model: LUMA_MODEL,
+      type: 'video',
+      prompt: prompt,
+      aspect_ratio: '16:9',
+      video: Object.assign({}, baseVideo, {
+        start_frame: { data: imageDataUri, media_type: mediaType }
+      })
+    });
+
+    var lastMsg = '';
+    for (var a = 0; a < attempts.length; a++) {
+      setProg(12 + a * 3, 'Envoi à Luma… (' + (a + 1) + '/' + attempts.length + ')');
+      var out = await lumaCreate(attempts[a]);
+      if (out.res.ok && out.data && out.data.id) return out.data.id;
+
+      lastMsg = formatLumaError(out.data, out.text);
+      if (out.res.status === 401 || out.res.status === 403) throw new Error('Clé Luma invalide');
+      if (out.res.status === 402) {
+        throw new Error('Luma: crédits insuffisants — recharge sur platform.lumalabs.ai');
+      }
+      // try next shape on 4xx validation; stop on 5xx
+      if (out.res.status >= 500) {
+        throw new Error('Luma HTTP ' + out.res.status + ' — ' + lastMsg);
+      }
+    }
+    throw new Error('Luma HTTP 422/400 — ' + lastMsg);
+  }
+
+  async function pollLumaVideo(generationId, onProgress) {
+    var maxAttempts = 150;
+    for (var i = 0; i < maxAttempts; i++) {
+      await sleep(5000);
+      var res = await fetch(LUMA_API_BASE + '/generations/' + encodeURIComponent(generationId), {
+        headers: {
+          'Authorization': 'Bearer ' + state.apiKey,
+          'Accept': 'application/json'
+        }
+      });
+      var data = await res.json();
+      if (!res.ok) {
+        var msg = data.detail || (data.error && data.error.user_message) || ('HTTP ' + res.status);
+        throw new Error('Poll Luma: ' + msg);
+      }
+
+      var st = String(data.state || '').toLowerCase();
+      if (onProgress) onProgress(st, i);
+
+      if (st === 'completed') {
+        var url =
+          (data.assets && data.assets.video) ||
+          (data.output && data.output[0] && data.output[0].url) ||
+          (data.video && data.video.url) ||
+          data.video_url;
+        if (!url) throw new Error('Luma completed sans URL vidéo');
+        return url;
+      }
+      if (st === 'failed') {
+        throw new Error('Luma failed: ' + (data.failure_reason || data.detail || 'unknown'));
+      }
+    }
+    throw new Error('Délai Luma dépassé');
+  }
+
+  async function downloadVideoBlob(videoUrl) {
+    try {
+      var res = await fetch(videoUrl);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.blob();
+    } catch (e1) {
+      // Repli via proxy CORS générique si le CDN bloque
+      var proxied = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(videoUrl);
+      var res2 = await fetch(proxied);
+      if (!res2.ok) throw new Error('Téléchargement vidéo impossible (CORS CDN)');
+      return await res2.blob();
+    }
+  }
+
+  async function loadFFmpeg(onMsg) {
+    if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
+      throw new Error('FFmpeg.wasm CDN non chargé — vérifiez unpkg.com / réseau');
+    }
+    var FFmpeg = FFmpegWASM.FFmpeg;
+    var toBlobURL = FFmpegUtil.toBlobURL;
+    var ffmpeg = new FFmpeg();
+    ffmpeg.on('log', function (e) {
+      if (e && e.message) console.log('[ffmpeg]', e.message);
+    });
+    if (onMsg) onMsg('Chargement FFmpeg.wasm (unpkg)…');
+    await ffmpeg.load({
+      coreURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.js', 'text/javascript'),
+      wasmURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.wasm', 'application/wasm')
+    });
+    return ffmpeg;
+  }
+
+  /** Boucle 3h en -c:v copy (évite OOM navigateur). */
+  async function create3HourLoop(videoBlob, audioFile) {
+    var ffmpeg = await loadFFmpeg(function (m) { setProg(72, m); });
+    var fetchFile = FFmpegUtil.fetchFile;
+
+    setProg(78, 'Écriture fichiers dans FFmpeg…');
+    await ffmpeg.writeFile('input.mp4', await fetchFile(videoBlob));
+
+    var args;
+    if (audioFile) {
+      await ffmpeg.writeFile('input_audio.mp3', await fetchFile(audioFile));
+      args = [
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-map', '0:v:0', '-map', '1:a:0',
+        '-c:v', 'copy',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-t', String(DURATION_3H),
+        '-shortest',
+        '-movflags', '+faststart',
+        'output.mp4'
+      ];
+    } else {
+      args = [
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-c:v', 'copy',
+        '-an',
+        '-t', String(DURATION_3H),
+        '-movflags', '+faststart',
+        'output.mp4'
+      ];
+    }
+
+    setProg(82, 'Assemblage boucle 3h…');
+    try {
+      await ffmpeg.exec(args);
+    } catch (e1) {
+      if (!audioFile) throw e1;
+      setProg(84, 'Repli FFmpeg…');
+      await ffmpeg.exec([
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
+        '-t', String(DURATION_3H), '-shortest', 'output.mp4'
+      ]);
+    }
+
+    setProg(95, 'Lecture fichier final…');
+    var data = await ffmpeg.readFile('output.mp4');
+    var buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    var blob = new Blob([buf], { type: 'video/mp4' });
+    if (!blob.size) throw new Error('Fichier final vide');
+    return blob;
+  }
+
+  async function generateVideo() {
+    if (!state.imageDataURL || !state.apiKey || state.isGenerating) return;
+    state.isGenerating = true;
+    updateBtn();
+    downloadBtn.classList.remove('show');
+    preview.style.display = 'none';
+    state.finalBlob = null;
+
+    var duration = durationSelect.value || '5s';
+
+    try {
+      if (LUMA_PROMPT.indexOf('NO CAMERA MOVEMENT') < 0 || LUMA_PROMPT.indexOf('NO ZOOM') < 0) {
+        throw new Error('Prompt Luma invalide (caméra fixe manquante)');
+      }
+
+      setProg(8, 'Envoi à Luma…');
+      var generationId = await generateVideoWithLuma(state.imageDataURL, LUMA_PROMPT, duration);
+      setProg(18, 'Luma génère l’animation…');
+
+      var videoUrl = await pollLumaVideo(generationId, function (st, i) {
+        var label = st === 'queued' ? 'En file' :
+          st === 'dreaming' ? 'Génération en cours' : (st || '…');
+        setProg(20 + Math.min(40, i * 0.35), 'Luma: ' + label);
+      });
+
+      setProg(65, 'Téléchargement…');
+      var videoBlob = await downloadVideoBlob(videoUrl);
+      if (videoBlob.size < 500) throw new Error('Vidéo Luma vide');
+
+      setProg(70, 'Assemblage 3h…');
+      var finalBlob = await create3HourLoop(videoBlob, state.audioFile);
+      state.finalBlob = finalBlob;
+
+      setProg(100, '✓ Vidéo 3h prête · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      preview.src = URL.createObjectURL(finalBlob);
+      preview.style.display = 'block';
+      downloadBtn.classList.add('show');
+    } catch (err) {
+      console.error(err);
+      setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
+    } finally {
+      state.isGenerating = false;
+      updateBtn();
+    }
+  }
+
+  generateBtn.addEventListener('click', generateVideo);
+  downloadBtn.addEventListener('click', function () {
+    if (!state.finalBlob) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(state.finalBlob);
+    a.download = 'ambiance-video-3h.mp4';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  });
+
+  updateBtn();
+})();
+</script>
+</body>
+</html>
