@@ -98,10 +98,33 @@
   .dl { display: none; margin-top: .85rem; background: var(--ok); color: #04140c; }
   .dl.show { display: block; }
   .err { color: var(--err); }
+  .banner {
+    display: none;
+    background: #3a1c1c;
+    border: 1px solid var(--err);
+    color: #ffd0d0;
+    padding: .9rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    font-size: .92rem;
+    line-height: 1.45;
+  }
+  .banner.show { display: block; }
+  .banner code {
+    background: rgba(0,0,0,.35);
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    font-size: .85em;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
+  <div class="banner" id="file-banner">
+    Tu as ouvert ce fichier en <code>file://</code> — Kling bloque ça (CORS).
+    Double-clique <code>demarrer.bat</code> (Windows) ou lance <code>./demarrer.sh</code>,
+    puis ouvre <code>http://127.0.0.1:8765/</code> — pas le HTML depuis Téléchargements.
+  </div>
   <h1>Ambiance Video Generator</h1>
   <p class="sub">Image → Kling AI (5–10&nbsp;s, caméra fixe) → boucle 3&nbsp;h (FFmpeg.wasm) → téléchargement MP4</p>
 
@@ -143,12 +166,13 @@
 (function () {
   'use strict';
 
-  var KLING_API_BASE = 'https://api.klingai.com/v1';
-  // Prefill for local use. Rotate this key if the repo is public — client HTML always exposes it.
+  // Same-origin proxy (serve.py) — never call api.klingai.com from the browser (CORS).
+  var KLING_API_BASE = '/api/kling';
   var KLING_API_KEY = ''; // paste your Kling API key in the UI field
   var KLING_MODEL = 'kling-v2-6';
   var DURATION_3H = 10800;
   var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  var IS_FILE = location.protocol === 'file:';
 
   var KLING_PROMPT =
     'Subtle ambient motion only, gentle breathing, soft light flickering, floating dust particles, gentle water ripples. ' +
@@ -184,6 +208,10 @@
 
   apiInput.value = state.apiKey;
 
+  if (IS_FILE) {
+    document.getElementById('file-banner').classList.add('show');
+  }
+
   function setProg(pct, msg, isErr) {
     progressEl.classList.add('show');
     fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
@@ -192,7 +220,27 @@
   }
 
   function updateBtn() {
-    generateBtn.disabled = !state.imageDataURL || !state.apiKey || state.isGenerating;
+    generateBtn.disabled = IS_FILE || !state.imageDataURL || !state.apiKey || state.isGenerating;
+  }
+
+  function assertHttpOrigin() {
+    if (IS_FILE) {
+      throw new Error(
+        'Ouvre http://127.0.0.1:8765/ via demarrer.bat / demarrer.sh — pas le fichier HTML en file:// (CORS Kling)'
+      );
+    }
+  }
+
+  async function klingFetch(path, options) {
+    assertHttpOrigin();
+    try {
+      return await fetch(KLING_API_BASE + path, options);
+    } catch (e) {
+      throw new Error(
+        'Proxy Kling injoignable. Lance demarrer.bat puis ouvre http://127.0.0.1:8765/ — ' +
+        (e && e.message ? e.message : String(e))
+      );
+    }
   }
 
   function sleep(ms) {
@@ -236,7 +284,7 @@
 
   async function generateVideoWithKling(imageDataURL, prompt, duration) {
     var imagePayload = stripDataUrlPrefix(imageDataURL);
-    var res = await fetch(KLING_API_BASE + '/videos/image2video', {
+    var res = await klingFetch('/videos/image2video', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + state.apiKey,
@@ -273,7 +321,7 @@
     var maxAttempts = 120;
     for (var i = 0; i < maxAttempts; i++) {
       await sleep(5000);
-      var res = await fetch(KLING_API_BASE + '/videos/image2video/' + encodeURIComponent(taskId), {
+      var res = await klingFetch('/videos/image2video/' + encodeURIComponent(taskId), {
         headers: { 'Authorization': 'Bearer ' + state.apiKey }
       });
       var data = await res.json();
@@ -402,7 +450,7 @@
       });
 
       setProg(65, 'Téléchargement vidéo Kling…');
-      var vRes = await fetch(videoUrl);
+      var vRes = await fetch('/api/fetch?url=' + encodeURIComponent(videoUrl));
       if (!vRes.ok) throw new Error('Téléchargement vidéo HTTP ' + vRes.status);
       var videoBlob = await vRes.blob();
       if (videoBlob.size < 500) throw new Error('Vidéo Kling vide');
