@@ -1,22 +1,22 @@
 @echo off
 cd /d "%~dp0"
 echo.
-echo  Ambiance Video Generator
-echo  Demarrage du serveur proxy (anti-CORS Kling)...
+echo  Ambiance Video Generator (optionnel)
+echo  Tu peux aussi ouvrir index.html directement, ou GitHub Pages.
+echo  Serveur local de confort : http://127.0.0.1:8765/
 echo.
 where python >nul 2>nul
 if %errorlevel%==0 (
   start "" http://127.0.0.1:8765/
-  python serve.py
+  python -m http.server 8765
   goto :eof
 )
 where py >nul 2>nul
 if %errorlevel%==0 (
   start "" http://127.0.0.1:8765/
-  py -3 serve.py
+  py -3 -m http.server 8765
   goto :eof
 )
-echo ERREUR: Python n'est pas installe.
-echo Telecharge Python 3 depuis https://www.python.org/downloads/
-echo Coche "Add python.exe to PATH" pendant l'installation.
+echo Python non trouve — ouvre simplement index.html dans le navigateur.
+start "" "%~dp0index.html"
 pause

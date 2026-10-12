@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ambiance Video Generator — Kling AI</title>
+<title>Ambiance Video Generator — Luma AI</title>
 <style>
   :root {
-    --bg: #0f1419;
+    --bg: #10141a;
     --panel: #1a222c;
     --ink: #e8eef4;
     --muted: #8b9aab;
-    --accent: #3d9cf0;
+    --accent: #5eb0ff;
     --ok: #3dba7a;
     --err: #e85d5d;
     --line: #2a3542;
@@ -22,8 +22,8 @@
     font-family: "Segoe UI", "Helvetica Neue", sans-serif;
     color: var(--ink);
     background:
-      radial-gradient(1200px 600px at 10% -10%, #1e3a5f 0%, transparent 55%),
-      radial-gradient(900px 500px at 100% 0%, #1a3d32 0%, transparent 50%),
+      radial-gradient(1100px 560px at 8% -8%, #1a3558 0%, transparent 55%),
+      radial-gradient(900px 480px at 100% 0%, #1d3b2f 0%, transparent 50%),
       var(--bg);
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 2.25rem 1rem 3.5rem; }
@@ -33,10 +33,10 @@
     font-weight: 700;
     letter-spacing: -0.02em;
   }
-  .sub { color: var(--muted); margin: 0 0 1.6rem; line-height: 1.45; }
+  .sub { color: var(--muted); margin: 0 0 1.4rem; line-height: 1.45; }
   .zone {
     border: 1px dashed var(--line);
-    background: rgba(26, 34, 44, 0.72);
+    background: rgba(26, 34, 44, 0.75);
     padding: 1.35rem;
     text-align: center;
     border-radius: 12px;
@@ -84,7 +84,7 @@
   .fill {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, #3dba7a, #3d9cf0);
+    background: linear-gradient(90deg, #3dba7a, #5eb0ff);
     transition: width .25s;
   }
   .status { margin-top: .55rem; font-size: .9rem; color: var(--muted); word-break: break-word; }
@@ -98,35 +98,19 @@
   .dl { display: none; margin-top: .85rem; background: var(--ok); color: #04140c; }
   .dl.show { display: block; }
   .err { color: var(--err); }
-  .banner {
-    display: none;
-    background: #3a1c1c;
-    border: 1px solid var(--err);
-    color: #ffd0d0;
-    padding: .9rem 1rem;
-    border-radius: 10px;
-    margin-bottom: 1rem;
-    font-size: .92rem;
-    line-height: 1.45;
-  }
-  .banner.show { display: block; }
-  .banner code {
-    background: rgba(0,0,0,.35);
-    padding: .1rem .35rem;
-    border-radius: 4px;
-    font-size: .85em;
+  .note {
+    font-size: .82rem;
+    color: var(--muted);
+    margin: 0 0 1rem;
+    line-height: 1.4;
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="banner" id="file-banner">
-    Tu as ouvert ce fichier en <code>file://</code> — Kling bloque ça (CORS).
-    Double-clique <code>demarrer.bat</code> (Windows) ou lance <code>./demarrer.sh</code>,
-    puis ouvre <code>http://127.0.0.1:8765/</code> — pas le HTML depuis Téléchargements.
-  </div>
   <h1>Ambiance Video Generator</h1>
-  <p class="sub">Image → Kling AI (5–10&nbsp;s, caméra fixe) → boucle 3&nbsp;h (FFmpeg.wasm) → téléchargement MP4</p>
+  <p class="sub">Image → Luma Dream Machine (5&nbsp;s, caméra fixe) → boucle 3&nbsp;h (FFmpeg.wasm) → MP4</p>
+  <p class="note">Ouvre cette page via GitHub Pages (recommandé) ou double-clique le HTML. Pas de serveur local requis.</p>
 
   <div class="zone" id="image-zone">
     <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
@@ -140,13 +124,13 @@
     <div class="hint">MP3, WAV, OGG — bouclée sur 3&nbsp;h</div>
   </div>
 
-  <label class="field" for="api-key">Clé API Kling</label>
-  <input type="password" class="api" id="api-key" placeholder="Bearer API key Kling" autocomplete="off">
+  <label class="field" for="api-key">Clé API Luma</label>
+  <input type="password" class="api" id="api-key" placeholder="luma-api-…" autocomplete="off">
 
-  <label class="field" for="duration">Durée clip Kling</label>
+  <label class="field" for="duration">Durée clip Luma</label>
   <select class="select" id="duration">
-    <option value="5" selected>5 secondes</option>
-    <option value="10">10 secondes</option>
+    <option value="5s" selected>5 secondes</option>
+    <option value="9s">9 secondes</option>
   </select>
 
   <button id="generate-btn" disabled>Générer vidéo 3h</button>
@@ -166,27 +150,22 @@
 (function () {
   'use strict';
 
-  // Same-origin proxy (serve.py) — never call api.klingai.com from the browser (CORS).
-  var KLING_API_BASE = '/api/kling';
-  var KLING_API_KEY = ''; // paste your Kling API key in the UI field
-  var KLING_MODEL = 'kling-v2-6';
+  // Luma Agents API (clé format luma-api-…). CORS ouvert → HTML seul OK.
+  var LUMA_API_BASE = 'https://agents.lumalabs.ai/v1';
+  var LUMA_API_KEY = 'luma-api-b51fUuecDmyuIJCkVO3ynK0jXBeYumXielsVTwgPwig';
+  var LUMA_MODEL = 'ray-3.2';
   var DURATION_3H = 10800;
   var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-  var IS_FILE = location.protocol === 'file:';
 
-  var KLING_PROMPT =
-    'Subtle ambient motion only, gentle breathing, soft light flickering, floating dust particles, gentle water ripples. ' +
-    'STATIC CAMERA. ABSOLUTELY NO ZOOM. NO PAN. NO CAMERA MOVEMENT. ' +
-    'The frame borders must remain 100% locked. Seamless loop, peaceful, relaxing, meditative, 4k, high quality.';
-
-  var KLING_NEGATIVE =
-    'camera movement, zoom in, zoom out, pan, tilt, dolly, tracking shot, orbit, shake, handheld, ' +
-    'perspective change, morphing, warping, text, watermark, low quality';
+  var LUMA_PROMPT =
+    'SUBTLE AMBIENT MOTION ONLY. Gentle steam rising, soft light flickering, floating dust particles, gentle water ripples. ' +
+    'ABSOLUTELY NO CAMERA MOVEMENT, NO ZOOM, NO PAN. Static frame composition, seamless loop, peaceful and relaxing mood.';
 
   var state = {
     imageDataURL: null,
+    imageMime: 'image/jpeg',
     audioFile: null,
-    apiKey: localStorage.getItem('avg_kling_key') || KLING_API_KEY,
+    apiKey: localStorage.getItem('avg_luma_key') || LUMA_API_KEY,
     isGenerating: false,
     finalBlob: null
   };
@@ -208,10 +187,6 @@
 
   apiInput.value = state.apiKey;
 
-  if (IS_FILE) {
-    document.getElementById('file-banner').classList.add('show');
-  }
-
   function setProg(pct, msg, isErr) {
     progressEl.classList.add('show');
     fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
@@ -220,43 +195,23 @@
   }
 
   function updateBtn() {
-    generateBtn.disabled = IS_FILE || !state.imageDataURL || !state.apiKey || state.isGenerating;
-  }
-
-  function assertHttpOrigin() {
-    if (IS_FILE) {
-      throw new Error(
-        'Ouvre http://127.0.0.1:8765/ via demarrer.bat / demarrer.sh — pas le fichier HTML en file:// (CORS Kling)'
-      );
-    }
-  }
-
-  async function klingFetch(path, options) {
-    assertHttpOrigin();
-    try {
-      return await fetch(KLING_API_BASE + path, options);
-    } catch (e) {
-      throw new Error(
-        'Proxy Kling injoignable. Lance demarrer.bat puis ouvre http://127.0.0.1:8765/ — ' +
-        (e && e.message ? e.message : String(e))
-      );
-    }
+    generateBtn.disabled = !state.imageDataURL || !state.apiKey || state.isGenerating;
   }
 
   function sleep(ms) {
     return new Promise(function (r) { setTimeout(r, ms); });
   }
 
-  function stripDataUrlPrefix(dataUrl) {
-    if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
-    var i = dataUrl.indexOf(',');
-    return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+  function mimeFromDataUrl(dataUrl) {
+    var m = /^data:([^;]+);/i.exec(dataUrl || '');
+    return (m && m[1]) || 'image/jpeg';
   }
 
   imageZone.addEventListener('click', function () { imageInput.click(); });
   imageInput.addEventListener('change', function () {
     var file = imageInput.files && imageInput.files[0];
     if (!file) return;
+    state.imageMime = file.type || 'image/jpeg';
     var reader = new FileReader();
     reader.onload = function () {
       state.imageDataURL = reader.result;
@@ -278,74 +233,137 @@
 
   apiInput.addEventListener('input', function () {
     state.apiKey = apiInput.value.trim();
-    try { localStorage.setItem('avg_kling_key', state.apiKey); } catch (e) {}
+    try { localStorage.setItem('avg_luma_key', state.apiKey); } catch (e) {}
     updateBtn();
   });
 
-  async function generateVideoWithKling(imageDataURL, prompt, duration) {
-    var imagePayload = stripDataUrlPrefix(imageDataURL);
-    var res = await klingFetch('/videos/image2video', {
+  /** Upload anonyme → URL publique (fallback si Luma refuse le data URI). */
+  async function uploadImageToPublicHost(dataUrl) {
+    var res = await fetch(dataUrl);
+    var blob = await res.blob();
+    var ext = (blob.type || 'image/jpeg').indexOf('png') >= 0 ? 'png' : 'jpg';
+    var form = new FormData();
+    form.append('file', blob, 'ambiance.' + ext);
+
+    var up = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
+    if (!up.ok) throw new Error('Upload image public HTTP ' + up.status);
+    var data = await up.json();
+    var pageUrl = data && data.data && data.data.url;
+    if (!pageUrl) throw new Error('Pas d’URL publique (tmpfiles)');
+    // Format direct : https://tmpfiles.org/dl/<id>/<name>
+    return pageUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+  }
+
+  async function generateVideoWithLuma(imageDataUri, prompt, duration) {
+    var mediaType = mimeFromDataUrl(imageDataUri) || state.imageMime || 'image/jpeg';
+    var body = {
+      model: LUMA_MODEL,
+      type: 'video',
+      prompt: prompt,
+      aspect_ratio: '16:9',
+      video: {
+        resolution: '720p',
+        duration: duration || '5s',
+        start_frame: {
+          data: imageDataUri,
+          media_type: mediaType
+        }
+      }
+    };
+
+    var res = await fetch(LUMA_API_BASE + '/generations', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + state.apiKey,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
-      body: JSON.stringify({
-        model_name: KLING_MODEL,
-        prompt: prompt,
-        negative_prompt: KLING_NEGATIVE,
-        image: imagePayload,
-        duration: String(duration || '5'),
-        cfg_scale: 0.5,
-        mode: 'std'
-      })
+      body: JSON.stringify(body)
     });
 
     var text = await res.text();
     var data;
     try { data = JSON.parse(text); } catch (e) { data = null; }
 
+    // Fallback URL publique si data URI refusé
     if (!res.ok) {
-      var msg = (data && data.message) || text.slice(0, 220);
-      if (res.status === 401) throw new Error('Clé Kling invalide');
-      if (res.status === 429) throw new Error('Kling: quota / solde insuffisant — ' + msg);
-      throw new Error('Kling API HTTP ' + res.status + ' — ' + msg);
+      var msg = (data && (data.detail || (data.error && data.error.user_message))) || text.slice(0, 220);
+      var needUrl = /start_frame|url|data|media_type|input frames|image/i.test(String(msg));
+      if (needUrl && res.status >= 400 && res.status < 500 && res.status !== 401 && res.status !== 402) {
+        setProg(12, 'Upload image publique (fallback)…');
+        var publicUrl = await uploadImageToPublicHost(imageDataUri);
+        body.video.start_frame = { url: publicUrl };
+        res = await fetch(LUMA_API_BASE + '/generations', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + state.apiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+        text = await res.text();
+        try { data = JSON.parse(text); } catch (e2) { data = null; }
+        msg = (data && (data.detail || (data.error && data.error.user_message))) || text.slice(0, 220);
+      }
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) throw new Error('Clé Luma invalide');
+        if (res.status === 402) throw new Error('Luma: crédits insuffisants — recharge sur platform.lumalabs.ai');
+        throw new Error('Luma HTTP ' + res.status + ' — ' + msg);
+      }
     }
-    if (!data || !data.data || !data.data.task_id) {
-      throw new Error('Pas de task_id Kling');
-    }
-    return data.data.task_id;
+
+    if (!data || !data.id) throw new Error('Pas d’id de génération Luma');
+    return data.id;
   }
 
-  async function pollKlingVideo(taskId, onProgress) {
-    var maxAttempts = 120;
+  async function pollLumaVideo(generationId, onProgress) {
+    var maxAttempts = 150;
     for (var i = 0; i < maxAttempts; i++) {
       await sleep(5000);
-      var res = await klingFetch('/videos/image2video/' + encodeURIComponent(taskId), {
-        headers: { 'Authorization': 'Bearer ' + state.apiKey }
+      var res = await fetch(LUMA_API_BASE + '/generations/' + encodeURIComponent(generationId), {
+        headers: {
+          'Authorization': 'Bearer ' + state.apiKey,
+          'Accept': 'application/json'
+        }
       });
       var data = await res.json();
       if (!res.ok) {
-        var msg = (data && data.message) || ('HTTP ' + res.status);
-        throw new Error('Poll Kling: ' + msg);
+        var msg = data.detail || (data.error && data.error.user_message) || ('HTTP ' + res.status);
+        throw new Error('Poll Luma: ' + msg);
       }
-      var st = String((data.data && data.data.task_status) || '').toLowerCase();
-      var statusMsg = (data.data && data.data.task_status_msg) || st;
-      if (onProgress) onProgress(st, statusMsg, i);
 
-      if (st === 'succeed' || st === 'succeeded') {
-        var url = data.data.task_result &&
-          data.data.task_result.videos &&
-          data.data.task_result.videos[0] &&
-          data.data.task_result.videos[0].url;
-        if (!url) throw new Error('Kling réussi sans URL vidéo');
+      var st = String(data.state || '').toLowerCase();
+      if (onProgress) onProgress(st, i);
+
+      if (st === 'completed') {
+        var url =
+          (data.assets && data.assets.video) ||
+          (data.output && data.output[0] && data.output[0].url) ||
+          (data.video && data.video.url) ||
+          data.video_url;
+        if (!url) throw new Error('Luma completed sans URL vidéo');
         return url;
       }
       if (st === 'failed') {
-        throw new Error('Kling failed: ' + (statusMsg || 'unknown'));
+        throw new Error('Luma failed: ' + (data.failure_reason || data.detail || 'unknown'));
       }
     }
-    throw new Error('Délai Kling dépassé (~10 min)');
+    throw new Error('Délai Luma dépassé');
+  }
+
+  async function downloadVideoBlob(videoUrl) {
+    try {
+      var res = await fetch(videoUrl);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.blob();
+    } catch (e1) {
+      // Repli via proxy CORS générique si le CDN bloque
+      var proxied = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(videoUrl);
+      var res2 = await fetch(proxied);
+      if (!res2.ok) throw new Error('Téléchargement vidéo impossible (CORS CDN)');
+      return await res2.blob();
+    }
   }
 
   async function loadFFmpeg(onMsg) {
@@ -366,10 +384,7 @@
     return ffmpeg;
   }
 
-  /**
-   * Boucle 3h avec -c:v copy (évite OOM libx264 sur 10800s dans le navigateur).
-   * Audio seul est ré-encodé en AAC.
-   */
+  /** Boucle 3h en -c:v copy (évite OOM navigateur). */
   async function create3HourLoop(videoBlob, audioFile) {
     var ffmpeg = await loadFFmpeg(function (m) { setProg(72, m); });
     var fetchFile = FFmpegUtil.fetchFile;
@@ -402,7 +417,7 @@
       ];
     }
 
-    setProg(82, 'Assemblage boucle 3h (copy stream)…');
+    setProg(82, 'Assemblage boucle 3h…');
     try {
       await ffmpeg.exec(args);
     } catch (e1) {
@@ -432,28 +447,26 @@
     preview.style.display = 'none';
     state.finalBlob = null;
 
-    var duration = durationSelect.value || '5';
+    var duration = durationSelect.value || '5s';
 
     try {
-      if (KLING_PROMPT.indexOf('STATIC CAMERA') < 0 || KLING_PROMPT.indexOf('NO ZOOM') < 0) {
-        throw new Error('Prompt Kling invalide (caméra fixe manquante)');
+      if (LUMA_PROMPT.indexOf('NO CAMERA MOVEMENT') < 0 || LUMA_PROMPT.indexOf('NO ZOOM') < 0) {
+        throw new Error('Prompt Luma invalide (caméra fixe manquante)');
       }
 
-      setProg(8, 'Envoi à Kling AI…');
-      var taskId = await generateVideoWithKling(state.imageDataURL, KLING_PROMPT, duration);
-      setProg(18, 'Tâche Kling créée — en attente…');
+      setProg(8, 'Envoi à Luma…');
+      var generationId = await generateVideoWithLuma(state.imageDataURL, LUMA_PROMPT, duration);
+      setProg(18, 'Luma génère l’animation…');
 
-      var videoUrl = await pollKlingVideo(taskId, function (st, msg, i) {
-        var label = st === 'submitted' ? 'En attente' :
-          st === 'processing' ? 'Génération en cours' : (st || '…');
-        setProg(20 + Math.min(40, i * 0.4), 'Kling: ' + label + (msg && msg !== st ? ' — ' + msg : ''));
+      var videoUrl = await pollLumaVideo(generationId, function (st, i) {
+        var label = st === 'queued' ? 'En file' :
+          st === 'dreaming' ? 'Génération en cours' : (st || '…');
+        setProg(20 + Math.min(40, i * 0.35), 'Luma: ' + label);
       });
 
-      setProg(65, 'Téléchargement vidéo Kling…');
-      var vRes = await fetch('/api/fetch?url=' + encodeURIComponent(videoUrl));
-      if (!vRes.ok) throw new Error('Téléchargement vidéo HTTP ' + vRes.status);
-      var videoBlob = await vRes.blob();
-      if (videoBlob.size < 500) throw new Error('Vidéo Kling vide');
+      setProg(65, 'Téléchargement…');
+      var videoBlob = await downloadVideoBlob(videoUrl);
+      if (videoBlob.size < 500) throw new Error('Vidéo Luma vide');
 
       setProg(70, 'Assemblage 3h…');
       var finalBlob = await create3HourLoop(videoBlob, state.audioFile);

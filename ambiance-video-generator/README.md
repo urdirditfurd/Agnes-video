@@ -1,46 +1,27 @@
-# Ambiance Video Generator
+# Ambiance Video Generator (Luma AI)
 
-Image + clé Kling AI → clip 5–10&nbsp;s (caméra fixe) → boucle **3&nbsp;h** → téléchargement MP4.
+Image → **Luma Dream Machine** (5&nbsp;s, caméra fixe) → boucle **3&nbsp;h** (FFmpeg.wasm) → téléchargement MP4.
 
-## Important (CORS)
+## Utilisation (HTML seul)
 
-Kling **refuse** les appels depuis le navigateur (`file://` ou page HTML seule).  
-Il faut lancer le **serveur proxy local** inclus :
+1. Ouvre la page GitHub Pages du dépôt **ou** télécharge uniquement `index.html` et ouvre-le.
+2. Uploade une image (+ musique optionnelle).
+3. La clé Luma est pré-remplie (modifiable).
+4. Clique **Générer vidéo 3h**.
 
-### Windows
-1. Télécharge le dossier complet (`index.html` + `serve.py` + `demarrer.bat`)
-2. Double-clique **`demarrer.bat`**
-3. Ouvre **http://127.0.0.1:8765/** (pas le fichier dans Téléchargements)
-
-### macOS / Linux
-```bash
-./demarrer.sh
-# → http://127.0.0.1:8765/
-```
-
-Python 3 est requis (`python` / `py` / `python3`).
-
-## Utilisation
-
-1. Uploade une image
-2. (Optionnel) Uploade une musique
-3. Colle ta clé Kling
-4. Clique **Générer vidéo 3h**
+Aucun `demarrer.bat` / proxy local n’est requis : l’API Luma Agents autorise le CORS navigateur.
 
 ## Technique
 
-- UI → `GET/POST /api/kling/...` → proxy Python → `https://api.klingai.com/v1/...`
-- Téléchargement vidéo via `/api/fetch?url=...` (évite CORS CDN)
-- Modèle : `kling-v2-6`, prompt `STATIC CAMERA` / `NO ZOOM` / `NO PAN`
-- FFmpeg.wasm depuis **unpkg.com** (`toBlobURL`)
-- Boucle 3h en **`-c:v copy`** (anti-OOM navigateur)
+- API : `https://agents.lumalabs.ai/v1/generations` (modèle `ray-3.2`)
+- Image : data URI + `media_type` (fallback upload `tmpfiles.org` → URL publique)
+- Prompt forcé : `NO CAMERA MOVEMENT` / `NO ZOOM` / `NO PAN`
+- FFmpeg.wasm via **unpkg.com** + boucle 3h en `-c:v copy`
 
-## Fichiers
+## Crédits Luma
 
-- `index.html` — interface
-- `serve.py` — serveur + proxy Kling
-- `demarrer.bat` / `demarrer.sh` — démarrage
+Si tu vois « crédits insuffisants » (HTTP 402), recharge sur [platform.lumalabs.ai](https://platform.lumalabs.ai/).
 
-## Solde Kling
+## Sécurité
 
-Si l’API renvoie `Account balance not enough`, recharge des crédits sur la console Kling.
+La clé API est dans le HTML (prototype). Quiconque ouvre la page peut la lire — préfère un dépôt privé et/ou une clé rotative.
