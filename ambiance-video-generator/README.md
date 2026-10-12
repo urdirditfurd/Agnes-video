@@ -1,27 +1,26 @@
-# Ambiance Video Generator (Luma AI)
+# Ambiance Video Generator
 
-Image → **Luma Dream Machine** (5&nbsp;s, caméra fixe) → boucle **3&nbsp;h** (FFmpeg.wasm) → téléchargement MP4.
+Image + clé **Agnes IA** → clip 10&nbsp;s (caméra fixe) → boucle **3&nbsp;h** locale (FFmpeg.wasm) → MP4.
 
-## Utilisation (HTML seul)
+## Utilisation
 
-1. Ouvre la page GitHub Pages du dépôt **ou** télécharge uniquement `index.html` et ouvre-le.
-2. Uploade une image (+ musique optionnelle).
-3. La clé Luma est pré-remplie (modifiable).
-4. Clique **Générer vidéo 3h**.
+1. Ouvre `index.html` (GitHub Pages, double-clic, ou `./demarrer.sh`)
+2. Uploade une image
+3. (Optionnel) Uploade une musique
+4. Colle ta clé Agnes (`sk-…`)
+5. Clique **Générer la vidéo d'ambiance (3h)**
 
-Aucun `demarrer.bat` / proxy local n’est requis : l’API Luma Agents autorise le CORS navigateur.
+Aucun VPS. Aucune API Luma / Runway / Pika / Pollinations.
 
 ## Technique
 
-- API : `https://agents.lumalabs.ai/v1/generations` (modèle `ray-3.2`)
-- Image : data URI + `media_type` (fallback upload `tmpfiles.org` → URL publique)
-- Prompt forcé : `NO CAMERA MOVEMENT` / `NO ZOOM` / `NO PAN`
-- FFmpeg.wasm via **unpkg.com** + boucle 3h en `-c:v copy`
+- Agnes : `POST https://apihub.agnes-ai.com/v1/videos` (`agnes-video-v2.0`, 240 frames @ 24 fps)
+- Polling : `GET https://apihub.agnes-ai.com/agnesapi?video_id=…&model_name=agnes-video-v2.0`
+- Prompt forcé : `NO camera movement, NO zoom, NO pan`
+- FFmpeg.wasm via **unpkg.com** (`toBlobURL`)
+- Boucle 3h en **`-c:v copy`** (évite OOM navigateur du ré-encodage 10800&nbsp;s)
 
-## Crédits Luma
+## Fichiers
 
-Si tu vois « crédits insuffisants » (HTTP 402), recharge sur [platform.lumalabs.ai](https://platform.lumalabs.ai/).
-
-## Sécurité
-
-La clé API est dans le HTML (prototype). Quiconque ouvre la page peut la lire — préfère un dépôt privé et/ou une clé rotative.
+- `index.html` — application complète
+- `demarrer.bat` / `demarrer.sh` — serveur local optionnel
