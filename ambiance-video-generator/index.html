@@ -129,8 +129,7 @@
 
   <label class="field" for="duration">Durée clip Luma</label>
   <select class="select" id="duration">
-    <option value="5s" selected>5 secondes</option>
-    <option value="9s">9 secondes</option>
+    <option value="5s" selected>5 secondes (image → vidéo)</option>
   </select>
 
   <button id="generate-btn" disabled>Générer vidéo 3h</button>
@@ -207,19 +206,66 @@
     return (m && m[1]) || 'image/jpeg';
   }
 
+  function formatLumaError(data, fallbackText) {
+    if (!data) return (fallbackText || 'erreur').slice(0, 280);
+    if (typeof data.detail === 'string') return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map(function (item) {
+        if (typeof item === 'string') return item;
+        var loc = Array.isArray(item.loc) ? item.loc.join('.') : '';
+        return (loc ? loc + ': ' : '') + (item.msg || JSON.stringify(item));
+      }).join(' | ');
+    }
+    if (data.detail && typeof data.detail === 'object') {
+      try { return JSON.stringify(data.detail); } catch (e) { /* ignore */ }
+    }
+    if (data.error && data.error.user_message) return data.error.user_message;
+    return (fallbackText || 'erreur').slice(0, 280);
+  }
+
+  /** Resize/compress to JPEG ≤1600px for Luma (avoids huge WebP/PNG 422). */
+  function normalizeImageForLuma(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Lecture image échouée')); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var maxSide = 1600;
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          var scale = Math.min(1, maxSide / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale));
+          var ch = Math.max(1, Math.round(h * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, cw, ch);
+          var dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          resolve({ dataUrl: dataUrl, mime: 'image/jpeg' });
+        };
+        img.onerror = function () { reject(new Error('Image illisible')); };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   imageZone.addEventListener('click', function () { imageInput.click(); });
-  imageInput.addEventListener('change', function () {
+  imageInput.addEventListener('change', async function () {
     var file = imageInput.files && imageInput.files[0];
     if (!file) return;
-    state.imageMime = file.type || 'image/jpeg';
-    var reader = new FileReader();
-    reader.onload = function () {
-      state.imageDataURL = reader.result;
+    try {
+      var normalized = await normalizeImageForLuma(file);
+      state.imageDataURL = normalized.dataUrl;
+      state.imageMime = normalized.mime;
       imageZone.classList.add('on');
       imageLabel.textContent = '✓ ' + file.name;
       updateBtn();
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
+    }
   });
 
   audioZone.addEventListener('click', function () { audioInput.click(); });
@@ -237,13 +283,12 @@
     updateBtn();
   });
 
-  /** Upload anonyme → URL publique (fallback si Luma refuse le data URI). */
+  /** Upload anonyme → URL publique HTTPS (plus fiable que gros base64). */
   async function uploadImageToPublicHost(dataUrl) {
     var res = await fetch(dataUrl);
     var blob = await res.blob();
-    var ext = (blob.type || 'image/jpeg').indexOf('png') >= 0 ? 'png' : 'jpg';
     var form = new FormData();
-    form.append('file', blob, 'ambiance.' + ext);
+    form.append('file', blob, 'ambiance.jpg');
 
     var up = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
     if (!up.ok) throw new Error('Upload image public HTTP ' + up.status);
@@ -254,23 +299,12 @@
     return pageUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
   }
 
-  async function generateVideoWithLuma(imageDataUri, prompt, duration) {
-    var mediaType = mimeFromDataUrl(imageDataUri) || state.imageMime || 'image/jpeg';
-    var body = {
-      model: LUMA_MODEL,
-      type: 'video',
-      prompt: prompt,
-      aspect_ratio: '16:9',
-      video: {
-        resolution: '720p',
-        duration: duration || '5s',
-        start_frame: {
-          data: imageDataUri,
-          media_type: mediaType
-        }
-      }
-    };
+  function stripDataUrlToRawBase64(dataUrl) {
+    var i = (dataUrl || '').indexOf(',');
+    return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+  }
 
+  async function lumaCreate(body) {
     var res = await fetch(LUMA_API_BASE + '/generations', {
       method: 'POST',
       headers: {
@@ -280,41 +314,81 @@
       },
       body: JSON.stringify(body)
     });
-
     var text = await res.text();
-    var data;
+    var data = null;
     try { data = JSON.parse(text); } catch (e) { data = null; }
+    return { res: res, text: text, data: data };
+  }
 
-    // Fallback URL publique si data URI refusé
-    if (!res.ok) {
-      var msg = (data && (data.detail || (data.error && data.error.user_message))) || text.slice(0, 220);
-      var needUrl = /start_frame|url|data|media_type|input frames|image/i.test(String(msg));
-      if (needUrl && res.status >= 400 && res.status < 500 && res.status !== 401 && res.status !== 402) {
-        setProg(12, 'Upload image publique (fallback)…');
-        var publicUrl = await uploadImageToPublicHost(imageDataUri);
-        body.video.start_frame = { url: publicUrl };
-        res = await fetch(LUMA_API_BASE + '/generations', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + state.apiKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(body)
-        });
-        text = await res.text();
-        try { data = JSON.parse(text); } catch (e2) { data = null; }
-        msg = (data && (data.detail || (data.error && data.error.user_message))) || text.slice(0, 220);
-      }
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) throw new Error('Clé Luma invalide');
-        if (res.status === 402) throw new Error('Luma: crédits insuffisants — recharge sur platform.lumalabs.ai');
-        throw new Error('Luma HTTP ' + res.status + ' — ' + msg);
-      }
+  async function generateVideoWithLuma(imageDataUri, prompt, duration) {
+    // Luma image→vidéo : seulement duration "5s" (pas "9s"/"10s" avec start_frame)
+    var dur = duration === '5s' ? '5s' : '5s';
+    var mediaType = 'image/jpeg';
+    var rawB64 = stripDataUrlToRawBase64(imageDataUri);
+
+    var baseVideo = {
+      resolution: '720p',
+      duration: dur,
+      loop: true
+    };
+
+    // 1) Prefer public URL (docs: use hosted url for larger media)
+    setProg(10, 'Publication image temporaire…');
+    var publicUrl = null;
+    try {
+      publicUrl = await uploadImageToPublicHost(imageDataUri);
+    } catch (upErr) {
+      console.warn('upload public failed, will try inline base64', upErr);
     }
 
-    if (!data || !data.id) throw new Error('Pas d’id de génération Luma');
-    return data.id;
+    var attempts = [];
+    if (publicUrl) {
+      attempts.push({
+        model: LUMA_MODEL,
+        type: 'video',
+        prompt: prompt,
+        aspect_ratio: '16:9',
+        video: Object.assign({}, baseVideo, { start_frame: { url: publicUrl } })
+      });
+    }
+    // 2) Inline raw base64 + media_type (documented shape)
+    attempts.push({
+      model: LUMA_MODEL,
+      type: 'video',
+      prompt: prompt,
+      aspect_ratio: '16:9',
+      video: Object.assign({}, baseVideo, {
+        start_frame: { data: rawB64, media_type: mediaType }
+      })
+    });
+    // 3) data URI + media_type (some gateways accept this)
+    attempts.push({
+      model: LUMA_MODEL,
+      type: 'video',
+      prompt: prompt,
+      aspect_ratio: '16:9',
+      video: Object.assign({}, baseVideo, {
+        start_frame: { data: imageDataUri, media_type: mediaType }
+      })
+    });
+
+    var lastMsg = '';
+    for (var a = 0; a < attempts.length; a++) {
+      setProg(12 + a * 3, 'Envoi à Luma… (' + (a + 1) + '/' + attempts.length + ')');
+      var out = await lumaCreate(attempts[a]);
+      if (out.res.ok && out.data && out.data.id) return out.data.id;
+
+      lastMsg = formatLumaError(out.data, out.text);
+      if (out.res.status === 401 || out.res.status === 403) throw new Error('Clé Luma invalide');
+      if (out.res.status === 402) {
+        throw new Error('Luma: crédits insuffisants — recharge sur platform.lumalabs.ai');
+      }
+      // try next shape on 4xx validation; stop on 5xx
+      if (out.res.status >= 500) {
+        throw new Error('Luma HTTP ' + out.res.status + ' — ' + lastMsg);
+      }
+    }
+    throw new Error('Luma HTTP 422/400 — ' + lastMsg);
   }
 
   async function pollLumaVideo(generationId, onProgress) {
