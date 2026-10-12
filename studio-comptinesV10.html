@@ -572,7 +572,7 @@
 </button>
 
 <button type="button" class="btn-download" id="download-btn">
-    ⬇️ Télécharger le film (WebM)
+    ⬇️ Télécharger le film (MP4)
 </button>
 
 <button type="button" class="btn-stop" id="stop-btn">
@@ -653,19 +653,22 @@ const CANONICAL_CHAR_STORAGE = 'kids_story_canonical_character';
 
 const MAX_VISIBLE_QUEUE = 30;
 const THUMBNAIL_MAX_WIDTH = 200;
-const POLLINATIONS_MIN_INTERVAL_MS = 20000;
+const POLLINATIONS_MIN_INTERVAL_MS = 28000;
 const CROSSFADE_DURATION = 0.3;
 
 // ══════════════════════════════════════════════════════════════════
 // ÉTAT GLOBAL
 // ══════════════════════════════════════════════════════════════════
+const SERVER_URL = 'https://51-254-135-158.sslip.io';
+const SERVER_API_KEY = 'kids-studio-secret-change-me'; // à changer
+
 const state = {
     story: '', storySegments: [], scenes: [],
     isRunning: false, stopRequested: false, completed: 0, failed: 0,
     selectedTheme: 'pixar-3d', characters: 'custom',
     durationFrames: 153, targetScenes: 'auto',
     audioFile: null, audioObjectUrl: null, audioBpm: null, audioDuration: 0,
-    finalFilmBlob: null, isAssembling: false,
+    finalFilmBlob: null, finalFilmUrl: null, isAssembling: false,
     lastPollinationsCall: 0,
     canonicalCharacter: '',
     seed: 42, musicVolume: 0.20, duckingEnabled: true,
@@ -1217,9 +1220,10 @@ function classifyError(error) {
 // ══════════════════════════════════════════════════════════════════
 // POLLINATIONS
 // ══════════════════════════════════════════════════════════════════
-const POLLINATIONS_ANONYMOUS_MODELS = ['flux', 'turbo', 'gptimage', 'qwen-image', 'grok-imagine'];
+// Modèles gratuits uniquement — gptimage/qwen/grok + enhance=true provoquent souvent HTTP 402
+const POLLINATIONS_FREE_MODELS = ['flux', 'turbo'];
 
-async function generateImageWithPollinations(prompt, retries = 5) {
+async function generateImageWithPollinations(prompt, retries = 4) {
     const now = Date.now();
     const elapsed = now - state.lastPollinationsCall;
     if (elapsed < POLLINATIONS_MIN_INTERVAL_MS && state.lastPollinationsCall > 0) {
@@ -1230,16 +1234,18 @@ async function generateImageWithPollinations(prompt, retries = 5) {
     }
     state.lastPollinationsCall = Date.now();
 
-    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1800));
+    // Prompt plus court = moins de 402 / timeouts
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1200));
     let lastError = null;
 
     for (let attempt = 0; attempt < retries; attempt++) {
         if (state.stopRequested) throw new Error('Arrêt demandé');
-        const model = POLLINATIONS_ANONYMOUS_MODELS[attempt % POLLINATIONS_ANONYMOUS_MODELS.length];
+        const model = POLLINATIONS_FREE_MODELS[attempt % POLLINATIONS_FREE_MODELS.length];
         const cacheBuster = Date.now() + Math.floor(Math.random() * 10000);
+        // Pas d'enhance=true (payant) ; nologo optionnel
         const url = POLLINATIONS_BASE + encodedPrompt +
             '?width=720&height=1280&model=' + model +
-            '&nologo=true&enhance=true&seed=' + state.seed +
+            '&nologo=true&seed=' + (state.seed + attempt) +
             '&_=' + cacheBuster;
 
         try {
@@ -1251,9 +1257,21 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             const res = await fetch(url, { method: 'GET', signal: controller.signal });
             clearTimeout(timeoutId);
 
-            if (res.status === 401 || res.status === 402) continue;
-            if (res.status === 429) { await sleep([20, 40, 60][Math.min(attempt, 2)] * 1000); continue; }
-            if (res.status >= 500) { await sleep([5, 10, 15][Math.min(attempt, 2)] * 1000); continue; }
+            if (res.status === 401 || res.status === 402) {
+                log('Pollinations [' + model + '] HTTP ' + res.status + ' (quota/payant) — pause 45s');
+                await sleep(45000);
+                state.lastPollinationsCall = Date.now();
+                continue;
+            }
+            if (res.status === 429) {
+                await sleep([30, 50, 70][Math.min(attempt, 2)] * 1000);
+                state.lastPollinationsCall = Date.now();
+                continue;
+            }
+            if (res.status >= 500) {
+                await sleep([8, 15, 25][Math.min(attempt, 2)] * 1000);
+                continue;
+            }
             if (!res.ok) throw new Error('HTTP ' + res.status);
 
             const blob = await res.blob();
@@ -1270,13 +1288,13 @@ async function generateImageWithPollinations(prompt, retries = 5) {
             if (e.name === 'AbortError') log('Pollinations [' + model + '] timeout');
             else { lastError = e; log('Pollinations [' + model + '] échec : ' + e.message); }
             if (attempt < retries - 1) {
-                await sleep(5000);
+                await sleep(8000);
                 state.lastPollinationsCall = Date.now();
             }
         }
     }
 
-    log('⚠️ Tous les modèles ont échoué — fallback local');
+    log('⚠️ Pollinations saturé — fallback local (les vidéos Agnes peuvent quand même marcher)');
     setStatus('Fallback image de secours…');
     return await generateFallbackImage(prompt);
 }
@@ -1408,6 +1426,11 @@ async function createVideoTask(imageDataUri, prompt) {
     }, 'Création');
     if (!res.ok) {
         const err = await res.text();
+        if (res.status === 401 || /invalid token/i.test(err)) {
+            const authErr = new Error('AGNES_AUTH_INVALID');
+            authErr.detail = err.slice(0, 200);
+            throw authErr;
+        }
         throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
     }
     const data = await res.json();
@@ -1529,6 +1552,24 @@ async function generateAllScenes() {
 
         } catch (e) {
             if (e.message === 'Arrêt demandé') break;
+            if (e.message === 'AGNES_AUTH_INVALID') {
+                log('❌ Clé Agnes invalide (HTTP 401 Invalid token)');
+                showToast('Clé Agnes invalide — colle une nouvelle clé sk-… puis réessaie', 'error', 8000);
+                setStatus('Clé Agnes invalide — régénère-la sur platform.agnes-ai.com');
+                scene.status = 'failed';
+                scene.error = 'Vidéo: clé Agnes invalide';
+                state.failed++;
+                // Marquer le reste comme non tenté pour éviter 14× 401
+                for (let j = i + 1; j < validScenes.length; j++) {
+                    if (validScenes[j].status === 'image-done' || validScenes[j].status === 'pending') {
+                        validScenes[j].status = 'failed';
+                        validScenes[j].error = 'Vidéo: annulée (clé Agnes invalide)';
+                        state.failed++;
+                    }
+                }
+                renderQueue();
+                break;
+            }
             log('[Scène ' + (scene.index + 1) + '] Vidéo échouée : ' + e.message);
             scene.status = 'failed';
             scene.error = 'Vidéo: ' + e.message;
@@ -1920,9 +1961,18 @@ function fadeOutToBlack(ctx, width, height, duration) {
 
 /**
  * ══════════════════════════════════════════════════════════════════
- * ASSEMBLAGE AUTOMATIQUE DU FILM FINAL
+ * ASSEMBLAGE SERVEUR (VPS FFmpeg) DU FILM FINAL
  * ══════════════════════════════════════════════════════════════════
  */
+async function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('Lecture fichier impossible'));
+        reader.readAsDataURL(file);
+    });
+}
+
 async function assembleFinalFilm() {
     if (state.isAssembling) return;
 
@@ -1945,295 +1995,80 @@ async function assembleFinalFilm() {
 
     finalFilmEl.classList.add('visible');
     progressContainer.style.display = 'block';
-    setStatus('🎬 Assemblage automatique du film…');
+    setStatus('Assemblage serveur…');
     progressFill.style.width = '0%';
 
-    let audioCtx = null;
-    let recorder = null;
-    let recorderStarted = false;
-    const objectUrls = [];
-    const videoElements = [];
-
     try {
-        // ─── ÉTAPE 1 : Téléchargement des vidéos ─────────────────
-        statusEl.textContent = 'Étape 1/5 : Téléchargement des scènes…';
-        log('═══ ASSEMBLAGE AUTOMATIQUE ═══');
-        progressFill.style.width = '5%';
+        log('═══ ASSEMBLAGE SERVEUR ═══');
+        statusEl.textContent = 'Envoi de ' + doneScenes.length + ' scènes au VPS…';
+        progressFill.style.width = '20%';
 
-        const videoBlobs = [];
-        for (let i = 0; i < doneScenes.length; i++) {
-            if (state.stopRequested) throw new Error('Arrêt demandé');
-            const scene = doneScenes[i];
-            progressFill.style.width = (5 + (i / doneScenes.length) * 20) + '%';
-            statusEl.textContent = 'Téléchargement scène ' + (i + 1) + '/' + doneScenes.length + '…';
-            try {
-                const res = await fetch(scene.videoUrl);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const blob = await res.blob();
-                if (blob.size < 1000) throw new Error('Blob trop petit');
-                videoBlobs.push({ index: scene.index, blob, text: scene.text });
-            } catch (e) {
-                log('Scène ' + (scene.index + 1) + ' téléchargement échoué : ' + e.message);
-            }
-        }
+        const musicDataUrl = state.audioFile ? await fileToDataUrl(state.audioFile) : null;
+        progressFill.style.width = '40%';
+        statusEl.textContent = 'Montage FFmpeg sur le serveur…';
 
-        if (videoBlobs.length === 0) throw new Error('Aucune vidéo téléchargée');
-
-        // ─── ÉTAPE 2 : Préparation des vidéos ────────────────────
-        statusEl.textContent = 'Étape 2/5 : Préparation des vidéos…';
-        progressFill.style.width = '25%';
-
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const voiceBuffers = [];
-
-        for (let i = 0; i < videoBlobs.length; i++) {
-            if (state.stopRequested) throw new Error('Arrêt demandé');
-            progressFill.style.width = (25 + (i / videoBlobs.length) * 20) + '%';
-            statusEl.textContent = 'Préparation scène ' + (i + 1) + '/' + videoBlobs.length + '…';
-
-            const { blob } = videoBlobs[i];
-            const url = URL.createObjectURL(blob);
-            objectUrls.push(url);
-
-            const video = document.createElement('video');
-            video.src = url;
-            video.muted = true;
-            video.playsInline = true;
-            video.preload = 'auto';
-            video.setAttribute('playsinline', '');
-
-            try {
-                await waitForVideoCanPlay(video, 25000);
-                videoElements.push({
-                    index: videoBlobs[i].index,
-                    video,
-                    url,
-                    duration: video.duration,
-                    text: videoBlobs[i].text
-                });
-                log('Vidéo ' + (i + 1) + ' prête : ' + video.duration.toFixed(2) + 's');
-            } catch (e) {
-                log('Vidéo ' + (i + 1) + ' non lisible : ' + e.message);
-                continue;
-            }
-
-            try {
-                const arrayBuffer = await blob.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-                voiceBuffers.push(audioBuffer);
-            } catch (e) {
-                log('Pas d\'audio scène ' + (i + 1));
-                voiceBuffers.push(null);
-            }
-        }
-
-        if (videoElements.length === 0) throw new Error('Aucune vidéo exploitable');
-
-        // ─── ÉTAPE 3 : Mixage audio ───────────────────────────────
-        statusEl.textContent = 'Étape 3/5 : Mixage audio (voix + musique)…';
-        progressFill.style.width = '50%';
-        log('Mixage audio…');
-
-        let finalAudioBuffer = null;
-        const validVoiceBuffers = voiceBuffers.filter(b => b && b.length > 0);
-
-        if (validVoiceBuffers.length > 0) {
-            const voiceBuffer = concatAudioBuffers(audioCtx, validVoiceBuffers);
-            log('Voix concaténées : ' + voiceBuffer.duration.toFixed(2) + 's');
-
-            if (state.audioFile && state.audioObjectUrl) {
-                finalAudioBuffer = await mixAudioWithMusic(
-                    audioCtx, voiceBuffer, state.audioFile,
-                    state.musicVolume, state.duckingEnabled
-                );
-            } else {
-                finalAudioBuffer = voiceBuffer;
-            }
-        } else if (state.audioFile && state.audioObjectUrl) {
-            const totalDuration = videoElements.reduce((s, v) => s + (v.video.duration || 0), 0);
-            finalAudioBuffer = await buildMusicOnly(audioCtx, state.audioFile, totalDuration, state.musicVolume * 0.5);
-            log('Musique seule : ' + (finalAudioBuffer ? finalAudioBuffer.duration.toFixed(2) : '0') + 's');
-        }
-
-        // ─── ÉTAPE 4 : Rendu vidéo ────────────────────────────────
-        statusEl.textContent = 'Étape 4/5 : Rendu du film…';
-        progressFill.style.width = '55%';
-
-        const firstVideo = videoElements[0].video;
-        const width = firstVideo.videoWidth || 720;
-        const height = firstVideo.videoHeight || 1280;
-        log('Résolution de sortie : ' + width + 'x' + height);
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d', { alpha: false });
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, height);
-
-        const canvasStream = canvas.captureStream(30);
-        const combinedStream = new MediaStream();
-        canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
-
-        let audioSource = null;
-        if (finalAudioBuffer) {
-            const audioDest = audioCtx.createMediaStreamDestination();
-            audioSource = audioCtx.createBufferSource();
-            audioSource.buffer = finalAudioBuffer;
-            audioSource.connect(audioDest);
-            audioDest.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
-        }
-
-        const mimeTypes = [
-            'video/webm;codecs=vp9,opus',
-            'video/webm;codecs=vp8,opus',
-            'video/webm'
-        ];
-        let mimeType = 'video/webm';
-        for (const mt of mimeTypes) {
-            if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
-        }
-        log('Codec : ' + mimeType);
-
-        recorder = new MediaRecorder(combinedStream, {
-            mimeType,
-            videoBitsPerSecond: 3500000,
-            audioBitsPerSecond: 128000
+        const response = await fetch(SERVER_URL + '/api/assemble', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': SERVER_API_KEY
+            },
+            body: JSON.stringify({
+                videos: doneScenes.map(s => s.videoUrl),
+                musicDataUrl,
+                musicVolume: state.musicVolume,
+                addTitleCard: state.addTitleCard,
+                crossfadeDuration: state.crossfadeDuration,
+                titleText: (state.story || '').slice(0, 80).replace(/[.!?].*$/, '') || 'Une histoire animée'
+            })
         });
 
-        const chunks = [];
-        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-        const recordingDone = new Promise((resolve) => {
-            recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
-        });
-
-        recorder.start(500);
-        recorderStarted = true;
-        if (audioSource) audioSource.start(0);
-
-        // Calcul de la durée totale (avec titres)
-        const titleDuration = state.addTitleCard ? 3.0 : 0;
-        const totalVideoDuration = videoElements.reduce((sum, v) => sum + (v.video.duration || 0), 0);
-        const totalDuration = totalVideoDuration + titleDuration;
-        log('Durée totale cible : ' + totalDuration.toFixed(2) + 's');
-
-        // ─── Carton-titre ─────────────────────────────────────────
-        if (state.addTitleCard) {
-            statusEl.textContent = 'Carton-titre…';
-            const titleText = state.story.slice(0, 80).replace(/[.!?].*$/, '') || 'Une histoire animée';
-            drawTitleCard(ctx, width, height, titleText);
-
-            const titleStart = performance.now();
-            await new Promise((resolve) => {
-                const animate = () => {
-                    const elapsed = (performance.now() - titleStart) / 1000;
-                    if (elapsed >= titleDuration) { resolve(); return; }
-                    const alpha = elapsed < 0.5 ? elapsed / 0.5
-                        : elapsed > titleDuration - 0.5 ? (titleDuration - elapsed) / 0.5
-                        : 1;
-                    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-                    ctx.fillStyle = '#000';
-                    ctx.fillRect(0, 0, width, height);
-                    ctx.globalAlpha = 1;
-                    drawTitleCard(ctx, width, height, titleText);
-                    requestAnimationFrame(animate);
-                };
-                animate();
-            });
-            ctx.globalAlpha = 1;
+        progressFill.style.width = '80%';
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success || !result.url) {
+            throw new Error(result.error || ('HTTP ' + response.status));
         }
 
-        // ─── Lecture séquentielle avec crossfade ──────────────────
-        let elapsed = 0;
-        let prevVideo = null;
-
-        for (let i = 0; i < videoElements.length; i++) {
-            if (state.stopRequested) throw new Error('Arrêt demandé');
-            const scene = videoElements[i];
-            const sceneDuration = scene.video.duration || 0;
-
-            // Crossfade entre la scène précédente et la nouvelle
-            if (prevVideo && state.crossfadeDuration > 0) {
-                await crossFadeToCanvas(ctx, prevVideo, scene.video, width, height, state.crossfadeDuration);
-            }
-
-            // Lecture complète de la scène
-            await playSceneToCanvas(scene.video, ctx, width, height, sceneDuration, (currentTime, duration) => {
-                const global = (elapsed + currentTime) / Math.max(totalDuration, 0.1);
-                progressFill.style.width = (55 + global * 40) + '%';
-                const pct = duration > 0 ? Math.round((currentTime / duration) * 100) : 0;
-                statusEl.textContent = 'Rendu scène ' + (i + 1) + '/' + videoElements.length + ' (' + pct + '%)…';
-            });
-
-            prevVideo = scene.video;
-            elapsed += sceneDuration;
-            await sleep(50);
-        }
-
-        // ─── Fondu final au noir ──────────────────────────────────
-        statusEl.textContent = 'Fondu final…';
-        await fadeOutToBlack(ctx, width, height, 1.0);
-
-        await sleep(400);
-        recorder.stop();
-
-        const finalBlob = await recordingDone;
-
-        if (!finalBlob || finalBlob.size < 5000) {
-            throw new Error('Fichier final trop petit');
-        }
-
-        state.finalFilmBlob = finalBlob;
-        const sizeMB = (finalBlob.size / 1024 / 1024).toFixed(2);
-        log('✅ Film final : ' + sizeMB + ' Mo, durée ' + totalDuration.toFixed(1) + 's');
+        state.finalFilmUrl = SERVER_URL + result.url;
+        state.finalFilmBlob = null;
 
         const finalVideo = document.getElementById('final-video');
-        finalVideo.src = URL.createObjectURL(finalBlob);
+        finalVideo.src = state.finalFilmUrl;
         finalVideo.load();
 
         document.getElementById('download-btn').classList.add('visible');
         progressFill.style.width = '100%';
-        statusEl.textContent = '✅ Film prêt ! ' + sizeMB + ' Mo — ' + totalDuration.toFixed(1) + 's';
-        showToast('🎬 Film assemblé avec succès !', 'success', 4000);
+        const sizeMo = result.size ? (result.size / 1024 / 1024).toFixed(1) + ' Mo' : '';
+        statusEl.textContent = '✅ Film prêt ! ' + sizeMo + (result.duration ? ' · ' + result.duration + 's' : '');
+        log('Film serveur : ' + state.finalFilmUrl + ' (' + sizeMo + ')');
+        showToast('Film assemblé sur le serveur ✓', 'success', 4000);
 
-        // Téléchargement automatique si activé
         if (state.autoDownload) {
             setTimeout(() => downloadFinalFilm(), 1000);
         }
-
     } catch (e) {
-        log('❌ Erreur assemblage : ' + e.message);
+        log('❌ Erreur assemblage serveur : ' + e.message);
         statusEl.textContent = '❌ ' + e.message;
         showToast('Erreur assemblage : ' + e.message, 'error', 5000);
     } finally {
-        if (recorder && recorderStarted && recorder.state === 'recording') {
-            try { recorder.stop(); } catch (e) {}
-        }
-        if (audioCtx && audioCtx.state !== 'closed') {
-            try { await audioCtx.close(); } catch (e) {}
-        }
-        objectUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
-        videoElements.forEach(v => {
-            try { v.video.pause(); v.video.src = ''; } catch (e) {}
-        });
         state.isAssembling = false;
         setStatus(null);
     }
 }
 
 function downloadFinalFilm() {
-    if (!state.finalFilmBlob) {
+    if (!state.finalFilmUrl) {
         showToast('Aucun film à télécharger', 'error');
         return;
     }
-    const url = URL.createObjectURL(state.finalFilmBlob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'kids-story-film-' + Date.now() + '.webm';
+    a.href = state.finalFilmUrl;
+    a.download = 'kids-story-film-' + Date.now() + '.mp4';
+    a.target = '_blank';
+    a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
     showToast('Téléchargement lancé ✓', 'success');
 }
 
@@ -2481,6 +2316,7 @@ async function startGeneration() {
     state.failed = 0;
     state.scenes = [];
     state.finalFilmBlob = null;
+    state.finalFilmUrl = null;
     state.lastPollinationsCall = 0;
     state.seed = parseInt(document.getElementById('seed-input').value, 10) || 42;
     createIntervalMs = CREATE_INTERVAL_MIN;
@@ -2553,7 +2389,7 @@ async function runDiagnostic() {
     const logLine = (msg) => { out.textContent += msg + '\n'; };
 
     logLine('═══ TEST POLLINATIONS.AI ═══');
-    for (const model of POLLINATIONS_ANONYMOUS_MODELS.slice(0, 3)) {
+    for (const model of POLLINATIONS_FREE_MODELS) {
         try {
             const testPrompt = encodeURIComponent('a cute friendly cartoon teddy bear');
             const testUrl = POLLINATIONS_BASE + testPrompt + '?width=720&height=1280&model=' + model + '&nologo=true&seed=42';
