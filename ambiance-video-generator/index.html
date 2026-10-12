@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ambiance Video Generator</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#1a1a1a; --muted:#667085; --blue:#2563eb; --green:#16a34a; --red:#dc2626; --line:#e5e7eb; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap { max-width:720px; margin:2rem auto; padding:0 1rem 3rem; }
+  .card { background:var(--card); padding:1.75rem; border-radius:14px; box-shadow:0 8px 24px rgba(15,23,42,.06); }
+  h1 { margin:0 0 .35rem; font-size:1.55rem; }
+  .sub { color:var(--muted); margin:0 0 1.4rem; font-size:.95rem; }
+  .zone { border:2px dashed #cbd5e1; padding:1.4rem; text-align:center; border-radius:10px; margin-bottom:.85rem; cursor:pointer; transition:.15s; }
+  .zone:hover { border-color:var(--blue); }
+  .zone.on { border-color:var(--green); background:#f0fdf4; }
+  .zone input { display:none; }
+  .hint { font-size:.82rem; color:var(--muted); margin-top:.4rem; }
+  .api { width:100%; padding:.8rem .9rem; border:1px solid var(--line); border-radius:8px; margin:0 0 1rem; font-family:ui-monospace,monospace; font-size:.9rem; }
+  button { width:100%; border:0; border-radius:8px; padding:1rem; font-size:1rem; font-weight:650; cursor:pointer; background:var(--blue); color:#fff; }
+  button:hover:not(:disabled) { filter:brightness(.95); }
+  button:disabled { background:#cbd5e1; cursor:not-allowed; }
+  .progress { display:none; margin-top:1rem; }
+  .progress.show { display:block; }
+  .bar { height:12px; background:#eef2f7; border-radius:999px; overflow:hidden; }
+  .fill { height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#16a34a); transition:width .25s; }
+  .status { margin-top:.55rem; font-size:.9rem; color:var(--muted); word-break:break-word; }
+  video { width:100%; margin-top:1rem; border-radius:10px; background:#000; display:none; }
+  .dl { display:none; margin-top:.85rem; background:var(--green); }
+  .dl.show { display:block; }
+  .err { color:var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+  <h1>Ambiance Video Generator</h1>
+  <p class="sub">Image → Agnes (10&nbsp;s) → boucle 3&nbsp;h (FFmpeg.wasm) → téléchargement</p>
+
+  <div class="zone" id="image-zone">
+    <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
+    <div id="image-label">Cliquez pour uploader votre image</div>
+    <div class="hint">JPG, PNG, WebP — obligatoire</div>
+  </div>
+
+  <div class="zone" id="audio-zone">
+    <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
+    <div id="audio-label">Cliquez pour uploader votre musique (optionnel)</div>
+    <div class="hint">MP3, WAV, OGG</div>
+  </div>
+
+  <input type="password" class="api" id="api-key" placeholder="Clé API Agnes (sk-…)" autocomplete="off">
+
+  <button id="generate-btn" disabled>Générer vidéo 3h</button>
+
+  <div class="progress" id="progress">
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="status" id="status">Préparation…</div>
+  </div>
+
+  <video id="preview" controls playsinline></video>
+  <button class="dl" id="download-btn">Télécharger la vidéo 3h</button>
+</div></div>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var AGNES_API = 'https://apihub.agnes-ai.com/v1';
+  var AGNES_POLL = 'https://apihub.agnes-ai.com/agnesapi';
+  var MODEL = 'agnes-video-v2.0';
+  var FRAMES = 241;
+  var FPS = 24;
+  var DURATION_3H = 10800;
+  var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+
+  var state = {
+    imageDataURL: null,
+    audioFile: null,
+    apiKey: localStorage.getItem('avg_agnes_key') || '',
+    isGenerating: false,
+    finalBlob: null
+  };
+
+  var imageZone = document.getElementById('image-zone');
+  var imageInput = document.getElementById('image-input');
+  var imageLabel = document.getElementById('image-label');
+  var audioZone = document.getElementById('audio-zone');
+  var audioInput = document.getElementById('audio-input');
+  var audioLabel = document.getElementById('audio-label');
+  var apiInput = document.getElementById('api-key');
+  var generateBtn = document.getElementById('generate-btn');
+  var progressEl = document.getElementById('progress');
+  var fillEl = document.getElementById('fill');
+  var statusEl = document.getElementById('status');
+  var preview = document.getElementById('preview');
+  var downloadBtn = document.getElementById('download-btn');
+
+  apiInput.value = state.apiKey;
+
+  function setProg(pct, msg, isErr) {
+    progressEl.classList.add('show');
+    fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (isErr ? ' err' : '');
+  }
+
+  function updateBtn() {
+    generateBtn.disabled = !state.imageDataURL || !state.apiKey || state.isGenerating;
+  }
+
+  imageZone.addEventListener('click', function () { imageInput.click(); });
+  imageInput.addEventListener('change', function () {
+    var file = imageInput.files && imageInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      state.imageDataURL = reader.result;
+      imageZone.classList.add('on');
+      imageLabel.textContent = '✅ ' + file.name;
+      updateBtn();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  audioZone.addEventListener('click', function () { audioInput.click(); });
+  audioInput.addEventListener('change', function () {
+    var file = audioInput.files && audioInput.files[0];
+    if (!file) return;
+    state.audioFile = file;
+    audioZone.classList.add('on');
+    audioLabel.textContent = '✅ ' + file.name;
+  });
+
+  apiInput.addEventListener('input', function () {
+    state.apiKey = apiInput.value.trim();
+    try { localStorage.setItem('avg_agnes_key', state.apiKey); } catch (e) {}
+    updateBtn();
+  });
+
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  async function createAgnesVideo() {
+    var prompt =
+      'Animate this uploaded image with subtle, gentle, calming movements only. ' +
+      'Keep the composition absolutely static — NO camera movement, NO zoom, NO pan. ' +
+      'Add soft ambient motion: gentle breathing, subtle steam or mist, soft light flicker, ' +
+      'floating dust, or gentle water ripples. Peaceful, relaxing, meditative mood. ' +
+      'Exactly 10 seconds. Seamless loop. Smooth 24fps.';
+
+    var res = await fetch(AGNES_API + '/videos', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + state.apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        prompt: prompt,
+        image: state.imageDataURL,
+        num_frames: FRAMES,
+        frame_rate: FPS
+      })
+    });
+
+    if (!res.ok) {
+      var t = await res.text();
+      if (res.status === 401) throw new Error('Clé Agnes invalide');
+      if (res.status === 503 || res.status === 429) throw new Error('Agnes saturé — réessayez plus tard');
+      throw new Error('Agnes HTTP ' + res.status + ' — ' + t.slice(0, 180));
+    }
+    var data = await res.json();
+    var id = data.video_id || data.id || data.task_id;
+    if (!id) throw new Error('Pas de video_id retourné');
+    return id;
+  }
+
+  async function pollAgnes(videoId) {
+    // court délai initial
+    for (var w = 20; w > 0; w--) {
+      setProg(25, 'Agnes prépare la boucle… ' + w + 's');
+      await sleep(1000);
+    }
+    for (var i = 0; i < 90; i++) {
+      var res = await fetch(AGNES_POLL + '/videos/' + encodeURIComponent(videoId), {
+        headers: { 'Authorization': 'Bearer ' + state.apiKey }
+      });
+      if (!res.ok) {
+        if (res.status === 503) throw new Error('Agnes saturé pendant le polling');
+        throw new Error('Poll HTTP ' + res.status);
+      }
+      var data = await res.json();
+      var st = String(data.status || data.state || '').toLowerCase();
+      var p = Number(data.progress) || 0;
+      setProg(30 + Math.min(30, p * 0.3), 'Génération Agnes… ' + (p || (i + 1)));
+      if (st === 'completed' || st === 'succeeded' || st === 'ready' || st === 'done') {
+        var url = data.video_url || data.url || (data.metadata && data.metadata.url) ||
+          (data.output && data.output.url);
+        if (!url) throw new Error('Vidéo prête sans URL');
+        return url;
+      }
+      if (st === 'failed' || st === 'error') throw new Error('Échec génération Agnes');
+      await sleep(8000);
+    }
+    throw new Error('Délai maximal dépassé (Agnes)');
+  }
+
+  async function loadFFmpeg(onMsg) {
+    if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
+      throw new Error('FFmpeg.wasm CDN non chargé — vérifiez unpkg.com / réseau');
+    }
+    var FFmpeg = FFmpegWASM.FFmpeg;
+    var toBlobURL = FFmpegUtil.toBlobURL;
+    var ffmpeg = new FFmpeg();
+    ffmpeg.on('log', function (e) {
+      if (e && e.message) console.log('[ffmpeg]', e.message);
+    });
+    if (onMsg) onMsg('Chargement FFmpeg.wasm (unpkg)…');
+    // toBlobURL évite les erreurs CORS Worker des CDN
+    await ffmpeg.load({
+      coreURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.js', 'text/javascript'),
+      wasmURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.wasm', 'application/wasm')
+    });
+    return ffmpeg;
+  }
+
+  /**
+   * Boucle 3h : -c:v copy (pas de ré-encodage 3h → évite OOM navigateur).
+   */
+  async function create3HourLoop(videoBlob, audioFile) {
+    var ffmpeg = await loadFFmpeg(function (m) { setProg(72, m); });
+    var fetchFile = FFmpegUtil.fetchFile;
+
+    setProg(78, 'Écriture fichiers dans FFmpeg…');
+    await ffmpeg.writeFile('input.mp4', await fetchFile(videoBlob));
+
+    var args;
+    if (audioFile) {
+      await ffmpeg.writeFile('input_audio.mp3', await fetchFile(audioFile));
+      args = [
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-map', '0:v:0', '-map', '1:a:0',
+        '-c:v', 'copy',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-t', String(DURATION_3H),
+        '-shortest',
+        '-movflags', '+faststart',
+        'output.mp4'
+      ];
+    } else {
+      args = [
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-c:v', 'copy',
+        '-an',
+        '-t', String(DURATION_3H),
+        '-movflags', '+faststart',
+        'output.mp4'
+      ];
+    }
+
+    setProg(82, 'Assemblage boucle 3h (copy stream)…');
+    try {
+      await ffmpeg.exec(args);
+    } catch (e1) {
+      // Repli : si le conteneur Agnes n'est pas copy-friendly, encodeur ultrafast court... non, on tente mpeg4 short then copy is wrong.
+      // Repli audio sans map strict
+      if (audioFile) {
+        setProg(84, 'Repli FFmpeg…');
+        await ffmpeg.exec([
+          '-stream_loop', '-1', '-i', 'input.mp4',
+          '-stream_loop', '-1', '-i', 'input_audio.mp3',
+          '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
+          '-t', String(DURATION_3H), '-shortest', 'output.mp4'
+        ]);
+      } else {
+        throw e1;
+      }
+    }
+
+    setProg(95, 'Lecture fichier final…');
+    var data = await ffmpeg.readFile('output.mp4');
+    var buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    var blob = new Blob([buf], { type: 'video/mp4' });
+    if (!blob.size) throw new Error('Fichier final vide');
+    return blob;
+  }
+
+  async function generateVideo() {
+    if (!state.imageDataURL || !state.apiKey || state.isGenerating) return;
+    state.isGenerating = true;
+    updateBtn();
+    downloadBtn.classList.remove('show');
+    preview.style.display = 'none';
+    state.finalBlob = null;
+
+    try {
+      setProg(8, 'Envoi à Agnes IA…');
+      var videoId = await createAgnesVideo();
+      setProg(20, 'Tâche créée — attente rendu…');
+      var videoUrl = await pollAgnes(videoId);
+
+      setProg(65, 'Téléchargement vidéo Agnes…');
+      var vRes = await fetch(videoUrl);
+      if (!vRes.ok) throw new Error('Téléchargement vidéo HTTP ' + vRes.status);
+      var videoBlob = await vRes.blob();
+      if (videoBlob.size < 500) throw new Error('Vidéo Agnes vide');
+
+      setProg(70, 'Création de la boucle 3h…');
+      var finalBlob = await create3HourLoop(videoBlob, state.audioFile);
+      state.finalBlob = finalBlob;
+
+      setProg(100, '✅ Vidéo 3h prête · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      preview.src = URL.createObjectURL(finalBlob);
+      preview.style.display = 'block';
+      downloadBtn.classList.add('show');
+    } catch (err) {
+      console.error(err);
+      setProg(0, '❌ ' + (err && err.message ? err.message : String(err)), true);
+    } finally {
+      state.isGenerating = false;
+      updateBtn();
+    }
+  }
+
+  generateBtn.addEventListener('click', generateVideo);
+  downloadBtn.addEventListener('click', function () {
+    if (!state.finalBlob) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(state.finalBlob);
+    a.download = 'ambiance-video-3h.mp4';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  });
+
+  updateBtn();
+})();
+</script>
+</body>
+</html>
