@@ -1,0 +1,24 @@
+[Unit]
+Description=Trading Dashboard (Docker Compose)
+Documentation=file://__PROJECT_DIR__/docs/ARCHITECTURE.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=__PROJECT_DIR__
+EnvironmentFile=-__PROJECT_DIR__/.env
+
+# Respecte ENABLE_SSL=true → profile certbot
+ExecStart=/bin/bash -c 'set -euo pipefail; cd "__PROJECT_DIR__"; EXTRA=(); if [[ "${ENABLE_SSL:-false}" == "true" ]]; then EXTRA=(--profile ssl); fi; /usr/bin/docker compose "${EXTRA[@]}" -f "__PROJECT_DIR__/docker-compose.yml" up -d --remove-orphans'
+ExecStop=/bin/bash -c 'cd "__PROJECT_DIR__"; /usr/bin/docker compose -f "__PROJECT_DIR__/docker-compose.yml" --profile ssl stop || /usr/bin/docker compose -f "__PROJECT_DIR__/docker-compose.yml" stop'
+ExecReload=/bin/bash -c 'set -euo pipefail; cd "__PROJECT_DIR__"; EXTRA=(); if [[ "${ENABLE_SSL:-false}" == "true" ]]; then EXTRA=(--profile ssl); fi; /usr/bin/docker compose "${EXTRA[@]}" -f "__PROJECT_DIR__/docker-compose.yml" up -d --remove-orphans'
+
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
