@@ -6,12 +6,12 @@ Le projet (image + audio + clé) est **mémorisé en local** (IndexedDB). La **v
 
 ## Utilisation
 
-1. Ouvre `index.html` (idéalement via `demarrer.bat` / `demarrer.sh`)
-2. Uploade une image (+ musique optionnelle) — sauvegardées automatiquement
-3. Colle ta clé Agnes (`sk-…`)
-4. Choisis la stratégie de file (Auto ; **v2.0** si tu es en `file://`)
-5. **Veille flux jusqu’à succès** (recommandé) — sondage actif du stream de requêtes
-6. Ou **Générer maintenant** (~20&nbsp;min de collage)
+1. Place image + audio dans `bande-son/` (voir `bande-son/README.md`)
+2. Lance `demarrer.bat` / `demarrer.sh` → http://127.0.0.1:8765/
+3. Vérifie le **prompt automne cozy** (éditable) — vapeur, feuilles, micro-vie capybara, caméra fixe
+4. Colle ta clé Agnes (`sk-…`)
+5. **Veille flux jusqu’à succès** (recommandé) — sondage actif jusqu’au 1er canal libre
+6. Ou uploade manuellement si tu n’utilises pas le dossier `bande-son/`
 
 ## Veille flux (pas d’heure fixe)
 
