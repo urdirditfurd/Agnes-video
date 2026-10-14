@@ -99,6 +99,7 @@
   button:disabled { background: #cbd5e1; cursor: not-allowed; }
   button.secondary { background: #64748b; }
   button.watch { background: #0f766e; }
+  button.montage { background: #b45309; }
   .progress { display: none; margin-top: 1.1rem; }
   .progress.show { display: block; }
   .bar { height: 10px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
@@ -135,7 +136,7 @@
 <body>
 <div class="wrap"><div class="card">
   <h1>Ambiance Video Generator</h1>
-  <p class="sub">Image → Agnes IA → boucle 3&nbsp;h (FFmpeg.wasm). Projet mémorisé (image + audio) jusqu’à succès.</p>
+  <p class="sub">Image automne cozy → Agnes (vapeur, feuilles, capybara zen) → montage MP4 3&nbsp;h YouTube. Fichiers dans <code>bande-son/</code>.</p>
   <p class="note">Mode « Veille flux » : sonde Agnes en continu (POST /v1/videos) et lance vidéo + montage 3h dès qu’un canal se libère — pas d’attente d’heure fixe.</p>
   <div class="saved" id="saved-banner">Projet restauré depuis la mémoire locale.</div>
 
@@ -149,8 +150,14 @@
 
   <div class="zone" id="audio-zone">
     <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
-    <div id="audio-label">Bande-son (optionnel, bouclée 3h)</div>
+    <div id="audio-label">Bande-son (bouclée 3h, fades YouTube)</div>
     <div class="hint">MP3, WAV, OGG — dossier <code>bande-son/</code> ou clic ici</div>
+  </div>
+
+  <div class="zone" id="clip-zone">
+    <input type="file" id="clip-input" accept="video/mp4,video/webm,video/*">
+    <div id="clip-label">Clip court déjà généré (optionnel — saute Agnes)</div>
+    <div class="hint">MP4 court → montage 3h direct avec la bande-son</div>
   </div>
 
   <label class="field" for="prompt-input">Prompt animation (image-to-video)</label>
@@ -182,6 +189,7 @@
   <div class="row">
     <button id="generate-btn" disabled>Générer maintenant</button>
     <button id="watch-btn" class="watch" disabled>Veille flux jusqu’à succès</button>
+    <button id="montage-btn" class="montage" disabled>Montage 3h seul</button>
     <button id="cancel-btn" class="secondary" disabled>Arrêter</button>
   </div>
 
@@ -221,14 +229,15 @@
     soft: { min: 25000, max: 45000 }
   };
 
-  // Prompt automne cozy (capybara / onsen) + verrou caméra fixe
+  // Plan animation automne cozy (vapeur, eau, feuilles, micro-vie) + caméra fixe
   var DEFAULT_AGNES_PROMPT =
-    'Cinematic lofi animation of this exact image. ' +
-    'Keep the composition absolutely static - NO camera movement, NO zoom, NO pan, NO reframing. ' +
-    'Gentle steam rising from the hot spring water, water surface rippling softly with floating autumn maple leaves drifting slowly. ' +
-    'A few orange maple leaves falling gently from the trees in the background. ' +
-    'Very subtle life on the capybara: tiny slow blink or micro head movement, keep the zen posture. ' +
-    'Subtle and peaceful cozy autumn atmosphere, seamless high quality loop animation, 4k.';
+    'Cinematic lofi animation of this exact uploaded image. ' +
+    'Keep the composition absolutely static - NO camera movement, NO zoom, NO pan, NO reframing, NO shake. ' +
+    'Gentle thin steam rising slowly from the hot spring water surface. ' +
+    'Water surface rippling softly with subtle swirls around the capybara, floating autumn maple leaves drifting slowly. ' +
+    'A few orange maple leaves gently detaching from background trees and falling into the scene or onto the water. ' +
+    'Very subtle life on the capybara only: tiny slow blink or micro head movement, keep the zen posture, no walking. ' +
+    'Subtle and peaceful cozy autumn atmosphere, high quality seamless loop animation, 4k.';
 
   var MODEL_CHAIN_AUTO = [
     'agnes-video-2.5-flash',
@@ -241,6 +250,8 @@
     imageName: '',
     audioFile: null,
     audioName: '',
+    clipFile: null,
+    clipName: '',
     apiKey: '',
     isGenerating: false,
     stopRequested: false,
@@ -261,7 +272,11 @@
   var audioZone = document.getElementById('audio-zone');
   var audioInput = document.getElementById('audio-input');
   var audioLabel = document.getElementById('audio-label');
+  var clipZone = document.getElementById('clip-zone');
+  var clipInput = document.getElementById('clip-input');
+  var clipLabel = document.getElementById('clip-label');
   var apiInput = document.getElementById('api-key');
+  var montageBtn = document.getElementById('montage-btn');
   var promptInput = document.getElementById('prompt-input');
   var modelStrategy = document.getElementById('model-strategy');
   var probePace = document.getElementById('probe-pace');
@@ -292,8 +307,10 @@
 
   function updateBtn() {
     var ready = !!(state.imageDataURL && state.apiKey);
+    // Montage seul = clip court + audio (pas besoin clé Agnes)
     generateBtn.disabled = !ready || state.isGenerating;
     watchBtn.disabled = !ready || state.isGenerating;
+    montageBtn.disabled = !(state.clipFile && state.audioFile) || state.isGenerating;
     cancelBtn.disabled = !state.isGenerating;
   }
 
@@ -505,7 +522,19 @@
     state.audioName = file.name;
     audioZone.classList.add('on');
     audioLabel.textContent = '✓ ' + file.name;
+    updateBtn();
     await saveProject({ watchPending: false });
+  });
+
+  clipZone.addEventListener('click', function () { clipInput.click(); });
+  clipInput.addEventListener('change', async function () {
+    var file = clipInput.files && clipInput.files[0];
+    if (!file) return;
+    state.clipFile = file;
+    state.clipName = file.name;
+    clipZone.classList.add('on');
+    clipLabel.textContent = '✓ ' + file.name;
+    updateBtn();
   });
 
   apiInput.addEventListener('input', async function () {
@@ -889,29 +918,53 @@
     return ffmpeg;
   }
 
+  /**
+   * Montage YouTube 3h :
+   * - vidéo bouclée en copy (pas de ré-encodage → mémoire OK)
+   * - audio bouclé AAC 192k / 48 kHz
+   * - fade-in 2.5s + fade-out 5s + volume doux
+   * - durée exacte 10800s (pas de -shortest qui coupe trop tôt)
+   */
   async function create3HourLoop(videoBlob, audioFile) {
     var ffmpeg = state.ffmpeg;
     if (!ffmpeg) {
-      setProg(86, 'Chargement FFmpeg pour montage…');
+      setProg(86, 'Chargement FFmpeg pour montage 3h…');
       ffmpeg = await loadFFmpeg(function (m) { setProg(86, m); });
       state.ffmpeg = ffmpeg;
     } else {
-      setProg(86, 'Montage 3h — FFmpeg déjà prêt (préchargé en veille)…');
+      setProg(86, 'Montage 3h — FFmpeg prêt…');
     }
     var fetchFile = FFmpegUtil.fetchFile;
-    setProg(88, 'Écriture fichiers dans FFmpeg…');
+
+    try { await ffmpeg.deleteFile('input.mp4'); } catch (e) {}
+    try { await ffmpeg.deleteFile('input_audio.mp3'); } catch (e) {}
+    try { await ffmpeg.deleteFile('output.mp4'); } catch (e) {}
+
+    setProg(88, 'Écriture clip + bande-son dans FFmpeg…');
     await ffmpeg.writeFile('input.mp4', await fetchFile(videoBlob));
+
+    var fadeOutStart = DURATION_3H - 5;
     var args;
+    var audioIn = null;
     if (audioFile) {
-      await ffmpeg.writeFile('input_audio.mp3', await fetchFile(audioFile));
+      var audioExt = ((state.audioName || 'audio.mp3').split('.').pop() || 'mp3').toLowerCase();
+      if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].indexOf(audioExt) < 0) audioExt = 'mp3';
+      audioIn = 'input_audio.' + audioExt;
+      try { await ffmpeg.deleteFile(audioIn); } catch (e) {}
+      await ffmpeg.writeFile(audioIn, await fetchFile(audioFile));
+      // Filtre audio léger (évite loudnorm 3h trop lourd en wasm)
+      var afilter =
+        'afade=t=in:st=0:d=2.5,' +
+        'afade=t=out:st=' + fadeOutStart + ':d=5,' +
+        'volume=0.92';
       args = [
         '-stream_loop', '-1', '-i', 'input.mp4',
-        '-stream_loop', '-1', '-i', 'input_audio.mp3',
+        '-stream_loop', '-1', '-i', audioIn,
         '-map', '0:v:0', '-map', '1:a:0',
         '-c:v', 'copy',
-        '-c:a', 'aac', '-b:a', '128k',
+        '-af', afilter,
+        '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2',
         '-t', String(DURATION_3H),
-        '-shortest',
         '-movflags', '+faststart',
         'output.mp4'
       ];
@@ -925,24 +978,64 @@
         'output.mp4'
       ];
     }
-    setProg(90, 'Assemblage boucle 3h…');
+
+    setProg(90, 'Assemblage boucle 3h (exacte) + fades audio…');
     try {
       await ffmpeg.exec(args);
     } catch (e1) {
-      if (!audioFile) throw e1;
+      console.warn('montage primary failed, fallback', e1);
+      if (!audioFile || !audioIn) throw e1;
+      // Fallback sans filtre (certains builds wasm limitent -af)
+      setProg(91, 'Fallback montage sans filtre audio…');
       await ffmpeg.exec([
         '-stream_loop', '-1', '-i', 'input.mp4',
-        '-stream_loop', '-1', '-i', 'input_audio.mp3',
-        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
-        '-t', String(DURATION_3H), '-shortest', 'output.mp4'
+        '-stream_loop', '-1', '-i', audioIn,
+        '-map', '0:v:0', '-map', '1:a:0',
+        '-c:v', 'copy',
+        '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+        '-t', String(DURATION_3H),
+        '-movflags', '+faststart',
+        'output.mp4'
       ]);
     }
-    setProg(96, 'Lecture fichier final…');
+
+    setProg(96, 'Lecture fichier final 3h…');
     var data = await ffmpeg.readFile('output.mp4');
     var buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
     var blob = new Blob([buf], { type: 'video/mp4' });
     if (!blob.size) throw new Error('Fichier final vide');
+    if (blob.size < 100000) throw new Error('Montage suspect (fichier trop petit)');
     return blob;
+  }
+
+  async function runMontageOnly() {
+    if (!state.clipFile || !state.audioFile || state.isGenerating) return;
+    state.isGenerating = true;
+    state.stopRequested = false;
+    updateBtn();
+    downloadBtn.classList.remove('show');
+    preview.style.display = 'none';
+    state.finalBlob = null;
+    try {
+      await requestWakeLock();
+      setProg(10, 'Montage seul — clip court + bande-son → MP4 3h…');
+      preloadFfmpeg();
+      var finalBlob = await create3HourLoop(state.clipFile, state.audioFile);
+      state.finalBlob = finalBlob;
+      setProg(100, '✓ Montage 3h prêt · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      preview.src = URL.createObjectURL(finalBlob);
+      preview.style.display = 'block';
+      downloadBtn.classList.add('show');
+      notifyDone(true, 'Montage 3h prêt (capybara automne).');
+    } catch (err) {
+      console.error(err);
+      setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
+    } finally {
+      state.isGenerating = false;
+      state.stopRequested = false;
+      await releaseWakeLock();
+      updateBtn();
+    }
   }
 
   async function runPipeline(watch) {
@@ -982,7 +1075,7 @@
 
       var finalBlob = await create3HourLoop(videoBlob, state.audioFile);
       state.finalBlob = finalBlob;
-      setProg(100, '✓ Vidéo 3h prête (' + created.model + ') · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      setProg(100, '✓ Automne cozy 3h prêt (' + created.model + ') · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
       preview.src = URL.createObjectURL(finalBlob);
       preview.style.display = 'block';
       downloadBtn.classList.add('show');
@@ -1006,11 +1099,12 @@
 
   generateBtn.addEventListener('click', function () { runPipeline(false); });
   watchBtn.addEventListener('click', function () { runPipeline(true); });
+  montageBtn.addEventListener('click', function () { runMontageOnly(); });
   downloadBtn.addEventListener('click', function () {
     if (!state.finalBlob) return;
     var a = document.createElement('a');
     a.href = URL.createObjectURL(state.finalBlob);
-    a.download = 'ambiance-video-3h.mp4';
+    a.download = 'capybara-automne-lofi-3h.mp4';
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
   });
@@ -1020,6 +1114,7 @@
     if (IS_FILE) return false;
     var imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
     var audioExts = ['.mp3', '.wav', '.ogg', '.m4a'];
+    var clipExts = ['.mp4', '.webm'];
     var candidates = [
       'bande-son/image.jpg', 'bande-son/image.jpeg', 'bande-son/image.png', 'bande-son/image.webp',
       'bande-son/cover.jpg', 'bande-son/cover.png', 'bande-son/ambiance.jpg', 'bande-son/ambiance.png',
@@ -1049,11 +1144,13 @@
 
     var imgName = null;
     var audName = null;
+    var clipName = null;
     listed.forEach(function (name) {
       var low = name.toLowerCase();
       var ext = low.slice(low.lastIndexOf('.'));
       if (!imgName && imageExts.indexOf(ext) >= 0) imgName = name;
       if (!audName && audioExts.indexOf(ext) >= 0) audName = name;
+      if (!clipName && clipExts.indexOf(ext) >= 0) clipName = name;
     });
 
     async function loadImagePath(p, label) {
@@ -1113,6 +1210,20 @@
           break;
         } catch (e) { /* try next */ }
       }
+    }
+
+    if (clipName) {
+      try {
+        var cRes = await fetch('bande-son/' + encodeURIComponent(clipName).replace(/%2F/g, '/'), { cache: 'no-store' });
+        if (cRes.ok) {
+          var cBlob = await cRes.blob();
+          state.clipFile = new File([cBlob], clipName, { type: cBlob.type || 'video/mp4' });
+          state.clipName = clipName;
+          clipZone.classList.add('on');
+          clipLabel.textContent = '✓ ' + clipName + ' (bande-son)';
+          loaded = true;
+        }
+      } catch (e) { console.warn('bande-son clip', e); }
     }
 
     if (loaded) {

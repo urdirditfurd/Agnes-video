@@ -1,43 +1,32 @@
-# Ambiance Video Generator
+# Ambiance Video Generator — Automne cozy 3h
 
-Image + clé **Agnes IA** → clip ambiance (caméra fixe) → boucle **3&nbsp;h** locale (FFmpeg.wasm) → MP4.
+Image (ex. capybara onsen) + bande-son → Agnes IA (caméra fixe) → **MP4 3&nbsp;h YouTube**.
 
-Le projet (image + audio + clé) est **mémorisé en local** (IndexedDB). La **veille flux** sonde Agnes en continu et lance vidéo + montage dès qu’un canal se libère.
+## Plan d’animation (prompt par défaut)
+
+- Vapeur fine qui monte du bain
+- Ondulations d’eau + feuilles d’érable flottantes
+- Feuilles qui tombent en arrière-plan
+- Micro-clignement / micro-mouvement de tête du capybara
+- **Caméra verrouillée** (pas de zoom / pan)
 
 ## Utilisation
 
-1. Place image + audio dans `bande-son/` (voir `bande-son/README.md`)
+1. Place **image + audio** dans `bande-son/`
 2. Lance `demarrer.bat` / `demarrer.sh` → http://127.0.0.1:8765/
-3. Vérifie le **prompt automne cozy** (éditable) — vapeur, feuilles, micro-vie capybara, caméra fixe
-4. Colle ta clé Agnes (`sk-…`)
-5. **Veille flux jusqu’à succès** (recommandé) — sondage actif jusqu’au 1er canal libre
-6. Ou uploade manuellement si tu n’utilises pas le dossier `bande-son/`
+3. Colle ta clé Agnes
+4. **Veille flux jusqu’à succès** (sonde Agnes jusqu’au 1er canal libre)
 
-## Veille flux (pas d’heure fixe)
+### Montage seul
 
-Agnes n’expose pas d’API « file libre ». Le signal, c’est la réponse de `POST /v1/videos` :
-- `503` / `No available channel` → saturé, on re-sonde
-- `200` + `video_id` → canal libre → poll + montage 3h **immédiatement**
+Si tu as déjà le clip court Agnes : dépose aussi un `.mp4` dans `bande-son/` (ou uploade-le) + audio → **Montage 3h seul**.
 
-En rythme **Rapide** (défaut) :
-- sonde toutes les **3–6&nbsp;s**
-- en parallèle sur Flash / 2.5 / v2.0 (1er canal qui accepte gagne)
-- précharge FFmpeg pendant l’attente pour enchaîner le montage sans délai
-- jusqu’à **24&nbsp;h**, reprise auto si tu recharges la page
+## Montage 3h (amélioré)
 
-Laisse l’onglet ouvert (PC allumé, navigateur non suspendu).
+- Boucle vidéo exacte **10800&nbsp;s** (`-c:v copy`)
+- Audio AAC **192&nbsp;kb/s / 48&nbsp;kHz**, fade-in 2,5&nbsp;s + fade-out 5&nbsp;s
+- Fichier : `capybara-automne-lofi-3h.mp4`
 
-## Pourquoi les 503 / CORS ?
+## Veille flux
 
-Saturation côté Agnes + en `file://` les hébergeurs publics échouent souvent. Contournements :
-- veille flux rapide
-- stratégie **v2.0** (base64)
-- ouvrir via `demarrer.bat` / `demarrer.sh` pour Flash/2.5
-
-## Technique
-
-- Create : `POST https://apihub.agnes-ai.com/v1/videos`
-- Poll : `GET https://apihub.agnes-ai.com/agnesapi?video_id=…&model_name=…`
-- Prompt : `NO camera movement, NO zoom, NO pan`
-- FFmpeg.wasm (unpkg) + boucle 3h en `-c:v copy`
-- Mémoire projet : IndexedDB `ambiance-video-generator`
+Sondage actif de `POST /v1/videos` (3–6&nbsp;s) — pas d’heure fixe. Le PC doit rester allumé.
