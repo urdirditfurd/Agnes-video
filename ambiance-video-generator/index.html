@@ -35,7 +35,7 @@
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
   }
   h1 { margin: 0 0 .35rem; font-size: clamp(1.55rem, 3.5vw, 2rem); letter-spacing: -0.02em; }
-  .sub { margin: 0 0 1.35rem; color: var(--muted); line-height: 1.45; }
+  .sub { margin: 0 0 1.1rem; color: var(--muted); line-height: 1.45; }
   .zone {
     border: 2px dashed #cbd5e1;
     border-radius: 12px;
@@ -65,14 +65,24 @@
     background: #fff;
   }
   .api { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .row { display: flex; gap: .6rem; }
-  .row button { flex: 1; }
+  .check {
+    display: flex;
+    gap: .55rem;
+    align-items: flex-start;
+    margin: 0 0 1rem;
+    font-size: .88rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+  .check input { margin-top: .2rem; }
+  .row { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .row button { flex: 1; min-width: 140px; }
   button {
     width: 100%;
     border: 0;
     border-radius: 10px;
     padding: 1rem;
-    font-size: 1rem;
+    font-size: .95rem;
     font-weight: 650;
     cursor: pointer;
     background: var(--accent);
@@ -81,6 +91,7 @@
   button:hover:not(:disabled) { filter: brightness(.96); }
   button:disabled { background: #cbd5e1; cursor: not-allowed; }
   button.secondary { background: #64748b; }
+  button.watch { background: #0f766e; }
   .progress { display: none; margin-top: 1.1rem; }
   .progress.show { display: block; }
   .bar { height: 10px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
@@ -101,25 +112,36 @@
   }
   .dl { display: none; margin-top: .85rem; background: var(--ok); }
   .dl.show { display: block; }
-  .note { font-size: .8rem; color: var(--muted); margin: -.4rem 0 1rem; line-height: 1.4; }
+  .note { font-size: .8rem; color: var(--muted); margin: -.2rem 0 1rem; line-height: 1.4; }
+  .saved {
+    display: none;
+    margin: 0 0 1rem;
+    padding: .7rem .85rem;
+    border-radius: 8px;
+    background: #ecfdf5;
+    color: #065f46;
+    font-size: .85rem;
+  }
+  .saved.show { display: block; }
 </style>
 </head>
 <body>
 <div class="wrap"><div class="card">
   <h1>Ambiance Video Generator</h1>
-  <p class="sub">Image → Agnes IA (caméra fixe) → boucle 3&nbsp;h locale (FFmpeg.wasm) → MP4</p>
-  <p class="note">En cas de file pleine (503), l’app collera plusieurs files Agnes (~20&nbsp;min) : Flash → 2.5 → v2.0. Pas de « priorité payante » côté API.</p>
+  <p class="sub">Image → Agnes IA → boucle 3&nbsp;h (FFmpeg.wasm). Projet mémorisé (image + audio) jusqu’à succès.</p>
+  <p class="note">Astuce : laisse cet onglet ouvert la nuit. Mode « Surveiller » = retry auto jusqu’à ce qu’Agnes ait un canal libre (souvent vers 3h).</p>
+  <div class="saved" id="saved-banner">Projet restauré depuis la mémoire locale.</div>
 
   <div class="zone" id="image-zone">
     <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
     <div id="image-label">Cliquez pour uploader votre image</div>
-    <div class="hint">JPG, PNG, WebP — obligatoire</div>
+    <div class="hint">JPG, PNG, WebP — obligatoire · sauvegardée en local</div>
   </div>
 
   <div class="zone" id="audio-zone">
     <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
     <div id="audio-label">Cliquez pour uploader votre musique (optionnel)</div>
-    <div class="hint">MP3, WAV, OGG — bouclée sur 3&nbsp;h</div>
+    <div class="hint">MP3, WAV, OGG — sauvegardée en local</div>
   </div>
 
   <label class="field" for="api-key">Clé API Agnes (sk-…)</label>
@@ -127,14 +149,32 @@
 
   <label class="field" for="model-strategy">Stratégie file Agnes</label>
   <select class="select" id="model-strategy">
-    <option value="auto" selected>Auto — Flash puis 2.5 puis v2.0 (meilleures chances)</option>
-    <option value="agnes-video-2.5-flash">Flash uniquement (file gratuite)</option>
+    <option value="auto" selected>Auto — Flash puis 2.5 puis v2.0</option>
+    <option value="agnes-video-v2.0">v2.0 uniquement (base64, idéal en file://)</option>
+    <option value="agnes-video-2.5-flash">Flash uniquement</option>
     <option value="agnes-video-2.5">Video 2.5 uniquement</option>
-    <option value="agnes-video-v2.0">Video v2.0 uniquement (ancienne API)</option>
   </select>
 
+  <label class="field" for="schedule-hour">Lancer la surveillance à partir de</label>
+  <select class="select" id="schedule-hour">
+    <option value="now" selected>Tout de suite</option>
+    <option value="0">00:00</option>
+    <option value="1">01:00</option>
+    <option value="2">02:00</option>
+    <option value="3">03:00 (recommandé hors pic)</option>
+    <option value="4">04:00</option>
+    <option value="5">05:00</option>
+    <option value="6">06:00</option>
+  </select>
+
+  <label class="check">
+    <input type="checkbox" id="persist-watch" checked>
+    <span>Mémoriser le projet et reprendre auto si je recharge la page pendant la surveillance</span>
+  </label>
+
   <div class="row">
-    <button id="generate-btn" disabled>Générer la vidéo d'ambiance (3h)</button>
+    <button id="generate-btn" disabled>Générer maintenant</button>
+    <button id="watch-btn" class="watch" disabled>Surveiller jusqu’à succès</button>
     <button id="cancel-btn" class="secondary" disabled>Arrêter</button>
   </div>
 
@@ -157,10 +197,19 @@
   var AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
   var DURATION_3H = 10800;
   var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-  // Coller la file pleine : ~20 min, intervalle 25–55s (pas de vrai "priority" API)
-  var QUEUE_BUDGET_MS = 20 * 60 * 1000;
-  var QUEUE_RETRY_MIN_MS = 25000;
-  var QUEUE_RETRY_MAX_MS = 55000;
+  var IS_FILE = location.protocol === 'file:';
+  var DB_NAME = 'ambiance-video-generator';
+  var DB_STORE = 'project';
+  var PROJECT_KEY = 'current';
+
+  // Mode "maintenant" : collage intensif ~20 min
+  var QUICK_BUDGET_MS = 20 * 60 * 1000;
+  var QUICK_RETRY_MIN_MS = 25000;
+  var QUICK_RETRY_MAX_MS = 55000;
+  // Mode "surveiller" : jusqu'à 12 h, essais plus espacés
+  var WATCH_BUDGET_MS = 12 * 60 * 60 * 1000;
+  var WATCH_RETRY_MIN_MS = 90 * 1000;
+  var WATCH_RETRY_MAX_MS = 180 * 1000;
 
   var AGNES_PROMPT =
     'Animate this uploaded image with subtle, gentle, calming movements only. ' +
@@ -177,12 +226,16 @@
 
   var state = {
     imageDataURL: null,
+    imageName: '',
     audioFile: null,
+    audioName: '',
     apiKey: '',
     isGenerating: false,
     stopRequested: false,
+    watchMode: false,
     finalBlob: null,
-    activeModel: null
+    activeModel: null,
+    wakeLock: null
   };
 
   try { state.apiKey = localStorage.getItem('avg_agnes_key') || ''; } catch (e) {}
@@ -195,15 +248,23 @@
   var audioLabel = document.getElementById('audio-label');
   var apiInput = document.getElementById('api-key');
   var modelStrategy = document.getElementById('model-strategy');
+  var scheduleHour = document.getElementById('schedule-hour');
+  var persistWatch = document.getElementById('persist-watch');
   var generateBtn = document.getElementById('generate-btn');
+  var watchBtn = document.getElementById('watch-btn');
   var cancelBtn = document.getElementById('cancel-btn');
   var progressEl = document.getElementById('progress');
   var fillEl = document.getElementById('fill');
   var statusEl = document.getElementById('status');
   var preview = document.getElementById('preview');
   var downloadBtn = document.getElementById('download-btn');
+  var savedBanner = document.getElementById('saved-banner');
 
   apiInput.value = state.apiKey;
+  if (IS_FILE) {
+    // En file:// les hébergeurs image échouent souvent (CORS) → v2.0 base64 par défaut
+    modelStrategy.value = 'agnes-video-v2.0';
+  }
 
   function setProg(pct, msg, isErr) {
     progressEl.classList.add('show');
@@ -213,7 +274,9 @@
   }
 
   function updateBtn() {
-    generateBtn.disabled = !state.imageDataURL || !state.apiKey || state.isGenerating;
+    var ready = !!(state.imageDataURL && state.apiKey);
+    generateBtn.disabled = !ready || state.isGenerating;
+    watchBtn.disabled = !ready || state.isGenerating;
     cancelBtn.disabled = !state.isGenerating;
   }
 
@@ -228,58 +291,231 @@
   function isQueueFullStatus(status, bodyText) {
     if (status === 503 || status === 429) return true;
     var t = String(bodyText || '').toLowerCase();
-    return t.indexOf('queue') >= 0 && (t.indexOf('full') >= 0 || t.indexOf('satur') >= 0);
-  }
-
-  function modelList() {
-    var v = modelStrategy.value;
-    if (v === 'auto') return MODEL_CHAIN_AUTO.slice();
-    return [v];
+    return (
+      (t.indexOf('queue') >= 0 && (t.indexOf('full') >= 0 || t.indexOf('no available') >= 0)) ||
+      t.indexOf('no available channel') >= 0 ||
+      t.indexOf('distributor') >= 0
+    );
   }
 
   function isLegacyModel(model) {
     return model === 'agnes-video-v2.0';
   }
 
+  function modelList() {
+    var v = modelStrategy.value;
+    if (v === 'auto') {
+      // file:// : commencer par v2.0 (pas besoin d'URL publique)
+      if (IS_FILE) return ['agnes-video-v2.0', 'agnes-video-2.5-flash', 'agnes-video-2.5'];
+      return MODEL_CHAIN_AUTO.slice();
+    }
+    return [v];
+  }
+
+  // ── IndexedDB project memory ───────────────────────────────────
+  function openDb() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('IndexedDB indisponible')); };
+    });
+  }
+
+  async function saveProject(extra) {
+    if (!persistWatch.checked) return;
+    try {
+      var db = await openDb();
+      var audioBuf = null;
+      var audioType = '';
+      if (state.audioFile) {
+        audioBuf = await state.audioFile.arrayBuffer();
+        audioType = state.audioFile.type || 'audio/mpeg';
+      }
+      var record = {
+        imageDataURL: state.imageDataURL,
+        imageName: state.imageName || 'image.jpg',
+        audioBuf: audioBuf,
+        audioType: audioType,
+        audioName: state.audioName || '',
+        apiKey: state.apiKey,
+        modelStrategy: modelStrategy.value,
+        scheduleHour: scheduleHour.value,
+        watchPending: !!(extra && extra.watchPending),
+        savedAt: Date.now()
+      };
+      await new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).put(record, PROJECT_KEY);
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+      db.close();
+    } catch (e) {
+      console.warn('saveProject failed', e);
+    }
+  }
+
+  async function clearWatchFlag() {
+    try {
+      var db = await openDb();
+      var rec = await new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, 'readonly');
+        var req = tx.objectStore(DB_STORE).get(PROJECT_KEY);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error); };
+      });
+      if (rec) {
+        rec.watchPending = false;
+        await new Promise(function (resolve, reject) {
+          var tx = db.transaction(DB_STORE, 'readwrite');
+          tx.objectStore(DB_STORE).put(rec, PROJECT_KEY);
+          tx.oncomplete = function () { resolve(); };
+          tx.onerror = function () { reject(tx.error); };
+        });
+      }
+      db.close();
+    } catch (e) { /* ignore */ }
+  }
+
+  async function loadProject() {
+    try {
+      var db = await openDb();
+      var rec = await new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, 'readonly');
+        var req = tx.objectStore(DB_STORE).get(PROJECT_KEY);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error); };
+      });
+      db.close();
+      return rec;
+    } catch (e) {
+      console.warn('loadProject failed', e);
+      return null;
+    }
+  }
+
+  async function restoreProject() {
+    var rec = await loadProject();
+    if (!rec || !rec.imageDataURL) return null;
+    state.imageDataURL = rec.imageDataURL;
+    state.imageName = rec.imageName || 'image.jpg';
+    imageZone.classList.add('on');
+    imageLabel.textContent = '✓ ' + state.imageName + ' (mémorisé)';
+    if (rec.audioBuf) {
+      state.audioFile = new File([rec.audioBuf], rec.audioName || 'audio.mp3', {
+        type: rec.audioType || 'audio/mpeg'
+      });
+      state.audioName = rec.audioName || 'audio.mp3';
+      audioZone.classList.add('on');
+      audioLabel.textContent = '✓ ' + state.audioName + ' (mémorisé)';
+    }
+    if (rec.apiKey) {
+      state.apiKey = rec.apiKey;
+      apiInput.value = rec.apiKey;
+      try { localStorage.setItem('avg_agnes_key', rec.apiKey); } catch (e) {}
+    }
+    if (rec.modelStrategy) modelStrategy.value = rec.modelStrategy;
+    if (rec.scheduleHour) scheduleHour.value = rec.scheduleHour;
+    savedBanner.classList.add('show');
+    updateBtn();
+    return rec;
+  }
+
+  async function requestWakeLock() {
+    try {
+      if (navigator.wakeLock && navigator.wakeLock.request) {
+        state.wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) { /* optional */ }
+  }
+
+  async function releaseWakeLock() {
+    try {
+      if (state.wakeLock) {
+        await state.wakeLock.release();
+        state.wakeLock = null;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function notifyDone(ok, msg) {
+    try {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        new Notification(ok ? 'Ambiance vidéo prête' : 'Surveillance Agnes', { body: msg });
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  async function waitUntilScheduledHour() {
+    var h = scheduleHour.value;
+    if (h === 'now') return;
+    var target = Number(h);
+    if (isNaN(target)) return;
+    while (!state.stopRequested) {
+      var now = new Date();
+      if (now.getHours() === target && now.getMinutes() < 55) return;
+      var next = new Date(now.getTime());
+      next.setSeconds(0, 0);
+      next.setMinutes(0);
+      next.setHours(target);
+      if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+      var waitMs = Math.min(next.getTime() - now.getTime(), 60 * 1000);
+      var mins = Math.ceil((next.getTime() - now.getTime()) / 60000);
+      setProg(3, 'Surveillance programmée — démarrage vers ' +
+        String(target).padStart(2, '0') + ':00 (encore ~' + mins + ' min). Laisse l’onglet ouvert.');
+      await sleep(waitMs);
+    }
+    assertNotStopped();
+  }
+
   imageZone.addEventListener('click', function () { imageInput.click(); });
-  imageInput.addEventListener('change', function () {
+  imageInput.addEventListener('change', async function () {
     var file = imageInput.files && imageInput.files[0];
     if (!file) return;
     var reader = new FileReader();
-    reader.onload = function () {
+    reader.onload = async function () {
       state.imageDataURL = reader.result;
+      state.imageName = file.name;
       imageZone.classList.add('on');
       imageLabel.textContent = '✓ ' + file.name;
       updateBtn();
+      await saveProject({ watchPending: false });
     };
     reader.readAsDataURL(file);
   });
 
   audioZone.addEventListener('click', function () { audioInput.click(); });
-  audioInput.addEventListener('change', function () {
+  audioInput.addEventListener('change', async function () {
     var file = audioInput.files && audioInput.files[0];
     if (!file) return;
     state.audioFile = file;
+    state.audioName = file.name;
     audioZone.classList.add('on');
     audioLabel.textContent = '✓ ' + file.name;
+    await saveProject({ watchPending: false });
   });
 
-  apiInput.addEventListener('input', function () {
+  apiInput.addEventListener('input', async function () {
     state.apiKey = apiInput.value.trim();
     try { localStorage.setItem('avg_agnes_key', state.apiKey); } catch (e) {}
     updateBtn();
+    await saveProject({ watchPending: false });
   });
 
   cancelBtn.addEventListener('click', function () {
     state.stopRequested = true;
-    setProg(0, 'Arrêt demandé… attente fin tentative en cours', true);
+    setProg(0, 'Arrêt demandé…', true);
   });
 
-  /**
-   * Agnes 2.5/Flash exigent une URL publique pour first_frame.
-   * Plusieurs hôtes + fallback : si tous échouent, on bascule v2.0 (base64).
-   */
   async function uploadImageToPublicHost(dataUrl) {
+    if (IS_FILE) {
+      throw new Error('file:// : upload public bloqué (CORS) — utilisation v2.0 base64');
+    }
     var blobRes = await fetch(dataUrl);
     var blob = await blobRes.blob();
     var hosts = [
@@ -325,7 +561,6 @@
         }
       }
     ];
-
     var errors = [];
     for (var i = 0; i < hosts.length; i++) {
       assertNotStopped();
@@ -351,7 +586,6 @@
         frame_rate: 24
       };
     }
-    // Video 2.5 / Flash — keyframe i2v (file distincte de v2.0)
     return {
       model: model,
       mode: 'keyframe',
@@ -380,30 +614,26 @@
     return { res: res, text: text, data: data };
   }
 
-  /**
-   * "Force" pratique = coller plusieurs files Agnes jusqu'à acceptation.
-   * Il n'existe PAS de header/priority officielle pour sauter la queue.
-   */
-  async function createAgnesVideoWithQueueHug() {
+  async function createAgnesVideoWithQueueHug(opts) {
+    opts = opts || {};
+    var budgetMs = opts.budgetMs || QUICK_BUDGET_MS;
+    var retryMin = opts.retryMinMs || QUICK_RETRY_MIN_MS;
+    var retryMax = opts.retryMaxMs || QUICK_RETRY_MAX_MS;
+
     if (AGNES_PROMPT.indexOf('NO camera movement') < 0 || AGNES_PROMPT.indexOf('NO zoom') < 0) {
       throw new Error('Prompt Agnes invalide (caméra fixe manquante)');
     }
 
     var models = modelList();
-    var needsPublic = models.some(function (m) { return !isLegacyModel(m); });
     var publicUrl = null;
+    var needsPublic = models.some(function (m) { return !isLegacyModel(m); });
     if (needsPublic) {
       try {
         publicUrl = await uploadImageToPublicHost(state.imageDataURL);
       } catch (upErr) {
-        // tmpfiles/catbox souvent bloqués (ERR_CONNECTION_RESET) — bascule v2.0 base64
         console.warn('public upload failed', upErr);
-        setProg(
-          9,
-          'Hébergeurs image injoignables — bascule automatique sur Agnes v2.0 (base64, sans URL)…'
-        );
-        models = models.filter(isLegacyModel);
-        if (!models.length) models = ['agnes-video-v2.0'];
+        setProg(9, 'Upload public impossible — bascule v2.0 base64…');
+        models = ['agnes-video-v2.0'];
         publicUrl = null;
       }
     }
@@ -412,22 +642,23 @@
     var attempt = 0;
     var lastMsg = '';
 
-    while (Date.now() - started < QUEUE_BUDGET_MS) {
+    while (Date.now() - started < budgetMs) {
       assertNotStopped();
       var model = models[attempt % models.length];
-      // Ne jamais appeler 2.5/Flash sans URL publique
       if (!isLegacyModel(model) && !publicUrl) {
         attempt++;
         continue;
       }
       state.activeModel = model;
       var body = buildCreateBody(model, state.imageDataURL, publicUrl);
-      var waitedMin = Math.floor((Date.now() - started) / 60000);
-      var waitedSec = Math.floor(((Date.now() - started) % 60000) / 1000);
+      var elapsed = Date.now() - started;
+      var waitedMin = Math.floor(elapsed / 60000);
+      var waitedSec = Math.floor((elapsed % 60000) / 1000);
       setProg(
-        10 + Math.min(50, (Date.now() - started) / QUEUE_BUDGET_MS * 50),
-        'File Agnes · modèle ' + model + ' · essai #' + (attempt + 1) +
-          ' · déjà ' + waitedMin + 'm' + waitedSec + 's'
+        10 + Math.min(50, elapsed / budgetMs * 50),
+        (state.watchMode ? 'Surveillance' : 'File') +
+          ' · ' + model + ' · essai #' + (attempt + 1) +
+          ' · ' + waitedMin + 'm' + waitedSec + 's'
       );
 
       var out;
@@ -436,8 +667,8 @@
       } catch (netErr) {
         lastMsg = netErr && netErr.message ? netErr.message : String(netErr);
         attempt++;
-        var waitNet = QUEUE_RETRY_MIN_MS + Math.floor(Math.random() * (QUEUE_RETRY_MAX_MS - QUEUE_RETRY_MIN_MS));
-        setProg(15, 'Réseau coupé (' + lastMsg + ') — nouvel essai dans ' + Math.round(waitNet / 1000) + 's…');
+        var waitNet = retryMin + Math.floor(Math.random() * (retryMax - retryMin));
+        setProg(15, 'Réseau coupé — nouvel essai dans ' + Math.round(waitNet / 1000) + 's…');
         await sleep(waitNet);
         continue;
       }
@@ -445,35 +676,30 @@
       if (out.res.ok) {
         var id = out.data && (out.data.video_id || out.data.id || out.data.task_id);
         if (!id) throw new Error('Pas de video_id retourné (' + model + ')');
-        setProg(55, 'Accepté par Agnes (' + model + ') — id ' + id);
+        setProg(55, 'Accepté par Agnes (' + model + ')');
         return { videoId: id, model: model };
       }
 
       var msg = (out.data && out.data.error && out.data.error.message) ||
         (out.data && out.data.detail) ||
-        out.text.slice(0, 220);
+        out.text.slice(0, 280);
       lastMsg = String(msg);
 
-      if (out.res.status === 401 || out.res.status === 403) {
-        throw new Error('Clé Agnes invalide');
-      }
+      if (out.res.status === 401 || out.res.status === 403) throw new Error('Clé Agnes invalide');
       if (out.res.status === 400) {
-        // corps invalide pour ce modèle → passer au suivant sans brûler le budget
-        setProg(12, 'Modèle ' + model + ' refuse la requête — bascule file suivante…');
         attempt++;
         await sleep(800);
-        // si tous les modèles ont échoué en 400 une fois, on continue quand même le cycle
         continue;
       }
 
       if (isQueueFullStatus(out.res.status, lastMsg)) {
         attempt++;
-        var wait = QUEUE_RETRY_MIN_MS + Math.floor(Math.random() * (QUEUE_RETRY_MAX_MS - QUEUE_RETRY_MIN_MS));
+        var wait = retryMin + Math.floor(Math.random() * (retryMax - retryMin));
         var nextModel = models[attempt % models.length];
         setProg(
-          12 + Math.min(45, (Date.now() - started) / QUEUE_BUDGET_MS * 45),
-          'Queue pleine (HTTP ' + out.res.status + ') — colle la file, prochain essai ' +
-            nextModel + ' dans ' + Math.round(wait / 1000) + 's…'
+          12 + Math.min(45, elapsed / budgetMs * 45),
+          'Agnes saturé (« no available channel ») — prochain essai ' +
+            nextModel + ' dans ' + Math.round(wait / 1000) + 's… Projet toujours en mémoire.'
         );
         await sleep(wait);
         continue;
@@ -483,8 +709,8 @@
     }
 
     throw new Error(
-      'Agnes toujours saturé après ~20 min de collage multi-files. ' +
-      'Dernier message: ' + lastMsg + ' — réessaie hors pic.'
+      'Agnes toujours saturé après la fenêtre de surveillance. ' +
+      'Dernier message: ' + lastMsg + ' — relance « Surveiller » ou programme 03:00.'
     );
   }
 
@@ -494,13 +720,11 @@
       setProg(58, 'Agnes (' + model + ') prépare… ' + w + 's');
       await sleep(1000);
     }
-
     for (var i = 0; i < 180; i++) {
       assertNotStopped();
       var url = AGNES_POLL_BASE +
         '?video_id=' + encodeURIComponent(videoId) +
         '&model_name=' + encodeURIComponent(model);
-
       var res;
       try {
         res = await fetch(url, {
@@ -508,27 +732,21 @@
           headers: { 'Authorization': 'Bearer ' + state.apiKey }
         });
       } catch (e) {
-        setProg(60, 'Poll réseau coupé — retry…');
         await sleep(5000);
         continue;
       }
-
       if (res.status === 503 || res.status === 429) {
-        setProg(60, 'Poll saturé — nouvel essai…');
         await sleep(8000);
         continue;
       }
-
       var data = await res.json();
       if (!res.ok) {
         var msg = (data && data.error && data.error.message) || ('HTTP ' + res.status);
         throw new Error('Poll Agnes: ' + msg);
       }
-
       var st = String(data.status || data.state || '').toLowerCase();
       var p = Number(data.progress) || 0;
       setProg(60 + Math.min(25, p * 0.25), 'Génération ' + model + '… ' + (p ? p + '%' : (i + 1)));
-
       if (st === 'completed' || st === 'succeeded' || st === 'ready' || st === 'done') {
         var videoUrl =
           data.url ||
@@ -567,10 +785,8 @@
   async function create3HourLoop(videoBlob, audioFile) {
     var ffmpeg = await loadFFmpeg(function (m) { setProg(86, m); });
     var fetchFile = FFmpegUtil.fetchFile;
-
     setProg(88, 'Écriture fichiers dans FFmpeg…');
     await ffmpeg.writeFile('input.mp4', await fetchFile(videoBlob));
-
     var args;
     if (audioFile) {
       await ffmpeg.writeFile('input_audio.mp3', await fetchFile(audioFile));
@@ -595,8 +811,7 @@
         'output.mp4'
       ];
     }
-
-    setProg(90, 'Assemblage boucle 3h (local)…');
+    setProg(90, 'Assemblage boucle 3h…');
     try {
       await ffmpeg.exec(args);
     } catch (e1) {
@@ -608,7 +823,6 @@
         '-t', String(DURATION_3H), '-shortest', 'output.mp4'
       ]);
     }
-
     setProg(96, 'Lecture fichier final…');
     var data = await ffmpeg.readFile('output.mp4');
     var buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
@@ -617,20 +831,40 @@
     return blob;
   }
 
-  async function generateVideo() {
+  async function runPipeline(watch) {
     if (!state.imageDataURL || !state.apiKey || state.isGenerating) return;
     state.isGenerating = true;
     state.stopRequested = false;
+    state.watchMode = !!watch;
     updateBtn();
     downloadBtn.classList.remove('show');
     preview.style.display = 'none';
     state.finalBlob = null;
 
     try {
-      setProg(5, 'Connexion Agnes — stratégie multi-files…');
-      var created = await createAgnesVideoWithQueueHug();
-      var videoUrl = await pollAgnesVideo(created.videoId, created.model);
+      if (watch && 'Notification' in window && Notification.permission === 'default') {
+        try { await Notification.requestPermission(); } catch (e) {}
+      }
+      await requestWakeLock();
+      await saveProject({ watchPending: !!watch });
 
+      if (watch) await waitUntilScheduledHour();
+
+      setProg(5, watch
+        ? 'Surveillance Agnes démarrée — projet mémorisé (image + audio)…'
+        : 'Connexion Agnes…');
+
+      var created = await createAgnesVideoWithQueueHug(watch ? {
+        budgetMs: WATCH_BUDGET_MS,
+        retryMinMs: WATCH_RETRY_MIN_MS,
+        retryMaxMs: WATCH_RETRY_MAX_MS
+      } : {
+        budgetMs: QUICK_BUDGET_MS,
+        retryMinMs: QUICK_RETRY_MIN_MS,
+        retryMaxMs: QUICK_RETRY_MAX_MS
+      });
+
+      var videoUrl = await pollAgnesVideo(created.videoId, created.model);
       setProg(85, 'Téléchargement vidéo Agnes…');
       var vRes = await fetch(videoUrl);
       if (!vRes.ok) throw new Error('Téléchargement vidéo HTTP ' + vRes.status);
@@ -639,22 +873,30 @@
 
       var finalBlob = await create3HourLoop(videoBlob, state.audioFile);
       state.finalBlob = finalBlob;
-
       setProg(100, '✓ Vidéo 3h prête (' + created.model + ') · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
       preview.src = URL.createObjectURL(finalBlob);
       preview.style.display = 'block';
       downloadBtn.classList.add('show');
+      await clearWatchFlag();
+      notifyDone(true, 'Ta vidéo d’ambiance 3h est prête.');
     } catch (err) {
       console.error(err);
       setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
+      if (watch) notifyDone(false, err && err.message ? err.message : 'Surveillance interrompue');
+      // garde watchPending si arrêt volontaire / saturation pour reprise
+      if (!state.stopRequested && watch) await saveProject({ watchPending: true });
+      if (state.stopRequested) await clearWatchFlag();
     } finally {
       state.isGenerating = false;
+      state.watchMode = false;
       state.stopRequested = false;
+      await releaseWakeLock();
       updateBtn();
     }
   }
 
-  generateBtn.addEventListener('click', generateVideo);
+  generateBtn.addEventListener('click', function () { runPipeline(false); });
+  watchBtn.addEventListener('click', function () { runPipeline(true); });
   downloadBtn.addEventListener('click', function () {
     if (!state.finalBlob) return;
     var a = document.createElement('a');
@@ -662,6 +904,14 @@
     a.download = 'ambiance-video-3h.mp4';
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  });
+
+  // Restauration + reprise auto surveillance
+  restoreProject().then(function (rec) {
+    if (rec && rec.watchPending && state.imageDataURL && state.apiKey) {
+      setProg(2, 'Reprise de la surveillance mémorisée…');
+      runPipeline(true);
+    }
   });
 
   updateBtn();
