@@ -275,18 +275,70 @@
     setProg(0, 'Arrêt demandé… attente fin tentative en cours', true);
   });
 
-  /** Agnes 2.5 exige une URL publique pour first_frame. */
+  /**
+   * Agnes 2.5/Flash exigent une URL publique pour first_frame.
+   * Plusieurs hôtes + fallback : si tous échouent, on bascule v2.0 (base64).
+   */
   async function uploadImageToPublicHost(dataUrl) {
-    var res = await fetch(dataUrl);
-    var blob = await res.blob();
-    var form = new FormData();
-    form.append('file', blob, 'ambiance.jpg');
-    var up = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
-    if (!up.ok) throw new Error('Upload image public HTTP ' + up.status);
-    var data = await up.json();
-    var pageUrl = data && data.data && data.data.url;
-    if (!pageUrl) throw new Error('Pas d’URL publique (tmpfiles)');
-    return pageUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+    var blobRes = await fetch(dataUrl);
+    var blob = await blobRes.blob();
+    var hosts = [
+      {
+        name: 'litterbox',
+        run: async function () {
+          var form = new FormData();
+          form.append('reqtype', 'fileupload');
+          form.append('time', '24h');
+          form.append('fileToUpload', blob, 'ambiance.jpg');
+          var up = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+            method: 'POST',
+            body: form
+          });
+          var text = (await up.text()).trim();
+          if (!up.ok || text.indexOf('http') !== 0) throw new Error(text.slice(0, 120) || ('HTTP ' + up.status));
+          return text;
+        }
+      },
+      {
+        name: 'catbox',
+        run: async function () {
+          var form = new FormData();
+          form.append('reqtype', 'fileupload');
+          form.append('fileToUpload', blob, 'ambiance.jpg');
+          var up = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form });
+          var text = (await up.text()).trim();
+          if (!up.ok || text.indexOf('http') !== 0) throw new Error(text.slice(0, 120) || ('HTTP ' + up.status));
+          return text;
+        }
+      },
+      {
+        name: 'tmpfiles',
+        run: async function () {
+          var form = new FormData();
+          form.append('file', blob, 'ambiance.jpg');
+          var up = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
+          if (!up.ok) throw new Error('HTTP ' + up.status);
+          var data = await up.json();
+          var pageUrl = data && data.data && data.data.url;
+          if (!pageUrl) throw new Error('réponse sans url');
+          return pageUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+        }
+      }
+    ];
+
+    var errors = [];
+    for (var i = 0; i < hosts.length; i++) {
+      assertNotStopped();
+      try {
+        setProg(8, 'Publication image via ' + hosts[i].name + '…');
+        var url = await hosts[i].run();
+        if (url && url.indexOf('http') === 0) return url;
+        errors.push(hosts[i].name + ': url invalide');
+      } catch (e) {
+        errors.push(hosts[i].name + ': ' + (e && e.message ? e.message : String(e)));
+      }
+    }
+    throw new Error('Aucun hébergeur image joignable — ' + errors.join(' | '));
   }
 
   function buildCreateBody(model, imageDataUrl, publicImageUrl) {
@@ -341,8 +393,19 @@
     var needsPublic = models.some(function (m) { return !isLegacyModel(m); });
     var publicUrl = null;
     if (needsPublic) {
-      setProg(8, 'Publication image (URL publique pour Agnes 2.5)…');
-      publicUrl = await uploadImageToPublicHost(state.imageDataURL);
+      try {
+        publicUrl = await uploadImageToPublicHost(state.imageDataURL);
+      } catch (upErr) {
+        // tmpfiles/catbox souvent bloqués (ERR_CONNECTION_RESET) — bascule v2.0 base64
+        console.warn('public upload failed', upErr);
+        setProg(
+          9,
+          'Hébergeurs image injoignables — bascule automatique sur Agnes v2.0 (base64, sans URL)…'
+        );
+        models = models.filter(isLegacyModel);
+        if (!models.length) models = ['agnes-video-v2.0'];
+        publicUrl = null;
+      }
     }
 
     var started = Date.now();
@@ -352,6 +415,11 @@
     while (Date.now() - started < QUEUE_BUDGET_MS) {
       assertNotStopped();
       var model = models[attempt % models.length];
+      // Ne jamais appeler 2.5/Flash sans URL publique
+      if (!isLegacyModel(model) && !publicUrl) {
+        attempt++;
+        continue;
+      }
       state.activeModel = model;
       var body = buildCreateBody(model, state.imageDataURL, publicUrl);
       var waitedMin = Math.floor((Date.now() - started) / 60000);
