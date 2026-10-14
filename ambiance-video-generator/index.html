@@ -129,7 +129,7 @@
 <div class="wrap"><div class="card">
   <h1>Ambiance Video Generator</h1>
   <p class="sub">Image → Agnes IA → boucle 3&nbsp;h (FFmpeg.wasm). Projet mémorisé (image + audio) jusqu’à succès.</p>
-  <p class="note">Astuce : laisse cet onglet ouvert la nuit. Mode « Surveiller » = retry auto jusqu’à ce qu’Agnes ait un canal libre (souvent vers 3h).</p>
+  <p class="note">Mode « Veille flux » : sonde Agnes en continu (POST /v1/videos) et lance vidéo + montage 3h dès qu’un canal se libère — pas d’attente d’heure fixe.</p>
   <div class="saved" id="saved-banner">Projet restauré depuis la mémoire locale.</div>
 
   <div class="zone" id="image-zone">
@@ -155,16 +155,11 @@
     <option value="agnes-video-2.5">Video 2.5 uniquement</option>
   </select>
 
-  <label class="field" for="schedule-hour">Lancer la surveillance à partir de</label>
-  <select class="select" id="schedule-hour">
-    <option value="now" selected>Tout de suite</option>
-    <option value="0">00:00</option>
-    <option value="1">01:00</option>
-    <option value="2">02:00</option>
-    <option value="3">03:00 (recommandé hors pic)</option>
-    <option value="4">04:00</option>
-    <option value="5">05:00</option>
-    <option value="6">06:00</option>
+  <label class="field" for="probe-pace">Veille flux Agnes (sondage actif)</label>
+  <select class="select" id="probe-pace">
+    <option value="fast" selected>Rapide — sonde toutes les 3–6 s (prend le 1er canal libre)</option>
+    <option value="balanced">Équilibrée — 8–15 s</option>
+    <option value="soft">Douce — 25–45 s (moins de requêtes)</option>
   </select>
 
   <label class="check">
@@ -174,7 +169,7 @@
 
   <div class="row">
     <button id="generate-btn" disabled>Générer maintenant</button>
-    <button id="watch-btn" class="watch" disabled>Surveiller jusqu’à succès</button>
+    <button id="watch-btn" class="watch" disabled>Veille flux jusqu’à succès</button>
     <button id="cancel-btn" class="secondary" disabled>Arrêter</button>
   </div>
 
@@ -204,12 +199,15 @@
 
   // Mode "maintenant" : collage intensif ~20 min
   var QUICK_BUDGET_MS = 20 * 60 * 1000;
-  var QUICK_RETRY_MIN_MS = 25000;
-  var QUICK_RETRY_MAX_MS = 55000;
-  // Mode "surveiller" : jusqu'à 12 h, essais plus espacés
-  var WATCH_BUDGET_MS = 12 * 60 * 60 * 1000;
-  var WATCH_RETRY_MIN_MS = 90 * 1000;
-  var WATCH_RETRY_MAX_MS = 180 * 1000;
+  var QUICK_RETRY_MIN_MS = 8000;
+  var QUICK_RETRY_MAX_MS = 18000;
+  // Mode veille flux : sonde le stream de requêtes Agnes jusqu'à 24 h
+  var WATCH_BUDGET_MS = 24 * 60 * 60 * 1000;
+  var PACE = {
+    fast: { min: 3000, max: 6000 },
+    balanced: { min: 8000, max: 15000 },
+    soft: { min: 25000, max: 45000 }
+  };
 
   var AGNES_PROMPT =
     'Animate this uploaded image with subtle, gentle, calming movements only. ' +
@@ -235,7 +233,10 @@
     watchMode: false,
     finalBlob: null,
     activeModel: null,
-    wakeLock: null
+    wakeLock: null,
+    ffmpeg: null,
+    ffmpegLoading: null,
+    probeStats: { attempts: 0, saturations: 0, lastStatus: '' }
   };
 
   try { state.apiKey = localStorage.getItem('avg_agnes_key') || ''; } catch (e) {}
@@ -248,7 +249,7 @@
   var audioLabel = document.getElementById('audio-label');
   var apiInput = document.getElementById('api-key');
   var modelStrategy = document.getElementById('model-strategy');
-  var scheduleHour = document.getElementById('schedule-hour');
+  var probePace = document.getElementById('probe-pace');
   var persistWatch = document.getElementById('persist-watch');
   var generateBtn = document.getElementById('generate-btn');
   var watchBtn = document.getElementById('watch-btn');
@@ -343,7 +344,7 @@
         audioName: state.audioName || '',
         apiKey: state.apiKey,
         modelStrategy: modelStrategy.value,
-        scheduleHour: scheduleHour.value,
+        probePace: probePace.value,
         watchPending: !!(extra && extra.watchPending),
         savedAt: Date.now()
       };
@@ -419,7 +420,8 @@
       try { localStorage.setItem('avg_agnes_key', rec.apiKey); } catch (e) {}
     }
     if (rec.modelStrategy) modelStrategy.value = rec.modelStrategy;
-    if (rec.scheduleHour) scheduleHour.value = rec.scheduleHour;
+    if (rec.probePace) probePace.value = rec.probePace;
+    else if (rec.scheduleHour) probePace.value = 'fast';
     savedBanner.classList.add('show');
     updateBtn();
     return rec;
@@ -451,27 +453,6 @@
     } catch (e) { /* ignore */ }
   }
 
-  async function waitUntilScheduledHour() {
-    var h = scheduleHour.value;
-    if (h === 'now') return;
-    var target = Number(h);
-    if (isNaN(target)) return;
-    while (!state.stopRequested) {
-      var now = new Date();
-      if (now.getHours() === target && now.getMinutes() < 55) return;
-      var next = new Date(now.getTime());
-      next.setSeconds(0, 0);
-      next.setMinutes(0);
-      next.setHours(target);
-      if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
-      var waitMs = Math.min(next.getTime() - now.getTime(), 60 * 1000);
-      var mins = Math.ceil((next.getTime() - now.getTime()) / 60000);
-      setProg(3, 'Surveillance programmée — démarrage vers ' +
-        String(target).padStart(2, '0') + ':00 (encore ~' + mins + ' min). Laisse l’onglet ouvert.');
-      await sleep(waitMs);
-    }
-    assertNotStopped();
-  }
 
   imageZone.addEventListener('click', function () { imageInput.click(); });
   imageInput.addEventListener('change', async function () {
@@ -599,14 +580,15 @@
     };
   }
 
-  async function postVideoOnce(model, body) {
+  async function postVideoOnce(model, body, signal) {
     var res = await fetch(AGNES_API_BASE + '/videos', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + state.apiKey,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: signal || undefined
     });
     var text = await res.text();
     var data = null;
@@ -614,11 +596,49 @@
     return { res: res, text: text, data: data };
   }
 
+  function paceConfig(watch) {
+    if (!watch) return { min: QUICK_RETRY_MIN_MS, max: QUICK_RETRY_MAX_MS };
+    var p = PACE[probePace.value] || PACE.fast;
+    return { min: p.min, max: p.max };
+  }
+
+  function formatWatchClock(ms) {
+    var s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    if (h > 0) return h + 'h' + String(m).padStart(2, '0') + 'm';
+    return m + 'm' + String(sec).padStart(2, '0') + 's';
+  }
+
+  /** Précharge FFmpeg pendant la veille pour enchaîner le montage sans délai. */
+  function preloadFfmpeg() {
+    if (state.ffmpeg) return Promise.resolve(state.ffmpeg);
+    if (state.ffmpegLoading) return state.ffmpegLoading;
+    state.ffmpegLoading = loadFFmpeg(function (m) {
+      if (state.watchMode) setProg(8, 'Veille flux · ' + m);
+    }).then(function (ff) {
+      state.ffmpeg = ff;
+      state.ffmpegLoading = null;
+      return ff;
+    }).catch(function (e) {
+      state.ffmpegLoading = null;
+      console.warn('preload ffmpeg', e);
+      return null;
+    });
+    return state.ffmpegLoading;
+  }
+
+  /**
+   * Veille directe du flux Agnes : boucle de sondage POST /v1/videos.
+   * Pas d'endpoint "status file" public — le 503 / "no available channel"
+   * EST le signal. Dès qu'un canal accepte, on renvoie l'id pour poll + montage.
+   */
   async function createAgnesVideoWithQueueHug(opts) {
     opts = opts || {};
-    var budgetMs = opts.budgetMs || QUICK_BUDGET_MS;
-    var retryMin = opts.retryMinMs || QUICK_RETRY_MIN_MS;
-    var retryMax = opts.retryMaxMs || QUICK_RETRY_MAX_MS;
+    var watch = !!opts.watch;
+    var budgetMs = opts.budgetMs || (watch ? WATCH_BUDGET_MS : QUICK_BUDGET_MS);
+    var pace = paceConfig(watch);
 
     if (AGNES_PROMPT.indexOf('NO camera movement') < 0 || AGNES_PROMPT.indexOf('NO zoom') < 0) {
       throw new Error('Prompt Agnes invalide (caméra fixe manquante)');
@@ -638,37 +658,83 @@
       }
     }
 
+    // Corps pré-assemblés pour réagir au 1er canal libre sans latence de build
+    var bodies = {};
+    models.forEach(function (m) {
+      if (!isLegacyModel(m) && !publicUrl) return;
+      bodies[m] = buildCreateBody(m, state.imageDataURL, publicUrl);
+    });
+    models = models.filter(function (m) { return !!bodies[m]; });
+    if (!models.length) throw new Error('Aucun modèle Agnes utilisable');
+
+    if (watch) preloadFfmpeg();
+
     var started = Date.now();
     var attempt = 0;
     var lastMsg = '';
+    var consecutiveSat = 0;
+    state.probeStats = { attempts: 0, saturations: 0, lastStatus: '' };
 
     while (Date.now() - started < budgetMs) {
       assertNotStopped();
       var model = models[attempt % models.length];
-      if (!isLegacyModel(model) && !publicUrl) {
-        attempt++;
-        continue;
-      }
       state.activeModel = model;
-      var body = buildCreateBody(model, state.imageDataURL, publicUrl);
+      attempt++;
+      state.probeStats.attempts = attempt;
+
       var elapsed = Date.now() - started;
-      var waitedMin = Math.floor(elapsed / 60000);
-      var waitedSec = Math.floor((elapsed % 60000) / 1000);
       setProg(
-        10 + Math.min(50, elapsed / budgetMs * 50),
-        (state.watchMode ? 'Surveillance' : 'File') +
-          ' · ' + model + ' · essai #' + (attempt + 1) +
-          ' · ' + waitedMin + 'm' + waitedSec + 's'
+        10 + Math.min(48, (elapsed / budgetMs) * 48),
+        (watch ? 'Veille flux Agnes' : 'File Agnes') +
+          ' · probe #' + attempt +
+          ' · ' + model +
+          ' · ' + formatWatchClock(elapsed) +
+          (consecutiveSat ? ' · saturé ×' + consecutiveSat : '')
       );
 
-      var out;
+      var out = null;
+      // Veille rapide : sonde tous les modèles en parallèle, garde le 1er canal libre
+      if (watch && probePace.value === 'fast' && models.length > 1) {
+        var controllers = models.map(function () { return new AbortController(); });
+        var winner = null;
+        var errors = [];
+        await Promise.all(models.map(function (m, idx) {
+          return (async function () {
+            if (idx) await sleep(idx * 180);
+            if (winner || state.stopRequested) return;
+            try {
+              var r = await postVideoOnce(m, bodies[m], controllers[idx].signal);
+              if (winner) return;
+              if (r.res.ok) {
+                winner = { model: m, out: r };
+                controllers.forEach(function (c, j) { if (j !== idx) try { c.abort(); } catch (e) {} });
+              } else {
+                errors.push({ model: m, out: r });
+              }
+            } catch (e) {
+              if (e && e.name === 'AbortError') return;
+              errors.push({ model: m, err: e });
+            }
+          })();
+        }));
+        if (winner) {
+          out = winner.out;
+          model = winner.model;
+          state.activeModel = model;
+        } else if (errors.length) {
+          // Prendre la réponse la plus informative (503 prioritaire pour le message)
+          var pick = errors.find(function (e) { return e.out; }) || errors[0];
+          if (pick.out) out = pick.out;
+          else throw pick.err;
+        }
+      }
       try {
-        out = await postVideoOnce(model, body);
+        if (!out) out = await postVideoOnce(model, bodies[model]);
       } catch (netErr) {
         lastMsg = netErr && netErr.message ? netErr.message : String(netErr);
-        attempt++;
-        var waitNet = retryMin + Math.floor(Math.random() * (retryMax - retryMin));
-        setProg(15, 'Réseau coupé — nouvel essai dans ' + Math.round(waitNet / 1000) + 's…');
+        state.probeStats.lastStatus = 'network';
+        var waitNet = pace.min + Math.floor(Math.random() * (pace.max - pace.min));
+        setProg(15, 'Réseau coupé — re-sonde dans ' + Math.round(waitNet / 1000) + 's…');
         await sleep(waitNet);
         continue;
       }
@@ -676,7 +742,8 @@
       if (out.res.ok) {
         var id = out.data && (out.data.video_id || out.data.id || out.data.task_id);
         if (!id) throw new Error('Pas de video_id retourné (' + model + ')');
-        setProg(55, 'Accepté par Agnes (' + model + ')');
+        setProg(55, '✓ Canal libre — accepté par Agnes (' + model + ') · lancement immédiat');
+        state.probeStats.lastStatus = 'accepted';
         return { videoId: id, model: model };
       }
 
@@ -684,22 +751,30 @@
         (out.data && out.data.detail) ||
         out.text.slice(0, 280);
       lastMsg = String(msg);
+      state.probeStats.lastStatus = String(out.res.status);
 
       if (out.res.status === 401 || out.res.status === 403) throw new Error('Clé Agnes invalide');
+
       if (out.res.status === 400) {
-        attempt++;
-        await sleep(800);
+        consecutiveSat = 0;
+        await sleep(600);
         continue;
       }
 
       if (isQueueFullStatus(out.res.status, lastMsg)) {
-        attempt++;
-        var wait = retryMin + Math.floor(Math.random() * (retryMax - retryMin));
+        consecutiveSat++;
+        state.probeStats.saturations++;
+        // Backoff léger si rafale de 429, sinon rythme de veille serré
+        var wait = pace.min + Math.floor(Math.random() * (pace.max - pace.min));
+        if (out.res.status === 429) wait = Math.max(wait, pace.max);
+        // Après beaucoup de saturations, micro-pause pour ne pas se faire ban, puis reprise serrée
+        if (consecutiveSat > 40 && consecutiveSat % 20 === 0) wait = Math.max(wait, 12000);
         var nextModel = models[attempt % models.length];
         setProg(
-          12 + Math.min(45, elapsed / budgetMs * 45),
-          'Agnes saturé (« no available channel ») — prochain essai ' +
-            nextModel + ' dans ' + Math.round(wait / 1000) + 's… Projet toujours en mémoire.'
+          12 + Math.min(45, (elapsed / budgetMs) * 45),
+          'Flux saturé (HTTP ' + out.res.status + ' · no channel) — ' +
+            're-sonde ' + nextModel + ' dans ' + (wait / 1000).toFixed(1) + 's…' +
+            ' Projet en mémoire · montage prêt à enchaîner.'
         );
         await sleep(wait);
         continue;
@@ -709,15 +784,15 @@
     }
 
     throw new Error(
-      'Agnes toujours saturé après la fenêtre de surveillance. ' +
-      'Dernier message: ' + lastMsg + ' — relance « Surveiller » ou programme 03:00.'
+      'Agnes toujours saturé après ' + formatWatchClock(budgetMs) + ' de veille flux. ' +
+      'Dernier message: ' + lastMsg + ' — relance « Veille flux ».'
     );
   }
 
   async function pollAgnesVideo(videoId, model) {
-    for (var w = 12; w > 0; w--) {
+    for (var w = 4; w > 0; w--) {
       assertNotStopped();
-      setProg(58, 'Agnes (' + model + ') prépare… ' + w + 's');
+      setProg(58, 'Canal pris — Agnes (' + model + ') génère… ' + w + 's');
       await sleep(1000);
     }
     for (var i = 0; i < 180; i++) {
@@ -783,7 +858,14 @@
   }
 
   async function create3HourLoop(videoBlob, audioFile) {
-    var ffmpeg = await loadFFmpeg(function (m) { setProg(86, m); });
+    var ffmpeg = state.ffmpeg;
+    if (!ffmpeg) {
+      setProg(86, 'Chargement FFmpeg pour montage…');
+      ffmpeg = await loadFFmpeg(function (m) { setProg(86, m); });
+      state.ffmpeg = ffmpeg;
+    } else {
+      setProg(86, 'Montage 3h — FFmpeg déjà prêt (préchargé en veille)…');
+    }
     var fetchFile = FFmpegUtil.fetchFile;
     setProg(88, 'Écriture fichiers dans FFmpeg…');
     await ffmpeg.writeFile('input.mp4', await fetchFile(videoBlob));
@@ -848,20 +930,15 @@
       await requestWakeLock();
       await saveProject({ watchPending: !!watch });
 
-      if (watch) await waitUntilScheduledHour();
-
       setProg(5, watch
-        ? 'Surveillance Agnes démarrée — projet mémorisé (image + audio)…'
+        ? 'Veille flux Agnes démarrée — sondage actif du stream de requêtes…'
         : 'Connexion Agnes…');
 
-      var created = await createAgnesVideoWithQueueHug(watch ? {
-        budgetMs: WATCH_BUDGET_MS,
-        retryMinMs: WATCH_RETRY_MIN_MS,
-        retryMaxMs: WATCH_RETRY_MAX_MS
-      } : {
-        budgetMs: QUICK_BUDGET_MS,
-        retryMinMs: QUICK_RETRY_MIN_MS,
-        retryMaxMs: QUICK_RETRY_MAX_MS
+      if (watch) preloadFfmpeg();
+
+      var created = await createAgnesVideoWithQueueHug({
+        watch: !!watch,
+        budgetMs: watch ? WATCH_BUDGET_MS : QUICK_BUDGET_MS
       });
 
       var videoUrl = await pollAgnesVideo(created.videoId, created.model);
@@ -882,7 +959,7 @@
     } catch (err) {
       console.error(err);
       setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
-      if (watch) notifyDone(false, err && err.message ? err.message : 'Surveillance interrompue');
+      if (watch) notifyDone(false, err && err.message ? err.message : 'Veille flux interrompue');
       // garde watchPending si arrêt volontaire / saturation pour reprise
       if (!state.stopRequested && watch) await saveProject({ watchPending: true });
       if (state.stopRequested) await clearWatchFlag();
@@ -909,7 +986,7 @@
   // Restauration + reprise auto surveillance
   restoreProject().then(function (rec) {
     if (rec && rec.watchPending && state.imageDataURL && state.apiKey) {
-      setProg(2, 'Reprise de la surveillance mémorisée…');
+      setProg(2, 'Reprise de la veille flux mémorisée…');
       runPipeline(true);
     }
   });
