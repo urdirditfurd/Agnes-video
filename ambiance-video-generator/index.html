@@ -55,7 +55,7 @@
     color: var(--muted);
     margin: .2rem 0 .35rem;
   }
-  .api, .select {
+  .api, .select, .prompt {
     width: 100%;
     padding: .8rem .9rem;
     border: 1px solid var(--line);
@@ -65,6 +65,13 @@
     background: #fff;
   }
   .api { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .prompt {
+    min-height: 7.5rem;
+    resize: vertical;
+    line-height: 1.4;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .8rem;
+  }
   .check {
     display: flex;
     gap: .55rem;
@@ -132,17 +139,22 @@
   <p class="note">Mode « Veille flux » : sonde Agnes en continu (POST /v1/videos) et lance vidéo + montage 3h dès qu’un canal se libère — pas d’attente d’heure fixe.</p>
   <div class="saved" id="saved-banner">Projet restauré depuis la mémoire locale.</div>
 
+  <p class="note">Place ton image + ta bande-son dans le dossier <code>bande-son/</code> puis lance <code>demarrer.bat</code> / <code>demarrer.sh</code> — chargement auto. Sinon, uploade ci-dessous.</p>
+
   <div class="zone" id="image-zone">
     <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
-    <div id="image-label">Cliquez pour uploader votre image</div>
-    <div class="hint">JPG, PNG, WebP — obligatoire · sauvegardée en local</div>
+    <div id="image-label">Image d’ambiance (ex. capybara automne)</div>
+    <div class="hint">JPG, PNG, WebP — dossier <code>bande-son/</code> ou clic ici</div>
   </div>
 
   <div class="zone" id="audio-zone">
     <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
-    <div id="audio-label">Cliquez pour uploader votre musique (optionnel)</div>
-    <div class="hint">MP3, WAV, OGG — sauvegardée en local</div>
+    <div id="audio-label">Bande-son (optionnel, bouclée 3h)</div>
+    <div class="hint">MP3, WAV, OGG — dossier <code>bande-son/</code> ou clic ici</div>
   </div>
+
+  <label class="field" for="prompt-input">Prompt animation (image-to-video)</label>
+  <textarea class="prompt" id="prompt-input" spellcheck="false"></textarea>
 
   <label class="field" for="api-key">Clé API Agnes (sk-…)</label>
   <input type="password" class="api" id="api-key" placeholder="sk-…" autocomplete="off">
@@ -209,12 +221,14 @@
     soft: { min: 25000, max: 45000 }
   };
 
-  var AGNES_PROMPT =
-    'Animate this uploaded image with subtle, gentle, calming movements only. ' +
-    'Keep the composition absolutely static - NO camera movement, NO zoom, NO pan. ' +
-    'Add soft ambient motion: gentle breathing, subtle steam or mist rising, soft light flickering, ' +
-    'floating dust particles, or gentle water ripples. The mood must be peaceful, relaxing, and meditative. ' +
-    'Seamless loop. High quality, smooth motion.';
+  // Prompt automne cozy (capybara / onsen) + verrou caméra fixe
+  var DEFAULT_AGNES_PROMPT =
+    'Cinematic lofi animation of this exact image. ' +
+    'Keep the composition absolutely static - NO camera movement, NO zoom, NO pan, NO reframing. ' +
+    'Gentle steam rising from the hot spring water, water surface rippling softly with floating autumn maple leaves drifting slowly. ' +
+    'A few orange maple leaves falling gently from the trees in the background. ' +
+    'Very subtle life on the capybara: tiny slow blink or micro head movement, keep the zen posture. ' +
+    'Subtle and peaceful cozy autumn atmosphere, seamless high quality loop animation, 4k.';
 
   var MODEL_CHAIN_AUTO = [
     'agnes-video-2.5-flash',
@@ -248,6 +262,7 @@
   var audioInput = document.getElementById('audio-input');
   var audioLabel = document.getElementById('audio-label');
   var apiInput = document.getElementById('api-key');
+  var promptInput = document.getElementById('prompt-input');
   var modelStrategy = document.getElementById('model-strategy');
   var probePace = document.getElementById('probe-pace');
   var persistWatch = document.getElementById('persist-watch');
@@ -262,6 +277,7 @@
   var savedBanner = document.getElementById('saved-banner');
 
   apiInput.value = state.apiKey;
+  promptInput.value = DEFAULT_AGNES_PROMPT;
   if (IS_FILE) {
     // En file:// les hébergeurs image échouent souvent (CORS) → v2.0 base64 par défaut
     modelStrategy.value = 'agnes-video-v2.0';
@@ -313,6 +329,15 @@
     return [v];
   }
 
+  function currentPrompt() {
+    var p = (promptInput.value || '').trim() || DEFAULT_AGNES_PROMPT;
+    // Garantit le verrou caméra même si l'utilisateur édite le prompt
+    if (p.indexOf('NO camera movement') < 0) {
+      p += ' Keep the composition absolutely static - NO camera movement, NO zoom, NO pan.';
+    }
+    return p;
+  }
+
   // ── IndexedDB project memory ───────────────────────────────────
   function openDb() {
     return new Promise(function (resolve, reject) {
@@ -345,6 +370,7 @@
         apiKey: state.apiKey,
         modelStrategy: modelStrategy.value,
         probePace: probePace.value,
+        prompt: promptInput.value,
         watchPending: !!(extra && extra.watchPending),
         savedAt: Date.now()
       };
@@ -422,6 +448,7 @@
     if (rec.modelStrategy) modelStrategy.value = rec.modelStrategy;
     if (rec.probePace) probePace.value = rec.probePace;
     else if (rec.scheduleHour) probePace.value = 'fast';
+    if (rec.prompt) promptInput.value = rec.prompt;
     savedBanner.classList.add('show');
     updateBtn();
     return rec;
@@ -485,6 +512,10 @@
     state.apiKey = apiInput.value.trim();
     try { localStorage.setItem('avg_agnes_key', state.apiKey); } catch (e) {}
     updateBtn();
+    await saveProject({ watchPending: false });
+  });
+
+  promptInput.addEventListener('change', async function () {
     await saveProject({ watchPending: false });
   });
 
@@ -561,7 +592,7 @@
     if (isLegacyModel(model)) {
       return {
         model: model,
-        prompt: AGNES_PROMPT + ' Duration: exactly 10 seconds.',
+        prompt: currentPrompt() + ' Duration: exactly 10 seconds.',
         image: imageDataUrl,
         num_frames: 240,
         frame_rate: 24
@@ -570,7 +601,7 @@
     return {
       model: model,
       mode: 'keyframe',
-      prompt: AGNES_PROMPT,
+      prompt: currentPrompt(),
       seconds: '10',
       size: '720P',
       aspect_ratio: '16:9',
@@ -640,7 +671,8 @@
     var budgetMs = opts.budgetMs || (watch ? WATCH_BUDGET_MS : QUICK_BUDGET_MS);
     var pace = paceConfig(watch);
 
-    if (AGNES_PROMPT.indexOf('NO camera movement') < 0 || AGNES_PROMPT.indexOf('NO zoom') < 0) {
+    var promptNow = currentPrompt();
+    if (promptNow.indexOf('NO camera movement') < 0 || promptNow.indexOf('NO zoom') < 0) {
       throw new Error('Prompt Agnes invalide (caméra fixe manquante)');
     }
 
@@ -983,13 +1015,135 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
   });
 
-  // Restauration + reprise auto surveillance
-  restoreProject().then(function (rec) {
+  /** Charge image + audio depuis /bande-son/ si servi en local (demarrer.sh / .bat). */
+  async function tryLoadBandeSon() {
+    if (IS_FILE) return false;
+    var imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    var audioExts = ['.mp3', '.wav', '.ogg', '.m4a'];
+    var candidates = [
+      'bande-son/image.jpg', 'bande-son/image.jpeg', 'bande-son/image.png', 'bande-son/image.webp',
+      'bande-son/cover.jpg', 'bande-son/cover.png', 'bande-son/ambiance.jpg', 'bande-son/ambiance.png',
+      'bande-son/capybara.jpg', 'bande-son/capybara.png', 'bande-son/automne.jpg', 'bande-son/automne.png'
+    ];
+    var audioCandidates = [
+      'bande-son/audio.mp3', 'bande-son/audio.wav', 'bande-son/music.mp3', 'bande-son/bande-son.mp3',
+      'bande-son/soundtrack.mp3', 'bande-son/ambiance.mp3', 'bande-son/lofi.mp3'
+    ];
+
+    // Liste du dossier si le serveur le permet, sinon essais de noms connus
+    var listed = [];
+    try {
+      var dirRes = await fetch('bande-son/', { cache: 'no-store' });
+      if (dirRes.ok) {
+        var html = await dirRes.text();
+        var re = /href=["']([^"']+)["']/gi;
+        var m;
+        while ((m = re.exec(html))) {
+          var href = decodeURIComponent(m[1].split('?')[0]);
+          if (href === '../' || href === '/') continue;
+          var name = href.replace(/^\.\//, '').replace(/^bande-son\//, '');
+          if (name && name.indexOf('/') < 0 && name.indexOf('..') < 0) listed.push(name);
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    var imgName = null;
+    var audName = null;
+    listed.forEach(function (name) {
+      var low = name.toLowerCase();
+      var ext = low.slice(low.lastIndexOf('.'));
+      if (!imgName && imageExts.indexOf(ext) >= 0) imgName = name;
+      if (!audName && audioExts.indexOf(ext) >= 0) audName = name;
+    });
+
+    async function loadImagePath(p, label) {
+      var res = await fetch(p, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var blob = await res.blob();
+      var dataUrl = await new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve(r.result); };
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      state.imageDataURL = dataUrl;
+      state.imageName = label;
+      imageZone.classList.add('on');
+      imageLabel.textContent = '✓ ' + label + ' (bande-son)';
+      return true;
+    }
+
+    async function loadAudioPath(p, label) {
+      var res = await fetch(p, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var blob = await res.blob();
+      var type = blob.type || 'audio/mpeg';
+      state.audioFile = new File([blob], label, { type: type });
+      state.audioName = label;
+      audioZone.classList.add('on');
+      audioLabel.textContent = '✓ ' + label + ' (bande-son)';
+      return true;
+    }
+
+    var loaded = false;
+    if (imgName) {
+      try {
+        await loadImagePath('bande-son/' + encodeURIComponent(imgName).replace(/%2F/g, '/'), imgName);
+        loaded = true;
+      } catch (e) { console.warn('bande-son image', e); }
+    } else {
+      for (var i = 0; i < candidates.length; i++) {
+        try {
+          var base = candidates[i].split('/').pop();
+          await loadImagePath(candidates[i], base);
+          loaded = true;
+          break;
+        } catch (e) { /* try next */ }
+      }
+    }
+
+    if (audName) {
+      try { await loadAudioPath('bande-son/' + encodeURIComponent(audName).replace(/%2F/g, '/'), audName); }
+      catch (e) { console.warn('bande-son audio', e); }
+    } else {
+      for (var j = 0; j < audioCandidates.length; j++) {
+        try {
+          var ab = audioCandidates[j].split('/').pop();
+          await loadAudioPath(audioCandidates[j], ab);
+          break;
+        } catch (e) { /* try next */ }
+      }
+    }
+
+    if (loaded) {
+      savedBanner.textContent = 'Fichiers chargés depuis bande-son/ — prompt automne cozy prêt.';
+      savedBanner.classList.add('show');
+      updateBtn();
+      await saveProject({ watchPending: false });
+    }
+    return loaded;
+  }
+
+  // Restauration mémoire, puis priorité aux fichiers bande-son/ s'ils existent
+  (async function boot() {
+    var rec = null;
+    try { rec = await restoreProject(); } catch (e) { console.warn(e); }
+    var fromFolder = false;
+    try { fromFolder = await tryLoadBandeSon(); } catch (e) { console.warn(e); }
+    if (fromFolder && rec) {
+      // garde clé / stratégie / prompt mémorisés si pas déjà pris
+      if (rec.apiKey && !apiInput.value) {
+        state.apiKey = rec.apiKey;
+        apiInput.value = rec.apiKey;
+      }
+      if (rec.prompt && promptInput.value === DEFAULT_AGNES_PROMPT) promptInput.value = rec.prompt;
+    }
+    updateBtn();
     if (rec && rec.watchPending && state.imageDataURL && state.apiKey) {
       setProg(2, 'Reprise de la veille flux mémorisée…');
       runPipeline(true);
     }
-  });
+  })();
 
   updateBtn();
 })();
