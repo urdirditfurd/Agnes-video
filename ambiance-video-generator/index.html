@@ -55,15 +55,18 @@
     color: var(--muted);
     margin: .2rem 0 .35rem;
   }
-  .api {
+  .api, .select {
     width: 100%;
     padding: .8rem .9rem;
     border: 1px solid var(--line);
     border-radius: 8px;
     margin: 0 0 1rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: .9rem;
+    background: #fff;
   }
+  .api { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .row { display: flex; gap: .6rem; }
+  .row button { flex: 1; }
   button {
     width: 100%;
     border: 0;
@@ -77,6 +80,7 @@
   }
   button:hover:not(:disabled) { filter: brightness(.96); }
   button:disabled { background: #cbd5e1; cursor: not-allowed; }
+  button.secondary { background: #64748b; }
   .progress { display: none; margin-top: 1.1rem; }
   .progress.show { display: block; }
   .bar { height: 10px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
@@ -97,12 +101,14 @@
   }
   .dl { display: none; margin-top: .85rem; background: var(--ok); }
   .dl.show { display: block; }
+  .note { font-size: .8rem; color: var(--muted); margin: -.4rem 0 1rem; line-height: 1.4; }
 </style>
 </head>
 <body>
 <div class="wrap"><div class="card">
   <h1>Ambiance Video Generator</h1>
-  <p class="sub">Image → Agnes IA (10&nbsp;s, caméra fixe) → boucle 3&nbsp;h locale (FFmpeg.wasm) → téléchargement MP4</p>
+  <p class="sub">Image → Agnes IA (caméra fixe) → boucle 3&nbsp;h locale (FFmpeg.wasm) → MP4</p>
+  <p class="note">En cas de file pleine (503), l’app collera plusieurs files Agnes (~20&nbsp;min) : Flash → 2.5 → v2.0. Pas de « priorité payante » côté API.</p>
 
   <div class="zone" id="image-zone">
     <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
@@ -119,7 +125,18 @@
   <label class="field" for="api-key">Clé API Agnes (sk-…)</label>
   <input type="password" class="api" id="api-key" placeholder="sk-…" autocomplete="off">
 
-  <button id="generate-btn" disabled>Générer la vidéo d'ambiance (3h)</button>
+  <label class="field" for="model-strategy">Stratégie file Agnes</label>
+  <select class="select" id="model-strategy">
+    <option value="auto" selected>Auto — Flash puis 2.5 puis v2.0 (meilleures chances)</option>
+    <option value="agnes-video-2.5-flash">Flash uniquement (file gratuite)</option>
+    <option value="agnes-video-2.5">Video 2.5 uniquement</option>
+    <option value="agnes-video-v2.0">Video v2.0 uniquement (ancienne API)</option>
+  </select>
+
+  <div class="row">
+    <button id="generate-btn" disabled>Générer la vidéo d'ambiance (3h)</button>
+    <button id="cancel-btn" class="secondary" disabled>Arrêter</button>
+  </div>
 
   <div class="progress" id="progress">
     <div class="bar"><div class="fill" id="fill"></div></div>
@@ -138,25 +155,34 @@
 
   var AGNES_API_BASE = 'https://apihub.agnes-ai.com/v1';
   var AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
-  var MODEL_VIDEO = 'agnes-video-v2.0';
-  var NUM_FRAMES = 240;
-  var FRAME_RATE = 24;
   var DURATION_3H = 10800;
   var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  // Coller la file pleine : ~20 min, intervalle 25–55s (pas de vrai "priority" API)
+  var QUEUE_BUDGET_MS = 20 * 60 * 1000;
+  var QUEUE_RETRY_MIN_MS = 25000;
+  var QUEUE_RETRY_MAX_MS = 55000;
 
   var AGNES_PROMPT =
     'Animate this uploaded image with subtle, gentle, calming movements only. ' +
     'Keep the composition absolutely static - NO camera movement, NO zoom, NO pan. ' +
     'Add soft ambient motion: gentle breathing, subtle steam or mist rising, soft light flickering, ' +
     'floating dust particles, or gentle water ripples. The mood must be peaceful, relaxing, and meditative. ' +
-    'Duration: exactly 10 seconds. Seamless loop. High quality, smooth 24fps.';
+    'Seamless loop. High quality, smooth motion.';
+
+  var MODEL_CHAIN_AUTO = [
+    'agnes-video-2.5-flash',
+    'agnes-video-2.5',
+    'agnes-video-v2.0'
+  ];
 
   var state = {
     imageDataURL: null,
     audioFile: null,
     apiKey: '',
     isGenerating: false,
-    finalBlob: null
+    stopRequested: false,
+    finalBlob: null,
+    activeModel: null
   };
 
   try { state.apiKey = localStorage.getItem('avg_agnes_key') || ''; } catch (e) {}
@@ -168,7 +194,9 @@
   var audioInput = document.getElementById('audio-input');
   var audioLabel = document.getElementById('audio-label');
   var apiInput = document.getElementById('api-key');
+  var modelStrategy = document.getElementById('model-strategy');
   var generateBtn = document.getElementById('generate-btn');
+  var cancelBtn = document.getElementById('cancel-btn');
   var progressEl = document.getElementById('progress');
   var fillEl = document.getElementById('fill');
   var statusEl = document.getElementById('status');
@@ -186,43 +214,31 @@
 
   function updateBtn() {
     generateBtn.disabled = !state.imageDataURL || !state.apiKey || state.isGenerating;
+    cancelBtn.disabled = !state.isGenerating;
   }
 
   function sleep(ms) {
     return new Promise(function (r) { setTimeout(r, ms); });
   }
 
-  async function fetchWith503Retry(url, options, label) {
-    // 503/429 = saturation côté Agnes (pas un bug local / CORS / clé)
-    var max = 8;
-    var delay = 3000;
-    var lastStatus = 0;
-    var lastErr = null;
-    for (var i = 0; i < max; i++) {
-      try {
-        var res = await fetch(url, options);
-        if (res.status !== 503 && res.status !== 429) return res;
-        lastStatus = res.status;
-        lastErr = null;
-      } catch (e) {
-        lastErr = e;
-        lastStatus = 0;
-      }
-      setProg(
-        Math.min(55, 18 + i * 4),
-        'Agnes saturé côté serveur (HTTP ' + (lastStatus || 'réseau') + ') — nouvel essai ' +
-          (i + 1) + '/' + max + ' dans ' + Math.round(delay / 1000) + 's…'
-      );
-      await sleep(delay);
-      delay = Math.min(Math.round(delay * 1.7), 45000);
-    }
-    if (lastStatus === 503 || lastStatus === 429) {
-      throw new Error(
-        'Agnes est saturé côté serveur (HTTP ' + lastStatus + ') — ce n’est pas ton PC ni le HTML. ' +
-        'Réessaie dans quelques minutes (file vidéo pleine).'
-      );
-    }
-    throw lastErr || new Error('Échec réseau vers Agnes');
+  function assertNotStopped() {
+    if (state.stopRequested) throw new Error('Arrêt demandé');
+  }
+
+  function isQueueFullStatus(status, bodyText) {
+    if (status === 503 || status === 429) return true;
+    var t = String(bodyText || '').toLowerCase();
+    return t.indexOf('queue') >= 0 && (t.indexOf('full') >= 0 || t.indexOf('satur') >= 0);
+  }
+
+  function modelList() {
+    var v = modelStrategy.value;
+    if (v === 'auto') return MODEL_CHAIN_AUTO.slice();
+    return [v];
+  }
+
+  function isLegacyModel(model) {
+    return model === 'agnes-video-v2.0';
   }
 
   imageZone.addEventListener('click', function () { imageInput.click(); });
@@ -254,56 +270,186 @@
     updateBtn();
   });
 
-  async function createAgnesVideo() {
-    if (AGNES_PROMPT.indexOf('NO camera movement') < 0 || AGNES_PROMPT.indexOf('NO zoom') < 0) {
-      throw new Error('Prompt Agnes invalide (caméra fixe manquante)');
-    }
+  cancelBtn.addEventListener('click', function () {
+    state.stopRequested = true;
+    setProg(0, 'Arrêt demandé… attente fin tentative en cours', true);
+  });
 
-    var res = await fetchWith503Retry(AGNES_API_BASE + '/videos', {
+  /** Agnes 2.5 exige une URL publique pour first_frame. */
+  async function uploadImageToPublicHost(dataUrl) {
+    var res = await fetch(dataUrl);
+    var blob = await res.blob();
+    var form = new FormData();
+    form.append('file', blob, 'ambiance.jpg');
+    var up = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
+    if (!up.ok) throw new Error('Upload image public HTTP ' + up.status);
+    var data = await up.json();
+    var pageUrl = data && data.data && data.data.url;
+    if (!pageUrl) throw new Error('Pas d’URL publique (tmpfiles)');
+    return pageUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+  }
+
+  function buildCreateBody(model, imageDataUrl, publicImageUrl) {
+    if (isLegacyModel(model)) {
+      return {
+        model: model,
+        prompt: AGNES_PROMPT + ' Duration: exactly 10 seconds.',
+        image: imageDataUrl,
+        num_frames: 240,
+        frame_rate: 24
+      };
+    }
+    // Video 2.5 / Flash — keyframe i2v (file distincte de v2.0)
+    return {
+      model: model,
+      mode: 'keyframe',
+      prompt: AGNES_PROMPT,
+      seconds: '10',
+      size: '720P',
+      aspect_ratio: '16:9',
+      n: 1,
+      first_frame: publicImageUrl,
+      last_frame: publicImageUrl
+    };
+  }
+
+  async function postVideoOnce(model, body) {
+    var res = await fetch(AGNES_API_BASE + '/videos', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + state.apiKey,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: MODEL_VIDEO,
-        prompt: AGNES_PROMPT,
-        image: state.imageDataURL,
-        num_frames: NUM_FRAMES,
-        frame_rate: FRAME_RATE
-      })
-    }, 'Création Agnes');
-
+      body: JSON.stringify(body)
+    });
     var text = await res.text();
     var data = null;
     try { data = JSON.parse(text); } catch (e) { data = null; }
-
-    if (!res.ok) {
-      var msg = (data && data.error && data.error.message) || text.slice(0, 220);
-      if (res.status === 401) throw new Error('Clé Agnes invalide');
-      throw new Error('Agnes HTTP ' + res.status + ' — ' + msg);
-    }
-    var id = data && (data.video_id || data.id || data.task_id);
-    if (!id) throw new Error('Pas de video_id retourné');
-    return id;
+    return { res: res, text: text, data: data };
   }
 
-  async function pollAgnesVideo(videoId) {
-    // court délai initial
-    for (var w = 20; w > 0; w--) {
-      setProg(25, 'Agnes prépare la boucle… ' + w + 's');
+  /**
+   * "Force" pratique = coller plusieurs files Agnes jusqu'à acceptation.
+   * Il n'existe PAS de header/priority officielle pour sauter la queue.
+   */
+  async function createAgnesVideoWithQueueHug() {
+    if (AGNES_PROMPT.indexOf('NO camera movement') < 0 || AGNES_PROMPT.indexOf('NO zoom') < 0) {
+      throw new Error('Prompt Agnes invalide (caméra fixe manquante)');
+    }
+
+    var models = modelList();
+    var needsPublic = models.some(function (m) { return !isLegacyModel(m); });
+    var publicUrl = null;
+    if (needsPublic) {
+      setProg(8, 'Publication image (URL publique pour Agnes 2.5)…');
+      publicUrl = await uploadImageToPublicHost(state.imageDataURL);
+    }
+
+    var started = Date.now();
+    var attempt = 0;
+    var lastMsg = '';
+
+    while (Date.now() - started < QUEUE_BUDGET_MS) {
+      assertNotStopped();
+      var model = models[attempt % models.length];
+      state.activeModel = model;
+      var body = buildCreateBody(model, state.imageDataURL, publicUrl);
+      var waitedMin = Math.floor((Date.now() - started) / 60000);
+      var waitedSec = Math.floor(((Date.now() - started) % 60000) / 1000);
+      setProg(
+        10 + Math.min(50, (Date.now() - started) / QUEUE_BUDGET_MS * 50),
+        'File Agnes · modèle ' + model + ' · essai #' + (attempt + 1) +
+          ' · déjà ' + waitedMin + 'm' + waitedSec + 's'
+      );
+
+      var out;
+      try {
+        out = await postVideoOnce(model, body);
+      } catch (netErr) {
+        lastMsg = netErr && netErr.message ? netErr.message : String(netErr);
+        attempt++;
+        var waitNet = QUEUE_RETRY_MIN_MS + Math.floor(Math.random() * (QUEUE_RETRY_MAX_MS - QUEUE_RETRY_MIN_MS));
+        setProg(15, 'Réseau coupé (' + lastMsg + ') — nouvel essai dans ' + Math.round(waitNet / 1000) + 's…');
+        await sleep(waitNet);
+        continue;
+      }
+
+      if (out.res.ok) {
+        var id = out.data && (out.data.video_id || out.data.id || out.data.task_id);
+        if (!id) throw new Error('Pas de video_id retourné (' + model + ')');
+        setProg(55, 'Accepté par Agnes (' + model + ') — id ' + id);
+        return { videoId: id, model: model };
+      }
+
+      var msg = (out.data && out.data.error && out.data.error.message) ||
+        (out.data && out.data.detail) ||
+        out.text.slice(0, 220);
+      lastMsg = String(msg);
+
+      if (out.res.status === 401 || out.res.status === 403) {
+        throw new Error('Clé Agnes invalide');
+      }
+      if (out.res.status === 400) {
+        // corps invalide pour ce modèle → passer au suivant sans brûler le budget
+        setProg(12, 'Modèle ' + model + ' refuse la requête — bascule file suivante…');
+        attempt++;
+        await sleep(800);
+        // si tous les modèles ont échoué en 400 une fois, on continue quand même le cycle
+        continue;
+      }
+
+      if (isQueueFullStatus(out.res.status, lastMsg)) {
+        attempt++;
+        var wait = QUEUE_RETRY_MIN_MS + Math.floor(Math.random() * (QUEUE_RETRY_MAX_MS - QUEUE_RETRY_MIN_MS));
+        var nextModel = models[attempt % models.length];
+        setProg(
+          12 + Math.min(45, (Date.now() - started) / QUEUE_BUDGET_MS * 45),
+          'Queue pleine (HTTP ' + out.res.status + ') — colle la file, prochain essai ' +
+            nextModel + ' dans ' + Math.round(wait / 1000) + 's…'
+        );
+        await sleep(wait);
+        continue;
+      }
+
+      throw new Error('Agnes HTTP ' + out.res.status + ' — ' + lastMsg);
+    }
+
+    throw new Error(
+      'Agnes toujours saturé après ~20 min de collage multi-files. ' +
+      'Dernier message: ' + lastMsg + ' — réessaie hors pic.'
+    );
+  }
+
+  async function pollAgnesVideo(videoId, model) {
+    for (var w = 12; w > 0; w--) {
+      assertNotStopped();
+      setProg(58, 'Agnes (' + model + ') prépare… ' + w + 's');
       await sleep(1000);
     }
 
-    for (var i = 0; i < 90; i++) {
+    for (var i = 0; i < 180; i++) {
+      assertNotStopped();
       var url = AGNES_POLL_BASE +
         '?video_id=' + encodeURIComponent(videoId) +
-        '&model_name=' + encodeURIComponent(MODEL_VIDEO);
+        '&model_name=' + encodeURIComponent(model);
 
-      var res = await fetchWith503Retry(url, {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer ' + state.apiKey }
-      }, 'Polling Agnes');
+      var res;
+      try {
+        res = await fetch(url, {
+          method: 'GET',
+          headers: { 'Authorization': 'Bearer ' + state.apiKey }
+        });
+      } catch (e) {
+        setProg(60, 'Poll réseau coupé — retry…');
+        await sleep(5000);
+        continue;
+      }
+
+      if (res.status === 503 || res.status === 429) {
+        setProg(60, 'Poll saturé — nouvel essai…');
+        await sleep(8000);
+        continue;
+      }
 
       var data = await res.json();
       if (!res.ok) {
@@ -313,12 +459,12 @@
 
       var st = String(data.status || data.state || '').toLowerCase();
       var p = Number(data.progress) || 0;
-      setProg(30 + Math.min(30, p * 0.3), 'Génération Agnes… ' + (p ? p + '%' : (i + 1)));
+      setProg(60 + Math.min(25, p * 0.25), 'Génération ' + model + '… ' + (p ? p + '%' : (i + 1)));
 
       if (st === 'completed' || st === 'succeeded' || st === 'ready' || st === 'done') {
         var videoUrl =
-          (data.metadata && data.metadata.url) ||
           data.url ||
+          (data.metadata && data.metadata.url) ||
           (data.output && data.output.url) ||
           data.video_url;
         if (!videoUrl) throw new Error('Vidéo prête sans URL');
@@ -327,7 +473,7 @@
       if (st === 'failed' || st === 'error' || st === 'cancelled') {
         throw new Error('Échec génération Agnes (' + st + ')');
       }
-      await sleep(10000);
+      await sleep(isLegacyModel(model) ? 8000 : 2000);
     }
     throw new Error('Délai maximal dépassé (Agnes)');
   }
@@ -350,15 +496,11 @@
     return ffmpeg;
   }
 
-  /**
-   * Boucle 3h : -c:v copy (évite OOM libx264 sur 10800s dans le navigateur).
-   * Audio seul est ré-encodé en AAC.
-   */
   async function create3HourLoop(videoBlob, audioFile) {
-    var ffmpeg = await loadFFmpeg(function (m) { setProg(72, m); });
+    var ffmpeg = await loadFFmpeg(function (m) { setProg(86, m); });
     var fetchFile = FFmpegUtil.fetchFile;
 
-    setProg(78, 'Écriture fichiers dans FFmpeg…');
+    setProg(88, 'Écriture fichiers dans FFmpeg…');
     await ffmpeg.writeFile('input.mp4', await fetchFile(videoBlob));
 
     var args;
@@ -386,12 +528,11 @@
       ];
     }
 
-    setProg(82, 'Assemblage boucle 3h (local)…');
+    setProg(90, 'Assemblage boucle 3h (local)…');
     try {
       await ffmpeg.exec(args);
     } catch (e1) {
       if (!audioFile) throw e1;
-      setProg(84, 'Repli FFmpeg…');
       await ffmpeg.exec([
         '-stream_loop', '-1', '-i', 'input.mp4',
         '-stream_loop', '-1', '-i', 'input_audio.mp3',
@@ -400,7 +541,7 @@
       ]);
     }
 
-    setProg(95, 'Lecture fichier final…');
+    setProg(96, 'Lecture fichier final…');
     var data = await ffmpeg.readFile('output.mp4');
     var buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
     var blob = new Blob([buf], { type: 'video/mp4' });
@@ -411,28 +552,27 @@
   async function generateVideo() {
     if (!state.imageDataURL || !state.apiKey || state.isGenerating) return;
     state.isGenerating = true;
+    state.stopRequested = false;
     updateBtn();
     downloadBtn.classList.remove('show');
     preview.style.display = 'none';
     state.finalBlob = null;
 
     try {
-      setProg(8, 'Envoi à Agnes IA…');
-      var videoId = await createAgnesVideo();
-      setProg(20, 'Tâche créée — attente rendu…');
-      var videoUrl = await pollAgnesVideo(videoId);
+      setProg(5, 'Connexion Agnes — stratégie multi-files…');
+      var created = await createAgnesVideoWithQueueHug();
+      var videoUrl = await pollAgnesVideo(created.videoId, created.model);
 
-      setProg(65, 'Téléchargement vidéo Agnes…');
+      setProg(85, 'Téléchargement vidéo Agnes…');
       var vRes = await fetch(videoUrl);
       if (!vRes.ok) throw new Error('Téléchargement vidéo HTTP ' + vRes.status);
       var videoBlob = await vRes.blob();
       if (videoBlob.size < 500) throw new Error('Vidéo Agnes vide');
 
-      setProg(70, 'Création de la boucle 3h…');
       var finalBlob = await create3HourLoop(videoBlob, state.audioFile);
       state.finalBlob = finalBlob;
 
-      setProg(100, '✓ Vidéo 3h prête · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      setProg(100, '✓ Vidéo 3h prête (' + created.model + ') · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
       preview.src = URL.createObjectURL(finalBlob);
       preview.style.display = 'block';
       downloadBtn.classList.add('show');
@@ -441,6 +581,7 @@
       setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
     } finally {
       state.isGenerating = false;
+      state.stopRequested = false;
       updateBtn();
     }
   }
