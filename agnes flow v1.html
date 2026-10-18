@@ -1,14 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-image_to_video_youtube.py — Générateur complet d'images, vidéos et métadonnées YouTube.
+================================================================================
+GÉNÉRATEUR D'IMAGES, VIDÉOS ET MÉTADONNÉES YOUTUBE (SEO)
+================================================================================
 
-Pipeline :
-  1. Choix du style + mood → génération d'image (Replicate SDXL, fallback DALL·E 3)
-  2. Animation de l'image (Replicate SVD, fallback effet parallaxe local FFmpeg)
-  3. Génération des métadonnées YouTube (OpenAI GPT, fallback templates)
+INSTALLATION (à exécuter une seule fois dans votre terminal) :
+    pip install requests python-dotenv Pillow
 
-Exécution : python image_to_video_youtube.py
+VARIABLES D'ENVIRONNEMENT (.env à la racine du projet) :
+    # Clé Replicate (génération d'image SDXL + animation SVD)
+    # Obtention : https://replicate.com/account/api-tokens
+    REPLICATE_API_TOKEN=r8_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    # Clé OpenAI (DALL·E 3 + GPT pour les métadonnées YouTube)
+    # Obtention : https://platform.openai.com/api-keys
+    OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    # (Optionnel) Répertoire de sortie, défaut : ./output
+    OUTPUT_DIR=output
+
+USAGE :
+    python image_to_video_youtube.py
+
+Le script propose un menu interactif (style, mood, description) puis génère :
+    1. Une image (Replicate SDXL, fallback DALL·E 3, puis Pillow local).
+    2. Une vidéo (Replicate SVD, fallback effet parallaxe FFmpeg local).
+    3. Un titre + description YouTube optimisés SEO (OpenAI GPT, fallback templates).
+================================================================================
 """
 
 import os
@@ -17,10 +36,9 @@ import time
 import json
 import logging
 import subprocess
-import tempfile
 import shutil
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Any
 
 # ─── Dépendances externes ────────────────────────────────────────────────
 try:
@@ -28,13 +46,13 @@ try:
     from dotenv import load_dotenv
 except ImportError as e:
     print(f"[ERREUR] Dépendance manquante : {e}")
-    print("Installez les dépendances avec : pip install -r requirements.txt")
+    print("Installez les dépendances avec : pip install requests python-dotenv Pillow")
     sys.exit(1)
 
 # ─── Configuration ───────────────────────────────────────────────────────
 load_dotenv()
 
-OUTPUT_DIR = Path("output")
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "output"))
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 logging.basicConfig(
@@ -44,68 +62,97 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Clés API (facultatives — des fallbacks existent)
-REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "").strip()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 
 # ─── Catalogue de styles et moods ────────────────────────────────────────
-STYLES = {
+STYLES: Dict[str, Dict[str, str]] = {
     "ghibli": {
         "label": "Studio Ghibli",
-        "prompt": "Studio Ghibli anime style, hand-painted watercolor backgrounds, "
-                  "soft natural light, lush nature, gentle atmosphere, cel-shaded characters",
+        "prompt": (
+            "Studio Ghibli anime style, hand-painted watercolor backgrounds, "
+            "soft natural light, lush nature, gentle atmosphere, cel-shaded characters, "
+            "Hayao Miyazaki aesthetic, nostalgic warmth"
+        ),
     },
     "pixar": {
         "label": "Pixar 3D",
-        "prompt": "Pixar 3D animation style, cinematic CGI render, soft global illumination, "
-                  "expressive characters, vibrant colors, family-friendly",
+        "prompt": (
+            "Pixar 3D animation style, cinematic CGI render, soft global illumination, "
+            "expressive characters, vibrant colors, family-friendly, subsurface scattering"
+        ),
     },
     "anime": {
         "label": "Anime 2020s",
-        "prompt": "Modern 2020s anime style, crisp digital line art, vibrant colors, "
-                  "cinematic lighting, detailed backgrounds, expressive eyes",
+        "prompt": (
+            "Modern 2020s anime style, crisp digital line art, vibrant colors, "
+            "cinematic lighting, detailed backgrounds, expressive eyes, Makoto Shinkai influence"
+        ),
     },
     "watercolor": {
         "label": "Aquarelle",
-        "prompt": "Watercolor painting style, soft washes, pastel palette, "
-                  "delicate brush strokes, paper texture, dreamy atmosphere",
+        "prompt": (
+            "Watercolor painting style, soft washes, pastel palette, "
+            "delicate brush strokes, paper texture, dreamy atmosphere"
+        ),
     },
     "noir": {
         "label": "Film Noir",
-        "prompt": "Film noir black and white, high contrast, dramatic shadows, "
-                  "moody atmosphere, classic 1940s aesthetic, cigarette smoke",
+        "prompt": (
+            "Film noir black and white, high contrast, dramatic shadows, "
+            "moody atmosphere, classic 1940s aesthetic, cigarette smoke, rain-slicked streets"
+        ),
     },
 }
 
-MOODS = {
+MOODS: Dict[str, Dict[str, Any]] = {
     "cozy": {
         "label": "Cozy",
-        "prompt": "cozy warm atmosphere, soft golden lighting, intimate feeling, "
-                  "comfortable and welcoming, warm color palette",
+        "prompt": (
+            "cozy warm atmosphere, soft golden lighting, intimate feeling, "
+            "comfortable and welcoming, warm color palette"
+        ),
         "animation": {"motion_strength": 30, "fps": 8},
     },
     "chill": {
         "label": "Chill",
-        "prompt": "relaxing chill mood, soothing colors, calm environment, "
-                  "peaceful and quiet, smooth ambience",
+        "prompt": (
+            "relaxing chill mood, soothing colors, calm environment, "
+            "peaceful and quiet, smooth ambience"
+        ),
         "animation": {"motion_strength": 40, "fps": 8},
     },
     "relaxing": {
         "label": "Relaxing",
-        "prompt": "deeply relaxing scene, meditative atmosphere, soft lighting, "
-                  "tranquil and serene, no tension",
+        "prompt": (
+            "deeply relaxing scene, meditative atmosphere, soft lighting, "
+            "tranquil and serene, no tension"
+        ),
         "animation": {"motion_strength": 25, "fps": 6},
     },
     "night": {
         "label": "Night",
-        "prompt": "night atmosphere, deep blues, moonlit, glowing lights, "
-                  "mysterious and cinematic, stars or city lights",
+        "prompt": (
+            "night atmosphere, deep blues, moonlit, glowing lights, "
+            "mysterious and cinematic, stars or city lights"
+        ),
         "animation": {"motion_strength": 60, "fps": 10},
+    },
+    "cozy_night": {
+        "label": "Cozy Night",
+        "prompt": (
+            "cozy night atmosphere, warm indoor lighting mixed with cool moonlight, "
+            "intimate and peaceful, warm glow against deep blue shadows, "
+            "comforting and dreamy"
+        ),
+        "animation": {"motion_strength": 35, "fps": 8},
     },
     "apaisant": {
         "label": "Apaisant",
-        "prompt": "soothing peaceful scene, harmonious composition, "
-                  "gentle natural light, calm and reassuring",
+        "prompt": (
+            "soothing peaceful scene, harmonious composition, "
+            "gentle natural light, calm and reassuring"
+        ),
         "animation": {"motion_strength": 30, "fps": 8},
     },
 }
@@ -160,7 +207,7 @@ def _poll_replicate_prediction(prediction: Dict[str, Any], max_wait: int = 300) 
 def generate_image(style_key: str, mood_key: str, base_prompt: str) -> Path:
     """
     Génère une image en combinant style + mood + prompt de base.
-    Essaie Replicate (SDXL), puis DALL·E 3 en fallback.
+    Essaie Replicate (SDXL), puis DALL·E 3, puis Pillow en fallback.
     """
     style = STYLES.get(style_key, STYLES["ghibli"])
     mood = MOODS.get(mood_key, MOODS["cozy"])
@@ -169,7 +216,7 @@ def generate_image(style_key: str, mood_key: str, base_prompt: str) -> Path:
         f"{base_prompt}, {style['prompt']}, {mood['prompt']}, "
         "masterpiece, best quality, highly detailed, 4k, cinematic"
     )
-    log.info(f"Prompt complet : {full_prompt}")
+    log.info(f"Prompt complet : {full_prompt[:150]}…")
 
     timestamp = int(time.time())
     out_path = OUTPUT_DIR / f"image_{style_key}_{mood_key}_{timestamp}.png"
@@ -183,7 +230,10 @@ def generate_image(style_key: str, mood_key: str, base_prompt: str) -> Path:
                 "Content-Type": "application/json",
             }
             payload = {
-                "version": "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+                "version": (
+                    "stability-ai/sdxl:"
+                    "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b"
+                ),
                 "input": {
                     "prompt": full_prompt,
                     "width": 1024,
@@ -233,7 +283,7 @@ def generate_image(style_key: str, mood_key: str, base_prompt: str) -> Path:
         except Exception as e:
             log.error(f"DALL·E 3 a échoué : {e}")
 
-    # --- Fallback : image placeholder générée localement ---
+    # --- Fallback 3 : Pillow local ---
     log.warning("Aucune API d'image disponible — génération d'un placeholder local.")
     try:
         from PIL import Image, ImageDraw
@@ -263,7 +313,6 @@ def _animate_with_replicate(image_path: Path, mood_key: str) -> Optional[Path]:
 
     try:
         log.info("Animation via Replicate (Stable Video Diffusion)…")
-        # Upload de l'image d'abord
         with open(image_path, "rb") as f:
             files = {"content": f}
             r = requests.post(
@@ -280,7 +329,10 @@ def _animate_with_replicate(image_path: Path, mood_key: str) -> Optional[Path]:
             "Content-Type": "application/json",
         }
         payload = {
-            "version": "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
+            "version": (
+                "stability-ai/stable-video-diffusion:"
+                "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438"
+            ),
             "input": {
                 "input_image": image_url,
                 "video_length": "25_frames_with_svd_xt",
@@ -321,7 +373,6 @@ def _animate_with_parallax(image_path: Path, mood_key: str) -> Optional[Path]:
     timestamp = int(time.time())
     out_path = OUTPUT_DIR / f"video_{mood_key}_{timestamp}.mp4"
 
-    # Zoom lent + panoramique léger
     filter_complex = (
         f"scale=1024:1024,"
         f"zoompan=z='min(zoom+0.0015,1.5)':d={duration * fps}:"
@@ -361,7 +412,6 @@ def animate_image(image_path: Path, mood_key: str) -> Path:
     if video:
         return video
 
-    # Dernier recours : copier l'image en tant que "vidéo" (dégradé)
     log.error("Aucune méthode d'animation n'a fonctionné — copie de l'image en MP4.")
     fallback = OUTPUT_DIR / f"video_fallback_{int(time.time())}.mp4"
     if _check_ffmpeg():
@@ -379,9 +429,7 @@ def _youtube_metadata_template(style_key: str, mood_key: str, base_prompt: str) 
     style = STYLES.get(style_key, STYLES["ghibli"])
     mood = MOODS.get(mood_key, MOODS["cozy"])
 
-    title = (
-        f"✨ {style['label']} · {mood['label']} Vibes — Relaxing Ambience 🎨"
-    )
+    title = f"✨ {style['label']} · {mood['label']} Vibes — Relaxing Ambience 🎨"
 
     description = (
         f"🌿 Plongez dans une ambiance {mood['label'].lower()} avec ce visuel {style['label']}.\n\n"
@@ -394,13 +442,12 @@ def _youtube_metadata_template(style_key: str, mood_key: str, base_prompt: str) 
         "#loop #sleep #study #meditation #cinematic"
     )
 
-    tags = [
-        style["label"], mood["label"], "relaxing", "ambience",
-        "study music", "sleep", "loop", "chill", "cozy",
-        style_key, mood_key, "cinematic", "aesthetic",
-    ]
+    tags = (
+        f"{style['label']}, {mood['label']}, relaxing, ambience, study music, sleep, "
+        f"loop, chill, cozy, {style_key}, {mood_key}, cinematic, aesthetic"
+    )
 
-    return {"title": title, "description": description, "tags": ", ".join(tags)}
+    return {"title": title, "description": description, "tags": tags}
 
 
 def generate_youtube_metadata(style_key: str, mood_key: str, base_prompt: str) -> Dict[str, str]:
@@ -438,7 +485,10 @@ def generate_youtube_metadata(style_key: str, mood_key: str, base_prompt: str) -
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Tu es un expert SEO YouTube. Réponds uniquement en JSON."},
+                    {
+                        "role": "system",
+                        "content": "Tu es un expert SEO YouTube. Réponds uniquement en JSON.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": 0.8,
@@ -493,7 +543,6 @@ def main() -> int:
     if not _check_ffmpeg():
         log.warning("FFmpeg n'est pas installé — l'animation locale sera indisponible.")
 
-    # 1. Choix utilisateur
     style_key = _choose("Choisissez un style visuel :", STYLES)
     mood_key = _choose("Choisissez une ambiance :", MOODS)
 
@@ -501,7 +550,6 @@ def main() -> int:
         f"\nDescription de base (Entrée pour : \"{DEFAULT_BASE_PROMPT[:50]}…\") : "
     ).strip() or DEFAULT_BASE_PROMPT
 
-    # 2. Pipeline
     try:
         image_path = generate_image(style_key, mood_key, base_prompt)
         video_path = animate_image(image_path, mood_key)
@@ -510,7 +558,6 @@ def main() -> int:
         log.error(f"Erreur fatale : {e}")
         return 1
 
-    # 3. Résumé final
     print("\n" + "=" * 60)
     print("  ✅ GÉNÉRATION TERMINÉE")
     print("=" * 60)
@@ -520,7 +567,6 @@ def main() -> int:
     print(f"\n📝 Description YouTube :\n{metadata['description']}")
     print(f"\n🏷️  Tags :\n   {metadata['tags']}")
 
-    # 4. Sauvegarde JSON des métadonnées
     meta_file = OUTPUT_DIR / f"metadata_{style_key}_{mood_key}.json"
     with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(
@@ -540,5 +586,43 @@ def main() -> int:
     return 0
 
 
+# ─── EXEMPLE D'EXÉCUTION AUTOMATIQUE ─────────────────────────────────────
+# Ce bloc s'exécute si aucune clé API n'est configurée :
+# il affiche directement le titre et la description pour style "Ghibli"
+# et mood "Cozy Night", sans appeler aucune API externe.
+def demo_metadata() -> None:
+    """Affiche un exemple de métadonnées SEO pour style Ghibli + mood Cozy Night."""
+    print("\n" + "=" * 60)
+    print("  🎬 EXEMPLE DE MÉTADONNÉES — Style Ghibli · Cozy Night")
+    print("=" * 60)
+
+    meta = _youtube_metadata_template(
+        style_key="ghibli",
+        mood_key="cozy_night",
+        base_prompt="a peaceful village under the stars with warm lantern lights",
+    )
+
+    print("\n📺 TITRE YOUTUBE :")
+    print(f"   {meta['title']}")
+
+    print("\n📝 DESCRIPTION YOUTUBE :")
+    print(meta["description"])
+
+    print("\n🏷️  TAGS :")
+    print(f"   {meta['tags']}")
+    print("\n" + "=" * 60)
+
+
 if __name__ == "__main__":
+    # Si le script est lancé sans clé API et sans interaction possible,
+    # on affiche directement l'exemple de métadonnées pour démonstration.
+    if not REPLICATE_API_TOKEN and not OPENAI_API_KEY:
+        demo_metadata()
+        print(
+            "\n💡 Pour lancer le pipeline complet, configurez vos clés API "
+            "dans un fichier .env puis relancez le script."
+        )
+        sys.exit(0)
+
+    # Sinon, exécution normale avec menu interactif.
     sys.exit(main())
