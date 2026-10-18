@@ -1,743 +1,544 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Visual.Studio Pipeline — Text-to-Image → Image-to-Video → SEO YouTube
-====================================================================
-Pipeline créatif automatisé et modulaire :
-1. Génère une image (Text-to-Image) selon un style et un mood choisis
-2. Anime cette image (Image-to-Video) en adaptant les paramètres au mood
-3. Produit un titre + description YouTube optimisés SEO (via LLM ou templates)
+image_to_video_youtube.py — Générateur complet d'images, vidéos et métadonnées YouTube.
 
-Auteur : Visual.Studio
-Licence : MIT
+Pipeline :
+  1. Choix du style + mood → génération d'image (Replicate SDXL, fallback DALL·E 3)
+  2. Animation de l'image (Replicate SVD, fallback effet parallaxe local FFmpeg)
+  3. Génération des métadonnées YouTube (OpenAI GPT, fallback templates)
 
-APIs supportées :
-- Image : Stability AI (SDXL / SD3), OpenAI (DALL·E 3)
-- Vidéo : Stability AI (Stable Video Diffusion), Luma (via Replicate), RunwayML (Gen-3)
-- LLM  : OpenAI (GPT-4o-mini), Anthropic (Claude), ou fallback templates
-
-Installation rapide :
-    pip install requests python-dotenv pillow openai stability-sdk replicate
-
-Fichier .env :
-    OPENAI_API_KEY=sk-...
-    STABILITY_API_KEY=sk-...
-    REPLICATE_API_TOKEN=r8_...
-    RUNWAY_API_KEY=key_...
-    OUTPUT_DIR=./output
+Exécution : python image_to_video_youtube.py
 """
 
 import os
 import sys
 import time
 import json
-import base64
 import logging
-import textwrap
-import mimetypes
+import subprocess
+import tempfile
+import shutil
 from pathlib import Path
-from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Dict, Optional, Tuple, Any
 
+# ─── Dépendances externes ────────────────────────────────────────────────
 try:
+    import requests
     from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    logging.warning("python-dotenv non installé. `pip install python-dotenv` recommandé.")
+except ImportError as e:
+    print(f"[ERREUR] Dépendance manquante : {e}")
+    print("Installez les dépendances avec : pip install -r requirements.txt")
+    sys.exit(1)
 
-import requests
+# ─── Configuration ───────────────────────────────────────────────────────
+load_dotenv()
 
+OUTPUT_DIR = Path("output")
+OUTPUT_DIR.mkdir(exist_ok=True)
 
-# ═══════════════════════════════════════════════════════════════
-# CONFIGURATION & CONSTANTES
-# ═══════════════════════════════════════════════════════════════
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
 
-LOG_FORMAT = "%(asctime)s │ %(levelname)-7s │ %(name)-16s │ %(message)s"
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, datefmt="%H:%M:%S")
-log = logging.getLogger("Visual.Studio")
+# Clés API (facultatives — des fallbacks existent)
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "./output")).resolve()
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-# Styles visuels — chaque style injecte un prompt suffixe et une palette suggérée
-STYLE_PRESETS: Dict[str, Dict[str, str]] = {
+# ─── Catalogue de styles et moods ────────────────────────────────────────
+STYLES = {
     "ghibli": {
-        "name": "Studio Ghibli",
-        "suffix": "Studio Ghibli anime style, watercolor painted backgrounds, cel-shaded characters, "
-                  "soft natural light, lush greenery, gentle wind, hand-crafted nostalgic warmth, "
-                  "Hayao Miyazaki aesthetic, magical realism",
-        "palette": "soft greens, sky blues, warm ochres",
+        "label": "Studio Ghibli",
+        "prompt": "Studio Ghibli anime style, hand-painted watercolor backgrounds, "
+                  "soft natural light, lush nature, gentle atmosphere, cel-shaded characters",
     },
-    "anime_90s": {
-        "name": "Anime 90s",
-        "suffix": "1990s TV anime cel-shaded style, visible hand-drawn outlines, "
-                  "flat colors, hand-painted backgrounds, retro anime aesthetic, "
-                  "slight grain, dramatic zoom shots, nostalgic TV broadcast feel",
-        "palette": "muted teals, dusty pinks, faded oranges",
+    "pixar": {
+        "label": "Pixar 3D",
+        "prompt": "Pixar 3D animation style, cinematic CGI render, soft global illumination, "
+                  "expressive characters, vibrant colors, family-friendly",
     },
-    "pixar_3d": {
-        "name": "Pixar 3D",
-        "suffix": "Pixar 3D animation style, cinematic CGI rendering, appealing rounded character design, "
-                  "expressive large eyes, subsurface skin scattering, soft global illumination, "
-                  "vivid saturated colors, emotional staging, family-friendly epic feel",
-        "palette": "vivid primaries, warm ambient",
-    },
-    "cyberpunk": {
-        "name": "Cyberpunk",
-        "suffix": "Cyberpunk neo-Tokyo aesthetic, neon-lit rain-slicked streets, holographic signs, "
-                  "saturated magenta cyan yellow, atmospheric fog, monumental architecture, "
-                  "flying vehicles, melancholic beauty, cinematic 35mm anamorphic",
-        "palette": "neon magenta, electric cyan, deep black",
+    "anime": {
+        "label": "Anime 2020s",
+        "prompt": "Modern 2020s anime style, crisp digital line art, vibrant colors, "
+                  "cinematic lighting, detailed backgrounds, expressive eyes",
     },
     "watercolor": {
-        "name": "Aquarelle",
-        "suffix": "watercolor painting style, soft washes of pigment on cold-press paper, "
-                  "visible brush strokes, delicate edges, translucent layers, "
-                  "poetic and airy composition, tactile handmade feel",
-        "palette": "soft pastels, bleeding pigment",
+        "label": "Aquarelle",
+        "prompt": "Watercolor painting style, soft washes, pastel palette, "
+                  "delicate brush strokes, paper texture, dreamy atmosphere",
     },
-    "wes_anderson": {
-        "name": "Wes Anderson",
-        "suffix": "Wes Anderson cinematic style, perfectly symmetrical composition, "
-                  "whimsical production design, pastel palette, flat frontal framing, "
-                  "dollhouse-like sets, deadpan faces, meticulous costumes, 35mm Kodak grain",
-        "palette": "mustard yellow, dusty pink, mint green",
+    "noir": {
+        "label": "Film Noir",
+        "prompt": "Film noir black and white, high contrast, dramatic shadows, "
+                  "moody atmosphere, classic 1940s aesthetic, cigarette smoke",
     },
 }
 
-# Moods — influencent le prompt ET les paramètres vidéo
-MOOD_PRESETS: Dict[str, Dict[str, Any]] = {
+MOODS = {
     "cozy": {
-        "name": "Cozy",
-        "prompt": "warm, inviting, soft golden light, comfortable atmosphere, gentle ambiance",
-        "video": {"motion": 40, "fps": 24, "duration": 4, "camera": "slow push-in"},
-    },
-    "apaisant": {
-        "name": "Apaisant",
-        "prompt": "peaceful, serene, calming, tranquil, gentle breeze, quiet atmosphere",
-        "video": {"motion": 30, "fps": 24, "duration": 5, "camera": "slow pan"},
+        "label": "Cozy",
+        "prompt": "cozy warm atmosphere, soft golden lighting, intimate feeling, "
+                  "comfortable and welcoming, warm color palette",
+        "animation": {"motion_strength": 30, "fps": 8},
     },
     "chill": {
-        "name": "Chill",
-        "prompt": "relaxed, easygoing, lo-fi aesthetic, warm ambient, soft focus",
-        "video": {"motion": 35, "fps": 24, "duration": 4, "camera": "gentle drift"},
+        "label": "Chill",
+        "prompt": "relaxing chill mood, soothing colors, calm environment, "
+                  "peaceful and quiet, smooth ambience",
+        "animation": {"motion_strength": 40, "fps": 8},
     },
     "relaxing": {
-        "name": "Relaxing",
-        "prompt": "soothing, meditative, slow rhythm, harmonious, comfortable",
-        "video": {"motion": 25, "fps": 24, "duration": 5, "camera": "static with subtle breathing"},
-    },
-    "peaceful": {
-        "name": "Peaceful",
-        "prompt": "calm, balanced, meditative stillness, open space, soft horizon",
-        "video": {"motion": 20, "fps": 24, "duration": 5, "camera": "static wide"},
+        "label": "Relaxing",
+        "prompt": "deeply relaxing scene, meditative atmosphere, soft lighting, "
+                  "tranquil and serene, no tension",
+        "animation": {"motion_strength": 25, "fps": 6},
     },
     "night": {
-        "name": "Night",
-        "prompt": "deep midnight palette, moonlit shadows, starry sky, cool ambience, mysterious",
-        "video": {"motion": 55, "fps": 24, "duration": 4, "camera": "slow reveal with contrast"},
+        "label": "Night",
+        "prompt": "night atmosphere, deep blues, moonlit, glowing lights, "
+                  "mysterious and cinematic, stars or city lights",
+        "animation": {"motion_strength": 60, "fps": 10},
     },
-    "lo_fi": {
-        "name": "Lo-Fi",
-        "prompt": "lo-fi hip-hop aesthetic, dusty grain, muted nostalgic colors, "
-                  "cozy indoor scene, VHS softness, warm lamp light",
-        "video": {"motion": 30, "fps": 18, "duration": 5, "camera": "subtle loop drift"},
+    "apaisant": {
+        "label": "Apaisant",
+        "prompt": "soothing peaceful scene, harmonious composition, "
+                  "gentle natural light, calm and reassuring",
+        "animation": {"motion_strength": 30, "fps": 8},
     },
 }
 
-# Mapping API provider → endpoints
-PROVIDERS = {
-    "stability_image": "https://api.stability.ai/v2beta/stable-image/generate/core",
-    "stability_video": "https://api.stability.ai/v2beta/image-to-video",
-    "openai_image": "https://api.openai.com/v1/images/generations",
-    "openai_chat": "https://api.openai.com/v1/chat/completions",
-}
+DEFAULT_BASE_PROMPT = (
+    "a peaceful landscape with rolling hills and soft clouds, "
+    "highly detailed, beautiful composition, cinematic quality"
+)
+
+# ─── Utilitaires ─────────────────────────────────────────────────────────
+def _download(url: str, dest: Path) -> Path:
+    """Télécharge une URL vers un fichier local."""
+    log.info(f"Téléchargement : {url[:80]}…")
+    r = requests.get(url, stream=True, timeout=180)
+    r.raise_for_status()
+    with open(dest, "wb") as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            f.write(chunk)
+    log.info(f"Fichier sauvegardé : {dest} ({dest.stat().st_size // 1024} Ko)")
+    return dest
 
 
-# ═══════════════════════════════════════════════════════════════
-# UTILITAIRES
-# ═══════════════════════════════════════════════════════════════
-
-def slugify(text: str) -> str:
-    """Nettoie une chaîne pour un nom de fichier."""
-    import re
-    text = re.sub(r"[^\w\s-]", "", text.lower())
-    return re.sub(r"[-\s]+", "-", text).strip("-")[:80]
+def _check_ffmpeg() -> bool:
+    """Vérifie que ffmpeg est disponible dans le PATH."""
+    return shutil.which("ffmpeg") is not None
 
 
-def timestamp() -> str:
-    return datetime.now().strftime("%Y%m%d_%H%M%S")
+def _poll_replicate_prediction(prediction: Dict[str, Any], max_wait: int = 300) -> Dict[str, Any]:
+    """Poll une prédiction Replicate jusqu'à completion ou échec."""
+    headers = {"Authorization": f"Token {REPLICATE_API_TOKEN}"}
+    poll_url = prediction.get("urls", {}).get("get")
+    if not poll_url:
+        raise RuntimeError("URL de polling Replicate manquante")
+
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        r = requests.get(poll_url, headers=headers, timeout=30)
+        r.raise_for_status()
+        pred = r.json()
+        status = pred.get("status")
+        if status == "succeeded":
+            log.info("Prédiction Replicate terminée.")
+            return pred
+        if status in ("failed", "canceled"):
+            raise RuntimeError(f"Prédiction échouée : {pred.get('error')}")
+        log.info(f"En attente… statut={status}")
+        time.sleep(3)
+    raise TimeoutError("Délai d'attente Replicate dépassé")
 
 
-def build_image_prompt(base_prompt: str, style_key: str, mood_key: str) -> str:
-    """Combine intelligemment style + mood + prompt de base."""
-    style = STYLE_PRESETS.get(style_key, STYLE_PRESETS["ghibli"])
-    mood = MOOD_PRESETS.get(mood_key, MOOD_PRESETS["cozy"])
-    return (
-        f"{base_prompt.strip()}. "
-        f"{style['suffix']}. "
-        f"Mood: {mood['prompt']}. "
-        f"Color palette: {style['palette']}. "
-        f"Cinematic composition, high quality, detailed, 16:9 aspect ratio."
-    )
-
-
-def build_video_prompt(base_mood: Dict[str, Any], style_key: str) -> str:
-    """Le mood dicte le mouvement, la durée et le type de caméra."""
-    style = STYLE_PRESETS.get(style_key, STYLE_PRESETS["ghibli"])
-    camera = base_mood.get("camera", "slow push-in")
-    return (
-        f"Cinematic slow motion in {style['name']} style, "
-        f"camera movement: {camera}, "
-        f"soft natural dynamics, film grain, no text, no logo, "
-        f"vertical 9:16 or horizontal 16:9 (adapt to source image)."
-    )
-
-
-def save_json(data: Dict[str, Any], path: Path) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    log.info("JSON sauvegardé → %s", path)
-
-
-# ═══════════════════════════════════════════════════════════════
-# ÉTAPE 1 — GÉNÉRATION D'IMAGE (Text-to-Image)
-# ═══════════════════════════════════════════════════════════════
-
-class ImageGenerator:
+# ─── Étape 1 — Génération d'image ────────────────────────────────────────
+def generate_image(style_key: str, mood_key: str, base_prompt: str) -> Path:
     """
-    Générateur d'images multi-provider.
-
-    Ordre de priorité :
-    1. Stability AI (SDXL / SD3 core) — rapide, pas cher, haute qualité
-    2. OpenAI DALL·E 3 — excellent pour le rendu photoréaliste/cinéma
-
-    Utilisation :
-        gen = ImageGenerator()
-        path = gen.generate(
-            base_prompt="A quiet Parisian café at dawn",
-            style="ghibli",
-            mood="cozy"
-        )
+    Génère une image en combinant style + mood + prompt de base.
+    Essaie Replicate (SDXL), puis DALL·E 3 en fallback.
     """
+    style = STYLES.get(style_key, STYLES["ghibli"])
+    mood = MOODS.get(mood_key, MOODS["cozy"])
 
-    def __init__(self, preferred: Optional[str] = None):
-        self.preferred = preferred or ("stability" if os.getenv("STABILITY_API_KEY") else "openai")
+    full_prompt = (
+        f"{base_prompt}, {style['prompt']}, {mood['prompt']}, "
+        "masterpiece, best quality, highly detailed, 4k, cinematic"
+    )
+    log.info(f"Prompt complet : {full_prompt}")
 
-    # ─── Stability AI ─────────────────────────────────────────
-    def _generate_stability(self, prompt: str, out_path: Path, aspect_ratio: str = "16:9") -> Path:
-        api_key = os.getenv("STABILITY_API_KEY")
-        if not api_key:
-            raise RuntimeError("STABILITY_API_KEY manquante dans l'environnement.")
+    timestamp = int(time.time())
+    out_path = OUTPUT_DIR / f"image_{style_key}_{mood_key}_{timestamp}.png"
 
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "image/*",
-        }
-        files = {"prompt": (None, prompt)}
-        data = {
-            "aspect_ratio": aspect_ratio,
-            "output_format": "png",
-            "model": "sd3-large",
-        }
-
-        log.info("[Stability] Génération image : %s…", prompt[:80])
-        resp = requests.post(
-            PROVIDERS["stability_image"],
-            headers=headers,
-            files=files,
-            data=data,
-            timeout=120,
-        )
-
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"Stability AI image échec (HTTP {resp.status_code}) : {resp.text[:300]}"
+    # --- Tentative 1 : Replicate SDXL ---
+    if REPLICATE_API_TOKEN:
+        try:
+            log.info("Génération via Replicate (SDXL)…")
+            headers = {
+                "Authorization": f"Token {REPLICATE_API_TOKEN}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "version": "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+                "input": {
+                    "prompt": full_prompt,
+                    "width": 1024,
+                    "height": 1024,
+                    "num_outputs": 1,
+                    "num_inference_steps": 30,
+                    "guidance_scale": 7.5,
+                },
+            }
+            r = requests.post(
+                "https://api.replicate.com/v1/predictions",
+                headers=headers,
+                json=payload,
+                timeout=30,
             )
-
-        out_path.write_bytes(resp.content)
-        log.info("[Stability] Image sauvegardée → %s (%d Ko)", out_path, len(resp.content) // 1024)
-        return out_path
-
-    # ─── OpenAI DALL·E 3 ──────────────────────────────────────
-    def _generate_openai(self, prompt: str, out_path: Path, size: str = "1792x1024") -> Path:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY manquante dans l'environnement.")
-
-        payload = {
-            "model": "dall-e-3",
-            "prompt": prompt[:4000],
-            "n": 1,
-            "size": size,
-            "quality": "hd",
-            "response_format": "url",
-        }
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-
-        log.info("[OpenAI] Génération image (DALL·E 3)…")
-        resp = requests.post(PROVIDERS["openai_image"], json=payload, headers=headers, timeout=120)
-        if resp.status_code != 200:
-            raise RuntimeError(f"DALL·E 3 échec (HTTP {resp.status_code}) : {resp.text[:300]}")
-
-        image_url = resp.json()["data"][0]["url"]
-        log.info("[OpenAI] Téléchargement de l'image…")
-        img_resp = requests.get(image_url, timeout=120)
-        img_resp.raise_for_status()
-        out_path.write_bytes(img_resp.content)
-        log.info("[OpenAI] Image sauvegardée → %s", out_path)
-        return out_path
-
-    def generate(
-        self,
-        base_prompt: str,
-        style: str = "ghibli",
-        mood: str = "cozy",
-        aspect_ratio: str = "16:9",
-    ) -> Path:
-        """Point d'entrée haut niveau."""
-        prompt = build_image_prompt(base_prompt, style, mood)
-        out_path = OUTPUT_DIR / f"{timestamp()}_{slugify(style)}_{slugify(mood)}.png"
-
-        try:
-            if self.preferred == "stability":
-                return self._generate_stability(prompt, out_path, aspect_ratio)
-            else:
-                return self._generate_openai(prompt, out_path)
+            r.raise_for_status()
+            pred = _poll_replicate_prediction(r.json())
+            output = pred.get("output")
+            if isinstance(output, list):
+                output = output[0]
+            return _download(output, out_path)
         except Exception as e:
-            log.error("Échec génération image : %s", e)
-            # Fallback : essayer l'autre provider
-            log.warning("Fallback vers l'autre provider…")
-            try:
-                if self.preferred == "stability":
-                    return self._generate_openai(prompt, out_path)
-                else:
-                    return self._generate_stability(prompt, out_path, aspect_ratio)
-            except Exception as e2:
-                log.error("Fallback également en échec : %s", e2)
-                raise
+            log.warning(f"Replicate a échoué : {e} — fallback DALL·E 3")
 
-
-# ═══════════════════════════════════════════════════════════════
-# ÉTAPE 2 — ANIMATION DE L'IMAGE (Image-to-Video)
-# ═══════════════════════════════════════════════════════════════
-
-class VideoAnimator:
-    """
-    Anime une image statique.
-
-    Providers :
-    1. Stability AI — Stable Video Diffusion (SVD)
-    2. Luma Dream Machine via Replicate (fallback)
-    3. FFmpeg local (fallback minimal : Ken Burns / parallax subtile)
-
-    Le `mood` contrôle le `motion`, la durée et le type de mouvement caméra.
-    """
-
-    def __init__(self, preferred: Optional[str] = None):
-        if preferred:
-            self.preferred = preferred
-        elif os.getenv("STABILITY_API_KEY"):
-            self.preferred = "stability"
-        elif os.getenv("REPLICATE_API_TOKEN"):
-            self.preferred = "replicate"
-        else:
-            self.preferred = "ffmpeg"
-
-    # ─── Stability SVD ────────────────────────────────────────
-    def _animate_stability(self, image_path: Path, mood_key: str, out_path: Path) -> Path:
-        api_key = os.getenv("STABILITY_API_KEY")
-        if not api_key:
-            raise RuntimeError("STABILITY_API_KEY manquante.")
-
-        mood = MOOD_PRESETS.get(mood_key, MOOD_PRESETS["cozy"])
-        video_params = mood["video"]
-        motion_bucket = video_params["motion"]
-        duration = video_params["duration"]
-
-        headers = {"Authorization": f"Bearer {api_key}", "Accept": "video/*"}
-        files = {"image": (image_path.name, image_path.read_bytes(), "image/png")}
-        data = {
-            "seed": 0,
-            "cfg_scale": 1.8,
-            "motion_bucket_id": motion_bucket,
-        }
-
-        log.info("[Stability] Animation SVD (motion=%d)…", motion_bucket)
-        resp = requests.post(
-            PROVIDERS["stability_video"],
-            headers=headers,
-            files=files,
-            data=data,
-            timeout=300,
-        )
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"Stability SVD échec (HTTP {resp.status_code}) : {resp.text[:300]}"
+    # --- Tentative 2 : OpenAI DALL·E 3 ---
+    if OPENAI_API_KEY:
+        try:
+            log.info("Génération via OpenAI DALL·E 3…")
+            r = requests.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "dall-e-3",
+                    "prompt": full_prompt[:4000],
+                    "n": 1,
+                    "size": "1024x1024",
+                    "quality": "hd",
+                },
+                timeout=180,
             )
-
-        # Stability renvoie parfois une URL (202) à poller
-        if resp.status_code == 202:
-            generation_id = resp.json().get("id")
-            if not generation_id:
-                raise RuntimeError("Pas de generation_id renvoyé.")
-            log.info("[Stability] Génération vidéo en cours (id=%s)…", generation_id)
-            # Poll toutes les 5s max 5min
-            for _ in range(60):
-                time.sleep(5)
-                poll = requests.get(
-                    f"https://api.stability.ai/v2beta/image-to-video/result/{generation_id}",
-                    headers={"Authorization": f"Bearer {api_key}", "Accept": "video/*"},
-                    timeout=60,
-                )
-                if poll.status_code == 200:
-                    out_path.write_bytes(poll.content)
-                    log.info("[Stability] Vidéo sauvegardée → %s", out_path)
-                    return out_path
-                elif poll.status_code == 202:
-                    continue
-                else:
-                    raise RuntimeError(f"Polling échec : {poll.text[:200]}")
-            raise RuntimeError("Timeout vidéo (5 min).")
-
-        out_path.write_bytes(resp.content)
-        log.info("[Stability] Vidéo sauvegardée → %s", out_path)
-        return out_path
-
-    # ─── Replicate Luma ───────────────────────────────────────
-    def _animate_replicate(self, image_path: Path, mood_key: str, out_path: Path) -> Path:
-        token = os.getenv("REPLICATE_API_TOKEN")
-        if not token:
-            raise RuntimeError("REPLICATE_API_TOKEN manquant.")
-
-        try:
-            import replicate
-        except ImportError:
-            raise RuntimeError("Le package `replicate` est requis. `pip install replicate`.")
-
-        mood = MOOD_PRESETS.get(mood_key, MOOD_PRESETS["cozy"])
-        video_params = mood["video"]
-
-        b64 = base64.b64encode(image_path.read_bytes()).decode("utf-8")
-        data_uri = f"data:image/png;base64,{b64}"
-
-        log.info("[Replicate] Luma Dream Machine (motion… %d)…", video_params["motion"])
-        client = replicate.Client(api_token=token)
-        output = client.run(
-            "luma/dream-machine",
-            input={
-                "prompt": build_video_prompt(video_params, "ghibli"),
-                "image": data_uri,
-                "duration": "5s",
-                "loop": True,
-            },
-        )
-        # output est typiquement une URL
-        url = output if isinstance(output, str) else output[0]
-        log.info("[Replicate] Téléchargement → %s", url)
-        video_bytes = requests.get(url, timeout=300).content
-        out_path.write_bytes(video_bytes)
-        log.info("[Replicate] Vidéo sauvegardée → %s", out_path)
-        return out_path
-
-    # ─── Fallback FFmpeg (Ken Burns) ──────────────────────────
-    def _animate_ffmpeg(self, image_path: Path, mood_key: str, out_path: Path) -> Path:
-        """Fallback local : Ken Burns zoom + slight pan."""
-        try:
-            import subprocess
-        except ImportError:
-            raise RuntimeError("subprocess indisponible.")
-
-        mood = MOOD_PRESETS.get(mood_key, MOOD_PRESETS["cozy"])
-        video_params = mood["video"]
-        duration = video_params["duration"]
-        fps = video_params["fps"]
-
-        zoom_in = "min(zoom+0.0008,1.2)"
-        vf = (
-            f"scale=1080:1920:force_original_aspect_ratio=increase,"
-            f"crop=1080:1920,"
-            f"zoompan=z='{zoom_in}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-            f"d={int(fps*duration)}:s=1080x1920:fps={fps},"
-            f"format=yuv420p"
-        )
-        cmd = [
-            "ffmpeg", "-y",
-            "-loop", "1",
-            "-i", str(image_path),
-            "-vf", vf,
-            "-t", str(duration),
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-movflags", "+faststart",
-            str(out_path),
-        ]
-        log.info("[FFmpeg] Ken Burns fallback (durée=%ss, fps=%s)…", duration, fps)
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        if result.returncode != 0:
-            raise RuntimeError(f"FFmpeg échec : {result.stderr[-500:]}")
-        log.info("[FFmpeg] Vidéo sauvegardée → %s", out_path)
-        return out_path
-
-    def animate(self, image_path: Path, style: str = "ghibli", mood: str = "cozy") -> Path:
-        out_path = OUTPUT_DIR / f"{image_path.stem}_anim_{slugify(mood)}.mp4"
-
-        try:
-            if self.preferred == "stability":
-                return self._animate_stability(image_path, mood, out_path)
-            elif self.preferred == "replicate":
-                return self._animate_replicate(image_path, mood, out_path)
-            else:
-                return self._animate_ffmpeg(image_path, mood, out_path)
+            r.raise_for_status()
+            url = r.json()["data"][0]["url"]
+            return _download(url, out_path)
         except Exception as e:
-            log.error("Échec animation (%s) : %s", self.preferred, e)
-            log.warning("Fallback vers FFmpeg…")
-            return self._animate_ffmpeg(image_path, mood, out_path)
+            log.error(f"DALL·E 3 a échoué : {e}")
 
-
-# ═══════════════════════════════════════════════════════════════
-# ÉTAPE 3 — MÉTADONNÉES YOUTUBE (SEO)
-# ═══════════════════════════════════════════════════════════════
-
-class YouTubeSEOService:
-    """
-    Produit un titre + description optimisés pour YouTube.
-
-    Méthode 1 (préférée) : LLM (OpenAI GPT-4o-mini) — génère des métadonnées
-                            contextuelles adaptées au style + mood.
-    Méthode 2 (fallback)  : templates intelligents.
-
-    La structure de description inclut :
-    - Une accroche émotionnelle (2-3 lignes)
-    - Une description atmosphérique (5-6 lignes)
-    - Des mots-clés ciblés
-    - Des hashtags pertinents
-    - Un CTA (like/subscribe)
-    """
-
-    # Hashtags par style / mood
-    HASHTAGS_STYLE = {
-        "ghibli": ["#ghibli", "#ghibliart", "#anime", "#studioghibli"],
-        "anime_90s": ["#anime90s", "#retroanime", "#anime", "#90sanime"],
-        "pixar_3d": ["#pixar", "#3danimation", "#pixarstyle", "#cgi"],
-        "cyberpunk": ["#cyberpunk", "#neon", "#scifi", "#cyberpunkart"],
-        "watercolor": ["#watercolor", "#painting", "#art", "#aquarelle"],
-        "wes_anderson": ["#wesanderson", "#symmetry", "#cinema", "#aesthetic"],
-    }
-    HASHTAGS_MOOD = {
-        "cozy": ["#cozy", "#cozyvibes", "#warm", "#relax"],
-        "apaisant": ["#apaisant", "#calm", "#peaceful", "#relax"],
-        "chill": ["#chill", "#lofi", "#chillvibes", "#vibes"],
-        "relaxing": ["#relax", "#relaxing", "#soothing", "#lofi"],
-        "peaceful": ["#peace", "#peaceful", "#calm", "#serenity"],
-        "night": ["#night", "#midnight", "#moonlit", "#ambient"],
-        "lo_fi": ["#lofi", "#lofivibes", "#chillhop", "#study"],
-    }
-
-    def __init__(self):
-        self.use_llm = bool(os.getenv("OPENAI_API_KEY"))
-
-    # ─── LLM ──────────────────────────────────────────────────
-    def _generate_with_llm(self, base_prompt: str, style: str, mood: str) -> Dict[str, str]:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY manquant.")
-
-        style_name = STYLE_PRESETS.get(style, STYLE_PRESETS["ghibli"])["name"]
-        mood_name = MOOD_PRESETS.get(mood, MOOD_PRESETS["cozy"])["name"]
-
-        system_prompt = (
-            "Tu es un expert en SEO YouTube, spécialisé dans les vidéos ambiant/cinématiques. "
-            "Tu réponds TOUJOURS en JSON strict avec les clés `title`, `description`, `tags`. "
-            "Le titre doit faire moins de 100 caractères, être émotionnel et cliquable. "
-            "La description doit inclure : accroche, ambiance, mots-clés, hashtags, CTA."
+    # --- Fallback : image placeholder générée localement ---
+    log.warning("Aucune API d'image disponible — génération d'un placeholder local.")
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        raise RuntimeError(
+            "Impossible de générer une image : aucune API disponible et Pillow absent."
         )
-        user_prompt = (
-            f"Génère un titre et une description YouTube pour une vidéo ambiance "
-            f"style '{style_name}', mood '{mood_name}', basée sur cette scène : {base_prompt}. "
-            f"Retourne un JSON avec :\n"
-            f"- title : string (max 100 char, accrocheur, émotionnel)\n"
-            f"- description : string (500-900 char, avec accroche, description atmosphérique, "
-            f"mots-clés, hashtags, CTA like/subscribe)\n"
-            f"- tags : array de strings (10-15 tags SEO)\n"
-        )
-        payload = {
-            "model": "gpt-4o-mini",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "response_format": {"type": "json_object"},
-            "temperature": 0.8,
-        }
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        log.info("[OpenAI] Génération SEO…")
-        resp = requests.post(PROVIDERS["openai_chat"], json=payload, headers=headers, timeout=60)
-        if resp.status_code != 200:
-            raise RuntimeError(f"LLM SEO échec (HTTP {resp.status_code}) : {resp.text[:300]}")
 
-        data = json.loads(resp.json()["choices"][0]["message"]["content"])
-        return {
-            "title": data.get("title", ""),
-            "description": data.get("description", ""),
-            "tags": data.get("tags", []),
-        }
-
-    # ─── Templates ────────────────────────────────────────────
-    def _generate_with_templates(self, base_prompt: str, style: str, mood: str) -> Dict[str, str]:
-        style_name = STYLE_PRESETS.get(style, STYLE_PRESETS["ghibli"])["name"]
-        mood_name = MOOD_PRESETS.get(mood, MOOD_PRESETS["cozy"])["name"]
-        tags_style = self.HASHTAGS_STYLE.get(style, ["#art"])
-        tags_mood = self.HASHTAGS_MOOD.get(mood, ["#relax"])
-        all_hashtags = " ".join(tags_style + tags_mood)
-
-        title = f"{mood_name.title()} {style_name} Vibes — A Cinematic Moment You'll Want to Live In"
-
-        description = textwrap.dedent(f"""
-        {mood_name.title()} vibes in {style_name} style. Close your eyes, breathe, and step into a moment of pure serenity. ✨
-
-        This short cinematic loop brings together the warmth of {mood_name.lower()} atmosphere and the magic of {style_name} art, crafted to help you slow down, focus, or simply unwind.
-
-        🎬 Scene: {base_prompt[:200]}
-        🎨 Style: {style_name}
-        🌙 Mood: {mood_name}
-
-        Perfect for study, sleep, relaxation, meditation, work sessions, or simply breathing.
-
-        If this video helped you relax, leave a like, subscribe, and share it with someone who needs a calm moment today.
-
-        {all_hashtags}
-        """).strip()
-
-        tags = [
-            style_name.lower(), mood_name.lower(), "ambient", "relaxing",
-            "cinematic", "loop", "chill", "study music", "meditation",
-            "aesthetic", "ambiance",
-        ]
-        return {"title": title, "description": description, "tags": tags}
-
-    def generate(self, base_prompt: str, style: str, mood: str) -> Dict[str, str]:
-        if self.use_llm:
-            try:
-                return self._generate_with_llm(base_prompt, style, mood)
-            except Exception as e:
-                log.warning("LLM SEO échec (%s), fallback templates.", e)
-        return self._generate_with_templates(base_prompt, style, mood)
+    img = Image.new("RGB", (1024, 1024), color=(30, 30, 60))
+    draw = ImageDraw.Draw(img)
+    draw.text((40, 40), f"PLACEHOLDER\n{style['label']} — {mood['label']}",
+              fill=(200, 200, 255))
+    draw.text((40, 120), base_prompt[:80], fill=(180, 180, 220))
+    img.save(out_path)
+    log.info(f"Placeholder sauvegardé : {out_path}")
+    return out_path
 
 
-# ═══════════════════════════════════════════════════════════════
-# ORCHESTRATEUR
-# ═══════════════════════════════════════════════════════════════
+# ─── Étape 2 — Animation de l'image ──────────────────────────────────────
+def _animate_with_replicate(image_path: Path, mood_key: str) -> Optional[Path]:
+    """Anime via Stable Video Diffusion sur Replicate."""
+    if not REPLICATE_API_TOKEN:
+        return None
 
-class VisualStudioPipeline:
-    """
-    Pipeline complet : Image → Vidéo → SEO.
-
-    Utilisation :
-        pipeline = VisualStudioPipeline()
-        result = pipeline.run(
-            base_prompt="A quiet Parisian café at dawn, warm rays through windows",
-            style="ghibli",
-            mood="cozy"
-        )
-        print(result["seo"]["title"])
-    """
-
-    def __init__(self):
-        self.image_gen = ImageGenerator()
-        self.video_anim = VideoAnimator()
-        self.seo = YouTubeSEOService()
-        log.info("Pipeline initialisé · image=%s · vidéo=%s · SEO=%s",
-                 self.image_gen.preferred, self.video_anim.preferred,
-                 "LLM" if self.seo.use_llm else "templates")
-
-    def run(self, base_prompt: str, style: str = "ghibli", mood: str = "cozy") -> Dict[str, Any]:
-        if style not in STYLE_PRESETS:
-            log.warning("Style '%s' inconnu → fallback 'ghibli'.", style)
-            style = "ghibli"
-        if mood not in MOOD_PRESETS:
-            log.warning("Mood '%s' inconnu → fallback 'cozy'.", mood)
-            mood = "cozy"
-
-        started = time.time()
-        log.info("═" * 60)
-        log.info("🎬 PIPELINE START · style=%s · mood=%s", style, mood)
-        log.info("═" * 60)
-
-        # Étape 1 : Image
-        log.info("── ÉTAPE 1/3 · Génération d'image ──")
-        image_path = self.image_gen.generate(base_prompt, style, mood)
-
-        # Étape 2 : Vidéo
-        log.info("── ÉTAPE 2/3 · Animation ──")
-        video_path = self.video_anim.animate(image_path, style, mood)
-
-        # Étape 3 : SEO
-        log.info("── ÉTAPE 3/3 · Métadonnées YouTube ──")
-        seo = self.seo.generate(base_prompt, style, mood)
-
-        elapsed = time.time() - started
-        result = {
-            "input": {"base_prompt": base_prompt, "style": style, "mood": mood},
-            "image": str(image_path),
-            "video": str(video_path),
-            "seo": seo,
-            "elapsed_seconds": round(elapsed, 1),
-            "timestamp": timestamp(),
-        }
-
-        # Sauvegarde du manifest complet
-        manifest_path = OUTPUT_DIR / f"{image_path.stem}_manifest.json"
-        save_json(result, manifest_path)
-
-        log.info("═" * 60)
-        log.info("🎉 PIPELINE OK en %.1fs", elapsed)
-        log.info("   🖼️  %s", image_path.name)
-        log.info("   🎬  %s", video_path.name)
-        log.info("   📝  %s", manifest_path.name)
-        log.info("═" * 60)
-
-        return result
-
-
-# ═══════════════════════════════════════════════════════════════
-# CLI
-# ═══════════════════════════════════════════════════════════════
-
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(
-        description="Visual.Studio · Pipeline Image → Vidéo → SEO YouTube",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Exemple :\n  python pipeline.py \"A quiet Parisian café at dawn\" ghibli cozy",
-    )
-    parser.add_argument("prompt", help="Prompt de base décrivant la scène")
-    parser.add_argument("style", nargs="?", default="ghibli",
-                        choices=list(STYLE_PRESETS.keys()),
-                        help="Style visuel")
-    parser.add_argument("mood", nargs="?", default="cozy",
-                        choices=list(MOOD_PRESETS.keys()),
-                        help="Mood / ambiance")
-    args = parser.parse_args()
+    mood = MOODS.get(mood_key, MOODS["cozy"])
+    motion = mood["animation"]["motion_strength"]
 
     try:
-        pipeline = VisualStudioPipeline()
-        result = pipeline.run(args.prompt, args.style, args.mood)
-        print("\n" + "═" * 60)
-        print("📝 TITRE YOUTUBE :")
-        print(f"   {result['seo']['title']}")
-        print("\n📄 DESCRIPTION :")
-        print(textwrap.indent(result["seo"]["description"], "   "))
-        print("\n🏷️  TAGS :", ", ".join(result["seo"]["tags"]))
-        print("═" * 60)
-    except KeyboardInterrupt:
-        log.warning("Interrompu par l'utilisateur.")
-        sys.exit(130)
+        log.info("Animation via Replicate (Stable Video Diffusion)…")
+        # Upload de l'image d'abord
+        with open(image_path, "rb") as f:
+            files = {"content": f}
+            r = requests.post(
+                "https://api.replicate.com/v1/files",
+                headers={"Authorization": f"Token {REPLICATE_API_TOKEN}"},
+                files=files,
+                timeout=60,
+            )
+        r.raise_for_status()
+        image_url = r.json()["urls"]["get"]
+
+        headers = {
+            "Authorization": f"Token {REPLICATE_API_TOKEN}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "version": "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
+            "input": {
+                "input_image": image_url,
+                "video_length": "25_frames_with_svd_xt",
+                "sizing_strategy": "maintain_aspect_ratio",
+                "frames_per_second": mood["animation"]["fps"],
+                "motion_bucket_id": motion,
+                "cond_aug": 0.02,
+            },
+        }
+        r = requests.post(
+            "https://api.replicate.com/v1/predictions",
+            headers=headers,
+            json=payload,
+            timeout=30,
+        )
+        r.raise_for_status()
+        pred = _poll_replicate_prediction(r.json(), max_wait=600)
+        video_url = pred.get("output")
+        if isinstance(video_url, list):
+            video_url = video_url[0]
+        timestamp = int(time.time())
+        out_path = OUTPUT_DIR / f"video_{mood_key}_{timestamp}.mp4"
+        return _download(video_url, out_path)
     except Exception as e:
-        log.error("Pipeline échec : %s", e)
-        sys.exit(1)
+        log.warning(f"Animation Replicate échouée : {e}")
+        return None
+
+
+def _animate_with_parallax(image_path: Path, mood_key: str) -> Optional[Path]:
+    """Effet parallaxe local via FFmpeg (fallback)."""
+    if not _check_ffmpeg():
+        log.warning("FFmpeg introuvable — impossible d'animer localement.")
+        return None
+
+    mood = MOODS.get(mood_key, MOODS["cozy"])
+    duration = 5
+    fps = mood["animation"]["fps"]
+    timestamp = int(time.time())
+    out_path = OUTPUT_DIR / f"video_{mood_key}_{timestamp}.mp4"
+
+    # Zoom lent + panoramique léger
+    filter_complex = (
+        f"scale=1024:1024,"
+        f"zoompan=z='min(zoom+0.0015,1.5)':d={duration * fps}:"
+        f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+        f"s=1024x1024:fps={fps}"
+    )
+
+    cmd = [
+        "ffmpeg", "-y", "-loop", "1", "-i", str(image_path),
+        "-vf", filter_complex,
+        "-c:v", "libx264", "-t", str(duration), "-pix_fmt", "yuv420p",
+        "-preset", "medium", str(out_path),
+    ]
+    log.info(f"Effet parallaxe local FFmpeg → {out_path}")
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            log.error(f"FFmpeg erreur : {result.stderr[:300]}")
+            return None
+        log.info(f"Vidéo parallaxe créée : {out_path}")
+        return out_path
+    except Exception as e:
+        log.error(f"Parallaxe FFmpeg échouée : {e}")
+        return None
+
+
+def animate_image(image_path: Path, mood_key: str) -> Path:
+    """Anime l'image — essaie Replicate SVD puis fallback parallaxe FFmpeg."""
+    log.info("Étape 2 — Animation de l'image…")
+
+    video = _animate_with_replicate(image_path, mood_key)
+    if video:
+        return video
+
+    log.warning("Replicate indisponible ou échec — fallback parallaxe local.")
+    video = _animate_with_parallax(image_path, mood_key)
+    if video:
+        return video
+
+    # Dernier recours : copier l'image en tant que "vidéo" (dégradé)
+    log.error("Aucune méthode d'animation n'a fonctionné — copie de l'image en MP4.")
+    fallback = OUTPUT_DIR / f"video_fallback_{int(time.time())}.mp4"
+    if _check_ffmpeg():
+        subprocess.run(
+            ["ffmpeg", "-y", "-loop", "1", "-i", str(image_path),
+             "-c:v", "libx264", "-t", "3", "-pix_fmt", "yuv420p", str(fallback)],
+            capture_output=True, timeout=60,
+        )
+    return fallback
+
+
+# ─── Étape 3 — Métadonnées YouTube ───────────────────────────────────────
+def _youtube_metadata_template(style_key: str, mood_key: str, base_prompt: str) -> Dict[str, str]:
+    """Templates intelligents de secours pour les métadonnées YouTube."""
+    style = STYLES.get(style_key, STYLES["ghibli"])
+    mood = MOODS.get(mood_key, MOODS["cozy"])
+
+    title = (
+        f"✨ {style['label']} · {mood['label']} Vibes — Relaxing Ambience 🎨"
+    )
+
+    description = (
+        f"🌿 Plongez dans une ambiance {mood['label'].lower()} avec ce visuel {style['label']}.\n\n"
+        f"🎨 Style : {style['label']}\n"
+        f"🌙 Ambiance : {mood['label']}\n"
+        f"🖼️ Scène : {base_prompt[:120]}\n\n"
+        "Idéal pour se détendre, étudier, dormir, méditer ou simplement s'évader.\n\n"
+        "💡 Abonnez-vous pour plus d'ambiances apaisantes !\n\n"
+        f"#ambiance #relaxing #chill #cozy #{style_key.lower()} #{mood_key.lower()} "
+        "#loop #sleep #study #meditation #cinematic"
+    )
+
+    tags = [
+        style["label"], mood["label"], "relaxing", "ambience",
+        "study music", "sleep", "loop", "chill", "cozy",
+        style_key, mood_key, "cinematic", "aesthetic",
+    ]
+
+    return {"title": title, "description": description, "tags": ", ".join(tags)}
+
+
+def generate_youtube_metadata(style_key: str, mood_key: str, base_prompt: str) -> Dict[str, str]:
+    """
+    Génère un titre + description optimisés YouTube via OpenAI GPT.
+    Fallback : templates intelligents si l'API est indisponible.
+    """
+    log.info("Étape 3 — Génération des métadonnées YouTube…")
+
+    style = STYLES.get(style_key, STYLES["ghibli"])
+    mood = MOODS.get(mood_key, MOODS["cozy"])
+
+    if not OPENAI_API_KEY:
+        log.warning("OPENAI_API_KEY manquante — utilisation des templates intelligents.")
+        return _youtube_metadata_template(style_key, mood_key, base_prompt)
+
+    try:
+        prompt = (
+            "Tu es un expert en SEO YouTube spécialisé dans les ambiances relaxantes. "
+            "Génère un titre accrocheur (max 70 caractères) et une description engageante "
+            "(200-400 mots, avec émojis, hashtags pertinents et structure claire) pour "
+            "une vidéo relaxante.\n\n"
+            f"Style : {style['label']} ({style['prompt']})\n"
+            f"Ambiance : {mood['label']} ({mood['prompt']})\n"
+            f"Scène : {base_prompt}\n\n"
+            "Réponds au format JSON strict : "
+            '{"title": "...", "description": "...", "tags": "tag1, tag2, ..."}'
+        )
+        r = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "Tu es un expert SEO YouTube. Réponds uniquement en JSON."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.8,
+                "max_tokens": 800,
+                "response_format": {"type": "json_object"},
+            },
+            timeout=60,
+        )
+        r.raise_for_status()
+        data = json.loads(r.json()["choices"][0]["message"]["content"])
+        log.info("Métadonnées YouTube générées via OpenAI.")
+        return {
+            "title": data.get("title", "")[:100],
+            "description": data.get("description", ""),
+            "tags": data.get("tags", ""),
+        }
+    except Exception as e:
+        log.warning(f"OpenAI a échoué : {e} — fallback templates.")
+        return _youtube_metadata_template(style_key, mood_key, base_prompt)
+
+
+# ─── Menu interactif ─────────────────────────────────────────────────────
+def _choose(prompt: str, options: Dict[str, Dict]) -> str:
+    """Affiche un menu et retourne la clé choisie."""
+    keys = list(options.keys())
+    print("\n" + prompt)
+    for i, k in enumerate(keys, 1):
+        print(f"  {i}. {options[k]['label']}")
+    while True:
+        try:
+            choice = int(input("Votre choix : ").strip())
+            if 1 <= choice <= len(keys):
+                return keys[choice - 1]
+        except (ValueError, EOFError):
+            pass
+        print("Choix invalide, réessayez.")
+
+
+# ─── Main ────────────────────────────────────────────────────────────────
+def main() -> int:
+    """Point d'entrée principal."""
+    print("=" * 60)
+    print("  🎬 Générateur d'images, vidéos et métadonnées YouTube")
+    print("=" * 60)
+
+    if not REPLICATE_API_TOKEN and not OPENAI_API_KEY:
+        log.warning(
+            "Aucune clé API détectée. Le script utilisera des fallbacks locaux "
+            "(placeholder image + parallaxe FFmpeg + templates SEO)."
+        )
+
+    if not _check_ffmpeg():
+        log.warning("FFmpeg n'est pas installé — l'animation locale sera indisponible.")
+
+    # 1. Choix utilisateur
+    style_key = _choose("Choisissez un style visuel :", STYLES)
+    mood_key = _choose("Choisissez une ambiance :", MOODS)
+
+    base_prompt = input(
+        f"\nDescription de base (Entrée pour : \"{DEFAULT_BASE_PROMPT[:50]}…\") : "
+    ).strip() or DEFAULT_BASE_PROMPT
+
+    # 2. Pipeline
+    try:
+        image_path = generate_image(style_key, mood_key, base_prompt)
+        video_path = animate_image(image_path, mood_key)
+        metadata = generate_youtube_metadata(style_key, mood_key, base_prompt)
+    except Exception as e:
+        log.error(f"Erreur fatale : {e}")
+        return 1
+
+    # 3. Résumé final
+    print("\n" + "=" * 60)
+    print("  ✅ GÉNÉRATION TERMINÉE")
+    print("=" * 60)
+    print(f"🖼️  Image   : {image_path}")
+    print(f"🎞️  Vidéo   : {video_path}")
+    print(f"\n📺 Titre YouTube :\n   {metadata['title']}")
+    print(f"\n📝 Description YouTube :\n{metadata['description']}")
+    print(f"\n🏷️  Tags :\n   {metadata['tags']}")
+
+    # 4. Sauvegarde JSON des métadonnées
+    meta_file = OUTPUT_DIR / f"metadata_{style_key}_{mood_key}.json"
+    with open(meta_file, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "style": STYLES[style_key]["label"],
+                "mood": MOODS[mood_key]["label"],
+                "base_prompt": base_prompt,
+                "image_path": str(image_path),
+                "video_path": str(video_path),
+                **metadata,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+    print(f"\n💾 Métadonnées sauvegardées : {meta_file}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
