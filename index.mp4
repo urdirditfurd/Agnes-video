@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Living Picture — Cabane nocturne</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <style>
+    :root {
+      --glow-warm: rgba(255, 160, 60, 0.22);
+      --glow-fire: rgba(255, 120, 30, 0.35);
+      --night-tint: rgba(20, 40, 80, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0c12;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: #e8dcc8;
+    }
+
+    .stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    /* Cadre de la scène — ratio proche de l'illustration */
+    .frame {
+      position: relative;
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      overflow: hidden;
+      border-radius: 0;
+      box-shadow: 0 0 80px rgba(0, 0, 0, 0.65);
+      transform-origin: center center;
+      will-change: transform;
+    }
+
+    .layers {
+      position: absolute;
+      inset: 0;
+      transform-origin: center center;
+    }
+
+    .layer {
+      position: absolute;
+      inset: -4%;
+      width: 108%;
+      height: 108%;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      will-change: transform, filter;
+      pointer-events: none;
+    }
+
+    /* Calque 1 — arrière-plan (ciel / lune / arbres lointains) : 20 % de la vitesse FG */
+    #layer-bg {
+      z-index: 1;
+      background-image: url("layers/layer-bg.png");
+    }
+
+    /* Calque 2 — milieu (pièce, cheminée, bibliothèque, herbes suspendues) */
+    #layer-mid {
+      z-index: 2;
+      background-image: url("layers/layer-mid.png");
+    }
+
+    /* Calque 3 — premier plan (plantes, fauteuil, capybara, chat, table) */
+    #layer-fg {
+      z-index: 3;
+      background-image: url("layers/layer-fg.png");
+    }
+
+    /*
+      Fallback : image complète tant que les 3 PNG ne sont pas fournis.
+      Une fois les calques en place, retirez la classe .has-fallback sur .frame
+      ou laissez le script la retirer automatiquement.
+    */
+    .frame.has-fallback #layer-bg,
+    .frame.has-fallback #layer-mid,
+    .frame.has-fallback #layer-fg {
+      background-image: none;
+    }
+
+    .frame.has-fallback .fallback-full {
+      display: block;
+    }
+
+    .fallback-full {
+      display: none;
+      position: absolute;
+      inset: -2%;
+      width: 104%;
+      height: 104%;
+      object-fit: cover;
+      z-index: 1;
+      will-change: transform, filter;
+      pointer-events: none;
+    }
+
+    /* Reflet / ondulation douce côté fenêtre (CSS mask-friendly overlay) */
+    .fx-window {
+      position: absolute;
+      z-index: 4;
+      /* Zone approximative de la grande fenêtre (droite) */
+      top: 8%;
+      right: 4%;
+      width: 38%;
+      height: 52%;
+      border-radius: 4px;
+      pointer-events: none;
+      mix-blend-mode: soft-light;
+      opacity: 0.35;
+      background:
+        radial-gradient(ellipse at 70% 25%, rgba(200, 220, 255, 0.45), transparent 55%),
+        linear-gradient(180deg, rgba(60, 90, 160, 0.15), transparent 70%);
+      will-change: transform, opacity;
+    }
+
+    /* Halo cheminée — pulsation de lumière */
+    .fx-fire-glow {
+      position: absolute;
+      z-index: 5;
+      left: 8%;
+      bottom: 18%;
+      width: 28%;
+      height: 42%;
+      border-radius: 50%;
+      pointer-events: none;
+      background: radial-gradient(
+        ellipse at 50% 70%,
+        var(--glow-fire) 0%,
+        rgba(255, 140, 40, 0.18) 35%,
+        transparent 70%
+      );
+      mix-blend-mode: screen;
+      will-change: opacity, transform;
+    }
+
+    /* Voile lumineux global — cycle « jour » lent (ici : respiration nocturne chaude) */
+    .fx-light-veil {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      background: linear-gradient(
+        135deg,
+        transparent 20%,
+        var(--glow-warm) 48%,
+        transparent 75%
+      );
+      mix-blend-mode: soft-light;
+      opacity: 0.45;
+      will-change: opacity;
+    }
+
+    /* Teinte nocturne subtile sur toute la scène */
+    .fx-night-breathe {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      pointer-events: none;
+      background: var(--night-tint);
+      mix-blend-mode: multiply;
+      opacity: 0.15;
+      will-change: opacity;
+    }
+
+    /* Vapeur tasse — formes CSS animées */
+    .fx-steam {
+      position: absolute;
+      z-index: 8;
+      left: 48%;
+      bottom: 38%;
+      width: 4%;
+      height: 12%;
+      pointer-events: none;
+      opacity: 0.55;
+    }
+
+    .fx-steam span {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      width: 10px;
+      height: 40px;
+      margin-left: -5px;
+      border-radius: 50%;
+      background: radial-gradient(
+        ellipse,
+        rgba(255, 245, 230, 0.55),
+        transparent 70%
+      );
+      filter: blur(3px);
+      transform-origin: bottom center;
+      will-change: transform, opacity;
+    }
+
+    .fx-steam span:nth-child(2) {
+      margin-left: 2px;
+      width: 8px;
+      height: 32px;
+    }
+
+    .fx-steam span:nth-child(3) {
+      margin-left: -10px;
+      width: 7px;
+      height: 28px;
+    }
+
+    /* Scintillement étoiles (zone fenêtre) */
+    .fx-stars {
+      position: absolute;
+      z-index: 4;
+      top: 8%;
+      right: 4%;
+      width: 38%;
+      height: 40%;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .fx-stars i {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: #fff8e8;
+      box-shadow: 0 0 4px 1px rgba(255, 250, 220, 0.8);
+      opacity: 0.4;
+      will-change: opacity;
+    }
+
+    .hint {
+      position: fixed;
+      left: 1rem;
+      bottom: 1rem;
+      z-index: 20;
+      max-width: 22rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      letter-spacing: 0.02em;
+      background: rgba(10, 12, 18, 0.72);
+      border: 1px solid rgba(232, 220, 200, 0.12);
+      border-radius: 8px;
+      backdrop-filter: blur(8px);
+      opacity: 0.85;
+      transition: opacity 0.6s ease;
+    }
+
+    .hint.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .hint code {
+      font-size: 0.7rem;
+      color: #f0c070;
+    }
+
+    @media (max-width: 640px) {
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="frame has-fallback" id="frame" aria-label="Tableau vivant — cabane nocturne">
+      <!-- Image complète (fallback) — remplacée automatiquement si les 3 PNG existent -->
+      <img
+        class="fallback-full"
+        id="fallback"
+        src="genere_une_video_a_partir_20261019091221.jpg"
+        alt="Cabane cosy nocturne"
+      />
+
+      <div class="layers" id="layers">
+        <div class="layer" id="layer-bg" role="img" aria-label="Arrière-plan : ciel, lune, arbres"></div>
+        <div class="layer" id="layer-mid" role="img" aria-label="Milieu : pièce, cheminée, bibliothèque"></div>
+        <div class="layer" id="layer-fg" role="img" aria-label="Premier plan : plantes, fauteuil, personnages"></div>
+      </div>
+
+      <div class="fx-window" id="fx-window" aria-hidden="true"></div>
+      <div class="fx-stars" id="fx-stars" aria-hidden="true"></div>
+      <div class="fx-fire-glow" id="fx-fire" aria-hidden="true"></div>
+      <div class="fx-light-veil" id="fx-veil" aria-hidden="true"></div>
+      <div class="fx-night-breathe" id="fx-night" aria-hidden="true"></div>
+      <div class="fx-steam" id="fx-steam" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint" id="hint">
+    Placez <code>layer-bg.png</code>, <code>layer-mid.png</code> et
+    <code>layer-fg.png</code> dans <code>layers/</code> pour activer le parallaxe 2.5D.
+    Voir <code>README.md</code>.
+  </p>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* Vitesses relatives : FG = 1, MID ≈ 0.5, BG = 0.2 × FG */
+      const SPEED = {
+        fg: 1,
+        mid: 0.5,
+        bg: 0.2
+      };
+
+      const AMP = {
+        /* pixels de dérive max (parallaxe horizontal / sway) */
+        fgX: 14,
+        fgY: 6,
+        midX: 7,
+        midY: 3,
+        bgX: 2.8,   /* 20 % de fgX */
+        bgY: 1.2,
+        swayFg: 0.6, /* degrés de balancement végétation FG */
+        swayMid: 0.35
+      };
+
+      const DUR = {
+        cloud: 18,      /* dérive ciel — 8–20 s */
+        sway: 12,       /* brise végétation */
+        water: 10,      /* ondulation fenêtre */
+        light: 16,      /* cycle luminosité */
+        fire: 2.8,      /* scintillement feu (un peu plus rapide, reste doux) */
+        steam: 9,
+        breath: 8
+      };
+
+      const frame = document.getElementById("frame");
+      const hint = document.getElementById("hint");
+      const layerBg = document.getElementById("layer-bg");
+      const layerMid = document.getElementById("layer-mid");
+      const layerFg = document.getElementById("layer-fg");
+      const fallback = document.getElementById("fallback");
+
+      function spawnStars(count) {
+        const host = document.getElementById("fx-stars");
+        for (let i = 0; i < count; i++) {
+          const star = document.createElement("i");
+          star.style.left = Math.random() * 100 + "%";
+          star.style.top = Math.random() * 100 + "%";
+          star.style.width = (1 + Math.random() * 2) + "px";
+          star.style.height = star.style.width;
+          host.appendChild(star);
+
+          gsap.to(star, {
+            opacity: 0.15 + Math.random() * 0.85,
+            duration: 2.5 + Math.random() * 4,
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut",
+            delay: Math.random() * 5
+          });
+        }
+      }
+
+      function probeLayers() {
+        const paths = [
+          "layers/layer-bg.png",
+          "layers/layer-mid.png",
+          "layers/layer-fg.png"
+        ];
+
+        return Promise.all(
+          paths.map(
+            (src) =>
+              new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = src + "?t=" + Date.now();
+              })
+          )
+        ).then((results) => results.every(Boolean));
+      }
+
+      function activateLayerMode() {
+        frame.classList.remove("has-fallback");
+        hint.classList.add("hidden");
+      }
+
+      function startParallaxLayers() {
+        /* Dérive horizontale très lente — ciel / BG (parallaxe) */
+        gsap.to(layerBg, {
+          x: AMP.bgX,
+          duration: DUR.cloud,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+        gsap.to(layerBg, {
+          y: AMP.bgY,
+          duration: DUR.cloud * 1.15,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: 1.2
+        });
+
+        /* Milieu — vitesse intermédiaire */
+        gsap.to(layerMid, {
+          x: AMP.midX * SPEED.mid,
+          duration: DUR.cloud * 0.95,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: 0.4
+        });
+        gsap.to(layerMid, {
+          rotation: AMP.swayMid,
+          transformOrigin: "50% 0%",
+          duration: DUR.sway,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+
+        /* Premier plan — plus rapide (référence 100 %), brise végétation */
+        gsap.to(layerFg, {
+          x: AMP.fgX * SPEED.fg,
+          y: AMP.fgY,
+          duration: DUR.sway * 0.9,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+        gsap.to(layerFg, {
+          rotation: AMP.swayFg,
+          transformOrigin: "70% 100%",
+          duration: DUR.sway,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: 0.8
+        });
+      }
+
+      function startFallbackMotion() {
+        /* Même logique de profondeur simulée sur l'image unique */
+        gsap.to(fallback, {
+          x: AMP.midX,
+          y: AMP.midY,
+          duration: DUR.cloud,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+        gsap.to(fallback, {
+          scale: 1.015,
+          duration: DUR.breath,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+      }
+
+      function startAtmosphere() {
+        const windowFx = document.getElementById("fx-window");
+        const fire = document.getElementById("fx-fire");
+        const veil = document.getElementById("fx-veil");
+        const night = document.getElementById("fx-night");
+        const steamSpans = document.querySelectorAll("#fx-steam span");
+
+        /* Ondulation douce « eau / air » sur la zone fenêtre + reflet */
+        gsap.to(windowFx, {
+          x: 6,
+          y: 3,
+          duration: DUR.water,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+        gsap.to(windowFx, {
+          opacity: 0.22,
+          duration: DUR.water * 0.85,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: 1
+        });
+        gsap.to(windowFx, {
+          scaleX: 1.02,
+          scaleY: 0.985,
+          duration: DUR.water * 1.1,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+
+        /* Feu — pulsation organique (pas un flicker agressif) */
+        gsap.to(fire, {
+          opacity: 0.55,
+          scale: 1.08,
+          duration: DUR.fire,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+        gsap.to(fire, {
+          x: 4,
+          duration: DUR.fire * 1.4,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: 0.5
+        });
+
+        /* Cycle de luminosité / couleur (respiration de la pièce) */
+        gsap.to(veil, {
+          opacity: 0.28,
+          duration: DUR.light,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+        gsap.to(night, {
+          opacity: 0.28,
+          duration: DUR.light * 1.1,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: 2
+        });
+
+        /* Légère variation de luminosité globale sur le cadre */
+        gsap.to(frame, {
+          filter: "brightness(1.04) saturate(1.05)",
+          duration: DUR.light,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+
+        /* Vapeur de la tasse — boucle douce sans rupture */
+        steamSpans.forEach((el, i) => {
+          const dir = i % 2 === 0 ? 1 : -1;
+          gsap.timeline({ repeat: -1, delay: i * 1.8 })
+            .fromTo(
+              el,
+              { y: 0, x: 0, opacity: 0, scale: 0.55 },
+              {
+                y: -28,
+                x: dir * (4 + i * 2),
+                opacity: 0.65,
+                scale: 1,
+                duration: DUR.steam * 0.45,
+                ease: "sine.out"
+              }
+            )
+            .to(el, {
+              y: -56 - i * 6,
+              x: dir * (8 + i * 3),
+              opacity: 0,
+              scale: 1.25,
+              duration: DUR.steam * 0.55,
+              ease: "sine.in"
+            });
+        });
+
+        spawnStars(14);
+      }
+
+      /* Micro-mouvement de la caméra (respiration du tableau) */
+      function startCameraBreath() {
+        gsap.to(frame, {
+          scale: 1.012,
+          duration: DUR.breath * 1.4,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+      }
+
+      async function init() {
+        if (typeof gsap === "undefined") {
+          console.error("GSAP non chargé.");
+          return;
+        }
+
+        gsap.config({ force3D: true });
+        gsap.ticker.fps(60);
+
+        const hasLayers = await probeLayers();
+
+        if (hasLayers) {
+          activateLayerMode();
+          startParallaxLayers();
+        } else {
+          startFallbackMotion();
+        }
+
+        startAtmosphere();
+        startCameraBreath();
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
