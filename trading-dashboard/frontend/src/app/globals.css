@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(45, 212, 191, 0.09), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(230, 180, 80, 0.06), transparent 50%),
+    linear-gradient(180deg, #0a0e12 0%, #0d1319 45%, #0a0e12 100%);
+  background-attachment: fixed;
+  color: #e7eef6;
+}
+
+@layer utilities {
+  .panel {
+    @apply border border-line bg-canvas-raised/80 backdrop-blur-sm;
+  }
+}

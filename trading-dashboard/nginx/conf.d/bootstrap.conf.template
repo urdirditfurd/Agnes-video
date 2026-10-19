@@ -1,0 +1,16 @@
+# Bootstrap HTTP-only (avant premier certificat Let's Encrypt)
+# Copié temporairement par deploy.sh, puis remplacé par trading.conf
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __DOMAIN__;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 200 'Trading Dashboard — SSL bootstrap in progress\n';
+        add_header Content-Type text/plain;
+    }
+}
