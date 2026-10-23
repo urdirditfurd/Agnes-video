@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+
+# Build
+dist
+dist-ssr
+*.local
+
+# Data
+server/data/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Capacitor
+ios/
+android/
