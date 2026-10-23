@@ -2,6 +2,19 @@
 
 Transformez un **script en texte** en **vidéo longue** (jusqu'à 20 min), automatiquement.
 
+## Moteur vidéo recommandé (Snapdragon X Elite) — Neodragon
+
+Pour une génération **gratuite, locale et privée** sur PC Microsoft Snapdragon X Elite (Hexagon NPU), l’atelier utilise **Neodragon** (Qualcomm AI Research) :
+
+- **Utilisation / code** : https://github.com/Qualcomm-AI-research/neodragon
+- **Poids** : https://huggingface.co/Qualcomm-AI-Research/Neodragon
+- **Page projet** : https://qualcomm-ai-research.github.io/neodragon/
+- **Guide local** : [NEODRAGON.md](./NEODRAGON.md)
+
+```bash
+bash setup-neodragon.sh
+```
+
 ## 🚀 Installation
 
 1. Créez un dossier `atelier-video-pro/`
@@ -12,7 +25,8 @@ Transformez un **script en texte** en **vidéo longue** (jusqu'à 20 min), autom
 
 | API | Usage | Où l'obtenir |
 |---|---|---|
-| **Agnes AI** | Génération vidéo | https://platform.agnes-ai.com |
+| **Neodragon (local)** | Vidéo IA gratuite (Snapdragon X Elite) | [NEODRAGON.md](./NEODRAGON.md) — pas de clé |
+| **Agnes AI** | Génération vidéo cloud (fallback) | https://platform.agnes-ai.com |
 | **Gemini 2.0 Flash** | Génération image (optionnel, fallback Pollinations) | https://aistudio.google.com/apikey |
 
 ## 🧭 Utilisation

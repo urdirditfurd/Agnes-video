@@ -1,0 +1,8 @@
+# Neodragon (code + poids locaux ~17 Go) — ne pas versionner
+neodragon/
+*.safetensors
+__pycache__/
+.env/
+.venv/
+*.mp4
+output_videos/
