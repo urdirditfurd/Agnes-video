@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ambiance Video Generator — Agnes IA</title>
+<style>
+  :root {
+    --bg: #f3f5f8;
+    --card: #ffffff;
+    --ink: #15202b;
+    --muted: #667085;
+    --line: #e4e7ec;
+    --accent: #2563eb;
+    --ok: #16a34a;
+    --err: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(900px 420px at 0% 0%, #dbeafe 0%, transparent 55%),
+      radial-gradient(800px 380px at 100% 0%, #dcfce7 0%, transparent 50%),
+      var(--bg);
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.6rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  }
+  h1 { margin: 0 0 .35rem; font-size: clamp(1.55rem, 3.5vw, 2rem); letter-spacing: -0.02em; }
+  .sub { margin: 0 0 1.1rem; color: var(--muted); line-height: 1.45; }
+  .zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+    margin-bottom: .85rem;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .zone:hover { border-color: var(--accent); }
+  .zone.on { border-color: var(--ok); background: #f0fdf4; }
+  .zone input { display: none; }
+  .hint { margin-top: .35rem; font-size: .8rem; color: var(--muted); }
+  label.field {
+    display: block;
+    font-size: .78rem;
+    color: var(--muted);
+    margin: .2rem 0 .35rem;
+  }
+  .api, .select, .prompt {
+    width: 100%;
+    padding: .8rem .9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 0 0 1rem;
+    font-size: .9rem;
+    background: #fff;
+  }
+  .api { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .prompt {
+    min-height: 7.5rem;
+    resize: vertical;
+    line-height: 1.4;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .8rem;
+  }
+  .check {
+    display: flex;
+    gap: .55rem;
+    align-items: flex-start;
+    margin: 0 0 1rem;
+    font-size: .88rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+  .check input { margin-top: .2rem; }
+  .row { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .row button { flex: 1; min-width: 140px; }
+  button {
+    width: 100%;
+    border: 0;
+    border-radius: 10px;
+    padding: 1rem;
+    font-size: .95rem;
+    font-weight: 650;
+    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+  }
+  button:hover:not(:disabled) { filter: brightness(.96); }
+  button:disabled { background: #cbd5e1; cursor: not-allowed; }
+  button.secondary { background: #64748b; }
+  button.watch { background: #0f766e; }
+  button.montage { background: #b45309; }
+  .progress { display: none; margin-top: 1.1rem; }
+  .progress.show { display: block; }
+  .bar { height: 10px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
+  .fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #22c55e, #2563eb);
+    transition: width .25s;
+  }
+  .status { margin-top: .55rem; font-size: .9rem; color: var(--muted); word-break: break-word; }
+  .err { color: var(--err); }
+  video {
+    width: 100%;
+    margin-top: 1rem;
+    border-radius: 10px;
+    background: #000;
+    display: none;
+  }
+  .dl { display: none; margin-top: .85rem; background: var(--ok); }
+  .dl.show { display: block; }
+  .note { font-size: .8rem; color: var(--muted); margin: -.2rem 0 1rem; line-height: 1.4; }
+  .saved {
+    display: none;
+    margin: 0 0 1rem;
+    padding: .7rem .85rem;
+    border-radius: 8px;
+    background: #ecfdf5;
+    color: #065f46;
+    font-size: .85rem;
+  }
+  .saved.show { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+  <h1>Ambiance Video Generator</h1>
+  <p class="sub">Image automne cozy → Agnes (vapeur, feuilles, capybara zen) → montage MP4 3&nbsp;h YouTube. Fichiers dans <code>bande-son/</code>.</p>
+  <p class="note">Mode « Veille flux » : sonde Agnes en continu (POST /v1/videos) et lance vidéo + montage 3h dès qu’un canal se libère — pas d’attente d’heure fixe.</p>
+  <div class="saved" id="saved-banner">Projet restauré depuis la mémoire locale.</div>
+
+  <p class="note">Place ton image + ta bande-son dans le dossier <code>bande-son/</code> puis lance <code>demarrer.bat</code> / <code>demarrer.sh</code> — chargement auto. Sinon, uploade ci-dessous.</p>
+
+  <div class="zone" id="image-zone">
+    <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/*">
+    <div id="image-label">Image d’ambiance (ex. capybara automne)</div>
+    <div class="hint">JPG, PNG, WebP — dossier <code>bande-son/</code> ou clic ici</div>
+  </div>
+
+  <div class="zone" id="audio-zone">
+    <input type="file" id="audio-input" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/*">
+    <div id="audio-label">Bande-son (bouclée 3h, fades YouTube)</div>
+    <div class="hint">MP3, WAV, OGG — dossier <code>bande-son/</code> ou clic ici</div>
+  </div>
+
+  <div class="zone" id="clip-zone">
+    <input type="file" id="clip-input" accept="video/mp4,video/webm,video/*">
+    <div id="clip-label">Clip court déjà généré (optionnel — saute Agnes)</div>
+    <div class="hint">MP4 court → montage 3h direct avec la bande-son</div>
+  </div>
+
+  <label class="field" for="prompt-input">Prompt animation (image-to-video)</label>
+  <textarea class="prompt" id="prompt-input" spellcheck="false"></textarea>
+
+  <label class="field" for="api-key">Clé API Agnes (sk-…)</label>
+  <input type="password" class="api" id="api-key" placeholder="sk-…" autocomplete="off">
+
+  <label class="field" for="model-strategy">Stratégie file Agnes</label>
+  <select class="select" id="model-strategy">
+    <option value="auto" selected>Auto — Flash puis 2.5 puis v2.0</option>
+    <option value="agnes-video-v2.0">v2.0 uniquement (base64, idéal en file://)</option>
+    <option value="agnes-video-2.5-flash">Flash uniquement</option>
+    <option value="agnes-video-2.5">Video 2.5 uniquement</option>
+  </select>
+
+  <label class="field" for="probe-pace">Veille flux Agnes (sondage actif)</label>
+  <select class="select" id="probe-pace">
+    <option value="fast" selected>Rapide — sonde toutes les 3–6 s (prend le 1er canal libre)</option>
+    <option value="balanced">Équilibrée — 8–15 s</option>
+    <option value="soft">Douce — 25–45 s (moins de requêtes)</option>
+  </select>
+
+  <label class="check">
+    <input type="checkbox" id="persist-watch" checked>
+    <span>Mémoriser le projet et reprendre auto si je recharge la page pendant la surveillance</span>
+  </label>
+
+  <div class="row">
+    <button id="generate-btn" disabled>Générer maintenant</button>
+    <button id="watch-btn" class="watch" disabled>Veille flux jusqu’à succès</button>
+    <button id="montage-btn" class="montage" disabled>Montage 3h seul</button>
+    <button id="cancel-btn" class="secondary" disabled>Arrêter</button>
+  </div>
+
+  <div class="progress" id="progress">
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="status" id="status">Préparation…</div>
+  </div>
+
+  <video id="preview" controls playsinline></video>
+  <button class="dl" id="download-btn">Télécharger MP4 3h</button>
+</div></div>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var AGNES_API_BASE = 'https://apihub.agnes-ai.com/v1';
+  var AGNES_POLL_BASE = 'https://apihub.agnes-ai.com/agnesapi';
+  var DURATION_3H = 10800;
+  var CORE_CDN = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  var IS_FILE = location.protocol === 'file:';
+  var DB_NAME = 'ambiance-video-generator';
+  var DB_STORE = 'project';
+  var PROJECT_KEY = 'current';
+
+  // Mode "maintenant" : collage intensif ~20 min
+  var QUICK_BUDGET_MS = 20 * 60 * 1000;
+  var QUICK_RETRY_MIN_MS = 8000;
+  var QUICK_RETRY_MAX_MS = 18000;
+  // Mode veille flux : sonde le stream de requêtes Agnes jusqu'à 24 h
+  var WATCH_BUDGET_MS = 24 * 60 * 60 * 1000;
+  var PACE = {
+    fast: { min: 3000, max: 6000 },
+    balanced: { min: 8000, max: 15000 },
+    soft: { min: 25000, max: 45000 }
+  };
+
+  // Plan animation automne cozy (vapeur, eau, feuilles, micro-vie) + caméra fixe
+  var DEFAULT_AGNES_PROMPT =
+    'Cinematic lofi animation of this exact uploaded image. ' +
+    'Keep the composition absolutely static - NO camera movement, NO zoom, NO pan, NO reframing, NO shake. ' +
+    'Gentle thin steam rising slowly from the hot spring water surface. ' +
+    'Water surface rippling softly with subtle swirls around the capybara, floating autumn maple leaves drifting slowly. ' +
+    'A few orange maple leaves gently detaching from background trees and falling into the scene or onto the water. ' +
+    'Very subtle life on the capybara only: tiny slow blink or micro head movement, keep the zen posture, no walking. ' +
+    'Subtle and peaceful cozy autumn atmosphere, high quality seamless loop animation, 4k.';
+
+  var MODEL_CHAIN_AUTO = [
+    'agnes-video-2.5-flash',
+    'agnes-video-2.5',
+    'agnes-video-v2.0'
+  ];
+
+  var state = {
+    imageDataURL: null,
+    imageName: '',
+    audioFile: null,
+    audioName: '',
+    clipFile: null,
+    clipName: '',
+    apiKey: '',
+    isGenerating: false,
+    stopRequested: false,
+    watchMode: false,
+    finalBlob: null,
+    activeModel: null,
+    wakeLock: null,
+    ffmpeg: null,
+    ffmpegLoading: null,
+    probeStats: { attempts: 0, saturations: 0, lastStatus: '' }
+  };
+
+  try { state.apiKey = localStorage.getItem('avg_agnes_key') || ''; } catch (e) {}
+
+  var imageZone = document.getElementById('image-zone');
+  var imageInput = document.getElementById('image-input');
+  var imageLabel = document.getElementById('image-label');
+  var audioZone = document.getElementById('audio-zone');
+  var audioInput = document.getElementById('audio-input');
+  var audioLabel = document.getElementById('audio-label');
+  var clipZone = document.getElementById('clip-zone');
+  var clipInput = document.getElementById('clip-input');
+  var clipLabel = document.getElementById('clip-label');
+  var apiInput = document.getElementById('api-key');
+  var montageBtn = document.getElementById('montage-btn');
+  var promptInput = document.getElementById('prompt-input');
+  var modelStrategy = document.getElementById('model-strategy');
+  var probePace = document.getElementById('probe-pace');
+  var persistWatch = document.getElementById('persist-watch');
+  var generateBtn = document.getElementById('generate-btn');
+  var watchBtn = document.getElementById('watch-btn');
+  var cancelBtn = document.getElementById('cancel-btn');
+  var progressEl = document.getElementById('progress');
+  var fillEl = document.getElementById('fill');
+  var statusEl = document.getElementById('status');
+  var preview = document.getElementById('preview');
+  var downloadBtn = document.getElementById('download-btn');
+  var savedBanner = document.getElementById('saved-banner');
+
+  apiInput.value = state.apiKey;
+  promptInput.value = DEFAULT_AGNES_PROMPT;
+  if (IS_FILE) {
+    // En file:// les hébergeurs image échouent souvent (CORS) → v2.0 base64 par défaut
+    modelStrategy.value = 'agnes-video-v2.0';
+  }
+
+  function setProg(pct, msg, isErr) {
+    progressEl.classList.add('show');
+    fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (isErr ? ' err' : '');
+  }
+
+  function updateBtn() {
+    var ready = !!(state.imageDataURL && state.apiKey);
+    // Montage seul = clip court + audio (pas besoin clé Agnes)
+    generateBtn.disabled = !ready || state.isGenerating;
+    watchBtn.disabled = !ready || state.isGenerating;
+    montageBtn.disabled = !(state.clipFile && state.audioFile) || state.isGenerating;
+    cancelBtn.disabled = !state.isGenerating;
+  }
+
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  function assertNotStopped() {
+    if (state.stopRequested) throw new Error('Arrêt demandé');
+  }
+
+  function isQueueFullStatus(status, bodyText) {
+    if (status === 503 || status === 429) return true;
+    var t = String(bodyText || '').toLowerCase();
+    return (
+      (t.indexOf('queue') >= 0 && (t.indexOf('full') >= 0 || t.indexOf('no available') >= 0)) ||
+      t.indexOf('no available channel') >= 0 ||
+      t.indexOf('distributor') >= 0
+    );
+  }
+
+  function isLegacyModel(model) {
+    return model === 'agnes-video-v2.0';
+  }
+
+  function modelList() {
+    var v = modelStrategy.value;
+    if (v === 'auto') {
+      // file:// : commencer par v2.0 (pas besoin d'URL publique)
+      if (IS_FILE) return ['agnes-video-v2.0', 'agnes-video-2.5-flash', 'agnes-video-2.5'];
+      return MODEL_CHAIN_AUTO.slice();
+    }
+    return [v];
+  }
+
+  function currentPrompt() {
+    var p = (promptInput.value || '').trim() || DEFAULT_AGNES_PROMPT;
+    // Garantit le verrou caméra même si l'utilisateur édite le prompt
+    if (p.indexOf('NO camera movement') < 0) {
+      p += ' Keep the composition absolutely static - NO camera movement, NO zoom, NO pan.';
+    }
+    return p;
+  }
+
+  // ── IndexedDB project memory ───────────────────────────────────
+  function openDb() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('IndexedDB indisponible')); };
+    });
+  }
+
+  async function saveProject(extra) {
+    if (!persistWatch.checked) return;
+    try {
+      var db = await openDb();
+      var audioBuf = null;
+      var audioType = '';
+      if (state.audioFile) {
+        audioBuf = await state.audioFile.arrayBuffer();
+        audioType = state.audioFile.type || 'audio/mpeg';
+      }
+      var record = {
+        imageDataURL: state.imageDataURL,
+        imageName: state.imageName || 'image.jpg',
+        audioBuf: audioBuf,
+        audioType: audioType,
+        audioName: state.audioName || '',
+        apiKey: state.apiKey,
+        modelStrategy: modelStrategy.value,
+        probePace: probePace.value,
+        prompt: promptInput.value,
+        watchPending: !!(extra && extra.watchPending),
+        savedAt: Date.now()
+      };
+      await new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).put(record, PROJECT_KEY);
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+      db.close();
+    } catch (e) {
+      console.warn('saveProject failed', e);
+    }
+  }
+
+  async function clearWatchFlag() {
+    try {
+      var db = await openDb();
+      var rec = await new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, 'readonly');
+        var req = tx.objectStore(DB_STORE).get(PROJECT_KEY);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error); };
+      });
+      if (rec) {
+        rec.watchPending = false;
+        await new Promise(function (resolve, reject) {
+          var tx = db.transaction(DB_STORE, 'readwrite');
+          tx.objectStore(DB_STORE).put(rec, PROJECT_KEY);
+          tx.oncomplete = function () { resolve(); };
+          tx.onerror = function () { reject(tx.error); };
+        });
+      }
+      db.close();
+    } catch (e) { /* ignore */ }
+  }
+
+  async function loadProject() {
+    try {
+      var db = await openDb();
+      var rec = await new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, 'readonly');
+        var req = tx.objectStore(DB_STORE).get(PROJECT_KEY);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error); };
+      });
+      db.close();
+      return rec;
+    } catch (e) {
+      console.warn('loadProject failed', e);
+      return null;
+    }
+  }
+
+  async function restoreProject() {
+    var rec = await loadProject();
+    if (!rec || !rec.imageDataURL) return null;
+    state.imageDataURL = rec.imageDataURL;
+    state.imageName = rec.imageName || 'image.jpg';
+    imageZone.classList.add('on');
+    imageLabel.textContent = '✓ ' + state.imageName + ' (mémorisé)';
+    if (rec.audioBuf) {
+      state.audioFile = new File([rec.audioBuf], rec.audioName || 'audio.mp3', {
+        type: rec.audioType || 'audio/mpeg'
+      });
+      state.audioName = rec.audioName || 'audio.mp3';
+      audioZone.classList.add('on');
+      audioLabel.textContent = '✓ ' + state.audioName + ' (mémorisé)';
+    }
+    if (rec.apiKey) {
+      state.apiKey = rec.apiKey;
+      apiInput.value = rec.apiKey;
+      try { localStorage.setItem('avg_agnes_key', rec.apiKey); } catch (e) {}
+    }
+    if (rec.modelStrategy) modelStrategy.value = rec.modelStrategy;
+    if (rec.probePace) probePace.value = rec.probePace;
+    else if (rec.scheduleHour) probePace.value = 'fast';
+    if (rec.prompt) promptInput.value = rec.prompt;
+    savedBanner.classList.add('show');
+    updateBtn();
+    return rec;
+  }
+
+  async function requestWakeLock() {
+    try {
+      if (navigator.wakeLock && navigator.wakeLock.request) {
+        state.wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) { /* optional */ }
+  }
+
+  async function releaseWakeLock() {
+    try {
+      if (state.wakeLock) {
+        await state.wakeLock.release();
+        state.wakeLock = null;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function notifyDone(ok, msg) {
+    try {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        new Notification(ok ? 'Ambiance vidéo prête' : 'Surveillance Agnes', { body: msg });
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+
+  imageZone.addEventListener('click', function () { imageInput.click(); });
+  imageInput.addEventListener('change', async function () {
+    var file = imageInput.files && imageInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = async function () {
+      state.imageDataURL = reader.result;
+      state.imageName = file.name;
+      imageZone.classList.add('on');
+      imageLabel.textContent = '✓ ' + file.name;
+      updateBtn();
+      await saveProject({ watchPending: false });
+    };
+    reader.readAsDataURL(file);
+  });
+
+  audioZone.addEventListener('click', function () { audioInput.click(); });
+  audioInput.addEventListener('change', async function () {
+    var file = audioInput.files && audioInput.files[0];
+    if (!file) return;
+    state.audioFile = file;
+    state.audioName = file.name;
+    audioZone.classList.add('on');
+    audioLabel.textContent = '✓ ' + file.name;
+    updateBtn();
+    await saveProject({ watchPending: false });
+  });
+
+  clipZone.addEventListener('click', function () { clipInput.click(); });
+  clipInput.addEventListener('change', async function () {
+    var file = clipInput.files && clipInput.files[0];
+    if (!file) return;
+    state.clipFile = file;
+    state.clipName = file.name;
+    clipZone.classList.add('on');
+    clipLabel.textContent = '✓ ' + file.name;
+    updateBtn();
+  });
+
+  apiInput.addEventListener('input', async function () {
+    state.apiKey = apiInput.value.trim();
+    try { localStorage.setItem('avg_agnes_key', state.apiKey); } catch (e) {}
+    updateBtn();
+    await saveProject({ watchPending: false });
+  });
+
+  promptInput.addEventListener('change', async function () {
+    await saveProject({ watchPending: false });
+  });
+
+  cancelBtn.addEventListener('click', function () {
+    state.stopRequested = true;
+    setProg(0, 'Arrêt demandé…', true);
+  });
+
+  async function uploadImageToPublicHost(dataUrl) {
+    if (IS_FILE) {
+      throw new Error('file:// : upload public bloqué (CORS) — utilisation v2.0 base64');
+    }
+    var blobRes = await fetch(dataUrl);
+    var blob = await blobRes.blob();
+    var hosts = [
+      {
+        name: 'litterbox',
+        run: async function () {
+          var form = new FormData();
+          form.append('reqtype', 'fileupload');
+          form.append('time', '24h');
+          form.append('fileToUpload', blob, 'ambiance.jpg');
+          var up = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+            method: 'POST',
+            body: form
+          });
+          var text = (await up.text()).trim();
+          if (!up.ok || text.indexOf('http') !== 0) throw new Error(text.slice(0, 120) || ('HTTP ' + up.status));
+          return text;
+        }
+      },
+      {
+        name: 'catbox',
+        run: async function () {
+          var form = new FormData();
+          form.append('reqtype', 'fileupload');
+          form.append('fileToUpload', blob, 'ambiance.jpg');
+          var up = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form });
+          var text = (await up.text()).trim();
+          if (!up.ok || text.indexOf('http') !== 0) throw new Error(text.slice(0, 120) || ('HTTP ' + up.status));
+          return text;
+        }
+      },
+      {
+        name: 'tmpfiles',
+        run: async function () {
+          var form = new FormData();
+          form.append('file', blob, 'ambiance.jpg');
+          var up = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
+          if (!up.ok) throw new Error('HTTP ' + up.status);
+          var data = await up.json();
+          var pageUrl = data && data.data && data.data.url;
+          if (!pageUrl) throw new Error('réponse sans url');
+          return pageUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+        }
+      }
+    ];
+    var errors = [];
+    for (var i = 0; i < hosts.length; i++) {
+      assertNotStopped();
+      try {
+        setProg(8, 'Publication image via ' + hosts[i].name + '…');
+        var url = await hosts[i].run();
+        if (url && url.indexOf('http') === 0) return url;
+        errors.push(hosts[i].name + ': url invalide');
+      } catch (e) {
+        errors.push(hosts[i].name + ': ' + (e && e.message ? e.message : String(e)));
+      }
+    }
+    throw new Error('Aucun hébergeur image joignable — ' + errors.join(' | '));
+  }
+
+  function buildCreateBody(model, imageDataUrl, publicImageUrl) {
+    if (isLegacyModel(model)) {
+      return {
+        model: model,
+        prompt: currentPrompt() + ' Duration: exactly 10 seconds.',
+        image: imageDataUrl,
+        num_frames: 240,
+        frame_rate: 24
+      };
+    }
+    return {
+      model: model,
+      mode: 'keyframe',
+      prompt: currentPrompt(),
+      seconds: '10',
+      size: '720P',
+      aspect_ratio: '16:9',
+      n: 1,
+      first_frame: publicImageUrl,
+      last_frame: publicImageUrl
+    };
+  }
+
+  async function postVideoOnce(model, body, signal) {
+    var res = await fetch(AGNES_API_BASE + '/videos', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + state.apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body),
+      signal: signal || undefined
+    });
+    var text = await res.text();
+    var data = null;
+    try { data = JSON.parse(text); } catch (e) { data = null; }
+    return { res: res, text: text, data: data };
+  }
+
+  function paceConfig(watch) {
+    if (!watch) return { min: QUICK_RETRY_MIN_MS, max: QUICK_RETRY_MAX_MS };
+    var p = PACE[probePace.value] || PACE.fast;
+    return { min: p.min, max: p.max };
+  }
+
+  function formatWatchClock(ms) {
+    var s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    if (h > 0) return h + 'h' + String(m).padStart(2, '0') + 'm';
+    return m + 'm' + String(sec).padStart(2, '0') + 's';
+  }
+
+  /** Précharge FFmpeg pendant la veille pour enchaîner le montage sans délai. */
+  function preloadFfmpeg() {
+    if (state.ffmpeg) return Promise.resolve(state.ffmpeg);
+    if (state.ffmpegLoading) return state.ffmpegLoading;
+    state.ffmpegLoading = loadFFmpeg(function (m) {
+      if (state.watchMode) setProg(8, 'Veille flux · ' + m);
+    }).then(function (ff) {
+      state.ffmpeg = ff;
+      state.ffmpegLoading = null;
+      return ff;
+    }).catch(function (e) {
+      state.ffmpegLoading = null;
+      console.warn('preload ffmpeg', e);
+      return null;
+    });
+    return state.ffmpegLoading;
+  }
+
+  /**
+   * Veille directe du flux Agnes : boucle de sondage POST /v1/videos.
+   * Pas d'endpoint "status file" public — le 503 / "no available channel"
+   * EST le signal. Dès qu'un canal accepte, on renvoie l'id pour poll + montage.
+   */
+  async function createAgnesVideoWithQueueHug(opts) {
+    opts = opts || {};
+    var watch = !!opts.watch;
+    var budgetMs = opts.budgetMs || (watch ? WATCH_BUDGET_MS : QUICK_BUDGET_MS);
+    var pace = paceConfig(watch);
+
+    var promptNow = currentPrompt();
+    if (promptNow.indexOf('NO camera movement') < 0 || promptNow.indexOf('NO zoom') < 0) {
+      throw new Error('Prompt Agnes invalide (caméra fixe manquante)');
+    }
+
+    var models = modelList();
+    var publicUrl = null;
+    var needsPublic = models.some(function (m) { return !isLegacyModel(m); });
+    if (needsPublic) {
+      try {
+        publicUrl = await uploadImageToPublicHost(state.imageDataURL);
+      } catch (upErr) {
+        console.warn('public upload failed', upErr);
+        setProg(9, 'Upload public impossible — bascule v2.0 base64…');
+        models = ['agnes-video-v2.0'];
+        publicUrl = null;
+      }
+    }
+
+    // Corps pré-assemblés pour réagir au 1er canal libre sans latence de build
+    var bodies = {};
+    models.forEach(function (m) {
+      if (!isLegacyModel(m) && !publicUrl) return;
+      bodies[m] = buildCreateBody(m, state.imageDataURL, publicUrl);
+    });
+    models = models.filter(function (m) { return !!bodies[m]; });
+    if (!models.length) throw new Error('Aucun modèle Agnes utilisable');
+
+    if (watch) preloadFfmpeg();
+
+    var started = Date.now();
+    var attempt = 0;
+    var lastMsg = '';
+    var consecutiveSat = 0;
+    state.probeStats = { attempts: 0, saturations: 0, lastStatus: '' };
+
+    while (Date.now() - started < budgetMs) {
+      assertNotStopped();
+      var model = models[attempt % models.length];
+      state.activeModel = model;
+      attempt++;
+      state.probeStats.attempts = attempt;
+
+      var elapsed = Date.now() - started;
+      setProg(
+        10 + Math.min(48, (elapsed / budgetMs) * 48),
+        (watch ? 'Veille flux Agnes' : 'File Agnes') +
+          ' · probe #' + attempt +
+          ' · ' + model +
+          ' · ' + formatWatchClock(elapsed) +
+          (consecutiveSat ? ' · saturé ×' + consecutiveSat : '')
+      );
+
+      var out = null;
+      // Veille rapide : sonde tous les modèles en parallèle, garde le 1er canal libre
+      if (watch && probePace.value === 'fast' && models.length > 1) {
+        var controllers = models.map(function () { return new AbortController(); });
+        var winner = null;
+        var errors = [];
+        await Promise.all(models.map(function (m, idx) {
+          return (async function () {
+            if (idx) await sleep(idx * 180);
+            if (winner || state.stopRequested) return;
+            try {
+              var r = await postVideoOnce(m, bodies[m], controllers[idx].signal);
+              if (winner) return;
+              if (r.res.ok) {
+                winner = { model: m, out: r };
+                controllers.forEach(function (c, j) { if (j !== idx) try { c.abort(); } catch (e) {} });
+              } else {
+                errors.push({ model: m, out: r });
+              }
+            } catch (e) {
+              if (e && e.name === 'AbortError') return;
+              errors.push({ model: m, err: e });
+            }
+          })();
+        }));
+        if (winner) {
+          out = winner.out;
+          model = winner.model;
+          state.activeModel = model;
+        } else if (errors.length) {
+          // Prendre la réponse la plus informative (503 prioritaire pour le message)
+          var pick = errors.find(function (e) { return e.out; }) || errors[0];
+          if (pick.out) out = pick.out;
+          else throw pick.err;
+        }
+      }
+      try {
+        if (!out) out = await postVideoOnce(model, bodies[model]);
+      } catch (netErr) {
+        lastMsg = netErr && netErr.message ? netErr.message : String(netErr);
+        state.probeStats.lastStatus = 'network';
+        var waitNet = pace.min + Math.floor(Math.random() * (pace.max - pace.min));
+        setProg(15, 'Réseau coupé — re-sonde dans ' + Math.round(waitNet / 1000) + 's…');
+        await sleep(waitNet);
+        continue;
+      }
+
+      if (out.res.ok) {
+        var id = out.data && (out.data.video_id || out.data.id || out.data.task_id);
+        if (!id) throw new Error('Pas de video_id retourné (' + model + ')');
+        setProg(55, '✓ Canal libre — accepté par Agnes (' + model + ') · lancement immédiat');
+        state.probeStats.lastStatus = 'accepted';
+        return { videoId: id, model: model };
+      }
+
+      var msg = (out.data && out.data.error && out.data.error.message) ||
+        (out.data && out.data.detail) ||
+        out.text.slice(0, 280);
+      lastMsg = String(msg);
+      state.probeStats.lastStatus = String(out.res.status);
+
+      if (out.res.status === 401 || out.res.status === 403) throw new Error('Clé Agnes invalide');
+
+      if (out.res.status === 400) {
+        consecutiveSat = 0;
+        await sleep(600);
+        continue;
+      }
+
+      if (isQueueFullStatus(out.res.status, lastMsg)) {
+        consecutiveSat++;
+        state.probeStats.saturations++;
+        // Backoff léger si rafale de 429, sinon rythme de veille serré
+        var wait = pace.min + Math.floor(Math.random() * (pace.max - pace.min));
+        if (out.res.status === 429) wait = Math.max(wait, pace.max);
+        // Après beaucoup de saturations, micro-pause pour ne pas se faire ban, puis reprise serrée
+        if (consecutiveSat > 40 && consecutiveSat % 20 === 0) wait = Math.max(wait, 12000);
+        var nextModel = models[attempt % models.length];
+        setProg(
+          12 + Math.min(45, (elapsed / budgetMs) * 45),
+          'Flux saturé (HTTP ' + out.res.status + ' · no channel) — ' +
+            're-sonde ' + nextModel + ' dans ' + (wait / 1000).toFixed(1) + 's…' +
+            ' Projet en mémoire · montage prêt à enchaîner.'
+        );
+        await sleep(wait);
+        continue;
+      }
+
+      throw new Error('Agnes HTTP ' + out.res.status + ' — ' + lastMsg);
+    }
+
+    throw new Error(
+      'Agnes toujours saturé après ' + formatWatchClock(budgetMs) + ' de veille flux. ' +
+      'Dernier message: ' + lastMsg + ' — relance « Veille flux ».'
+    );
+  }
+
+  async function pollAgnesVideo(videoId, model) {
+    for (var w = 4; w > 0; w--) {
+      assertNotStopped();
+      setProg(58, 'Canal pris — Agnes (' + model + ') génère… ' + w + 's');
+      await sleep(1000);
+    }
+    for (var i = 0; i < 180; i++) {
+      assertNotStopped();
+      var url = AGNES_POLL_BASE +
+        '?video_id=' + encodeURIComponent(videoId) +
+        '&model_name=' + encodeURIComponent(model);
+      var res;
+      try {
+        res = await fetch(url, {
+          method: 'GET',
+          headers: { 'Authorization': 'Bearer ' + state.apiKey }
+        });
+      } catch (e) {
+        await sleep(5000);
+        continue;
+      }
+      if (res.status === 503 || res.status === 429) {
+        await sleep(8000);
+        continue;
+      }
+      var data = await res.json();
+      if (!res.ok) {
+        var msg = (data && data.error && data.error.message) || ('HTTP ' + res.status);
+        throw new Error('Poll Agnes: ' + msg);
+      }
+      var st = String(data.status || data.state || '').toLowerCase();
+      var p = Number(data.progress) || 0;
+      setProg(60 + Math.min(25, p * 0.25), 'Génération ' + model + '… ' + (p ? p + '%' : (i + 1)));
+      if (st === 'completed' || st === 'succeeded' || st === 'ready' || st === 'done') {
+        var videoUrl =
+          data.url ||
+          (data.metadata && data.metadata.url) ||
+          (data.output && data.output.url) ||
+          data.video_url;
+        if (!videoUrl) throw new Error('Vidéo prête sans URL');
+        return videoUrl;
+      }
+      if (st === 'failed' || st === 'error' || st === 'cancelled') {
+        throw new Error('Échec génération Agnes (' + st + ')');
+      }
+      await sleep(isLegacyModel(model) ? 8000 : 2000);
+    }
+    throw new Error('Délai maximal dépassé (Agnes)');
+  }
+
+  async function loadFFmpeg(onMsg) {
+    if (typeof FFmpegWASM === 'undefined' || typeof FFmpegUtil === 'undefined') {
+      throw new Error('FFmpeg.wasm CDN non chargé — vérifiez unpkg.com / réseau');
+    }
+    var FFmpeg = FFmpegWASM.FFmpeg;
+    var toBlobURL = FFmpegUtil.toBlobURL;
+    var ffmpeg = new FFmpeg();
+    ffmpeg.on('log', function (e) {
+      if (e && e.message) console.log('[ffmpeg]', e.message);
+    });
+    if (onMsg) onMsg('Chargement FFmpeg.wasm (unpkg)…');
+    await ffmpeg.load({
+      coreURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.js', 'text/javascript'),
+      wasmURL: await toBlobURL(CORE_CDN + '/ffmpeg-core.wasm', 'application/wasm')
+    });
+    return ffmpeg;
+  }
+
+  /**
+   * Montage YouTube 3h :
+   * - vidéo bouclée en copy (pas de ré-encodage → mémoire OK)
+   * - audio bouclé AAC 192k / 48 kHz
+   * - fade-in 2.5s + fade-out 5s + volume doux
+   * - durée exacte 10800s (pas de -shortest qui coupe trop tôt)
+   */
+  async function create3HourLoop(videoBlob, audioFile) {
+    var ffmpeg = state.ffmpeg;
+    if (!ffmpeg) {
+      setProg(86, 'Chargement FFmpeg pour montage 3h…');
+      ffmpeg = await loadFFmpeg(function (m) { setProg(86, m); });
+      state.ffmpeg = ffmpeg;
+    } else {
+      setProg(86, 'Montage 3h — FFmpeg prêt…');
+    }
+    var fetchFile = FFmpegUtil.fetchFile;
+
+    try { await ffmpeg.deleteFile('input.mp4'); } catch (e) {}
+    try { await ffmpeg.deleteFile('input_audio.mp3'); } catch (e) {}
+    try { await ffmpeg.deleteFile('output.mp4'); } catch (e) {}
+
+    setProg(88, 'Écriture clip + bande-son dans FFmpeg…');
+    await ffmpeg.writeFile('input.mp4', await fetchFile(videoBlob));
+
+    var fadeOutStart = DURATION_3H - 5;
+    var args;
+    var audioIn = null;
+    if (audioFile) {
+      var audioExt = ((state.audioName || 'audio.mp3').split('.').pop() || 'mp3').toLowerCase();
+      if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].indexOf(audioExt) < 0) audioExt = 'mp3';
+      audioIn = 'input_audio.' + audioExt;
+      try { await ffmpeg.deleteFile(audioIn); } catch (e) {}
+      await ffmpeg.writeFile(audioIn, await fetchFile(audioFile));
+      // Filtre audio léger (évite loudnorm 3h trop lourd en wasm)
+      var afilter =
+        'afade=t=in:st=0:d=2.5,' +
+        'afade=t=out:st=' + fadeOutStart + ':d=5,' +
+        'volume=0.92';
+      args = [
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-stream_loop', '-1', '-i', audioIn,
+        '-map', '0:v:0', '-map', '1:a:0',
+        '-c:v', 'copy',
+        '-af', afilter,
+        '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2',
+        '-t', String(DURATION_3H),
+        '-movflags', '+faststart',
+        'output.mp4'
+      ];
+    } else {
+      args = [
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-c:v', 'copy',
+        '-an',
+        '-t', String(DURATION_3H),
+        '-movflags', '+faststart',
+        'output.mp4'
+      ];
+    }
+
+    setProg(90, 'Assemblage boucle 3h (exacte) + fades audio…');
+    try {
+      await ffmpeg.exec(args);
+    } catch (e1) {
+      console.warn('montage primary failed, fallback', e1);
+      if (!audioFile || !audioIn) throw e1;
+      // Fallback sans filtre (certains builds wasm limitent -af)
+      setProg(91, 'Fallback montage sans filtre audio…');
+      await ffmpeg.exec([
+        '-stream_loop', '-1', '-i', 'input.mp4',
+        '-stream_loop', '-1', '-i', audioIn,
+        '-map', '0:v:0', '-map', '1:a:0',
+        '-c:v', 'copy',
+        '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+        '-t', String(DURATION_3H),
+        '-movflags', '+faststart',
+        'output.mp4'
+      ]);
+    }
+
+    setProg(96, 'Lecture fichier final 3h…');
+    var data = await ffmpeg.readFile('output.mp4');
+    var buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    var blob = new Blob([buf], { type: 'video/mp4' });
+    if (!blob.size) throw new Error('Fichier final vide');
+    if (blob.size < 100000) throw new Error('Montage suspect (fichier trop petit)');
+    return blob;
+  }
+
+  async function runMontageOnly() {
+    if (!state.clipFile || !state.audioFile || state.isGenerating) return;
+    state.isGenerating = true;
+    state.stopRequested = false;
+    updateBtn();
+    downloadBtn.classList.remove('show');
+    preview.style.display = 'none';
+    state.finalBlob = null;
+    try {
+      await requestWakeLock();
+      setProg(10, 'Montage seul — clip court + bande-son → MP4 3h…');
+      preloadFfmpeg();
+      var finalBlob = await create3HourLoop(state.clipFile, state.audioFile);
+      state.finalBlob = finalBlob;
+      setProg(100, '✓ Montage 3h prêt · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      preview.src = URL.createObjectURL(finalBlob);
+      preview.style.display = 'block';
+      downloadBtn.classList.add('show');
+      notifyDone(true, 'Montage 3h prêt (capybara automne).');
+    } catch (err) {
+      console.error(err);
+      setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
+    } finally {
+      state.isGenerating = false;
+      state.stopRequested = false;
+      await releaseWakeLock();
+      updateBtn();
+    }
+  }
+
+  async function runPipeline(watch) {
+    if (!state.imageDataURL || !state.apiKey || state.isGenerating) return;
+    state.isGenerating = true;
+    state.stopRequested = false;
+    state.watchMode = !!watch;
+    updateBtn();
+    downloadBtn.classList.remove('show');
+    preview.style.display = 'none';
+    state.finalBlob = null;
+
+    try {
+      if (watch && 'Notification' in window && Notification.permission === 'default') {
+        try { await Notification.requestPermission(); } catch (e) {}
+      }
+      await requestWakeLock();
+      await saveProject({ watchPending: !!watch });
+
+      setProg(5, watch
+        ? 'Veille flux Agnes démarrée — sondage actif du stream de requêtes…'
+        : 'Connexion Agnes…');
+
+      if (watch) preloadFfmpeg();
+
+      var created = await createAgnesVideoWithQueueHug({
+        watch: !!watch,
+        budgetMs: watch ? WATCH_BUDGET_MS : QUICK_BUDGET_MS
+      });
+
+      var videoUrl = await pollAgnesVideo(created.videoId, created.model);
+      setProg(85, 'Téléchargement vidéo Agnes…');
+      var vRes = await fetch(videoUrl);
+      if (!vRes.ok) throw new Error('Téléchargement vidéo HTTP ' + vRes.status);
+      var videoBlob = await vRes.blob();
+      if (videoBlob.size < 500) throw new Error('Vidéo Agnes vide');
+
+      var finalBlob = await create3HourLoop(videoBlob, state.audioFile);
+      state.finalBlob = finalBlob;
+      setProg(100, '✓ Automne cozy 3h prêt (' + created.model + ') · ' + (finalBlob.size / 1024 / 1024).toFixed(1) + ' Mo');
+      preview.src = URL.createObjectURL(finalBlob);
+      preview.style.display = 'block';
+      downloadBtn.classList.add('show');
+      await clearWatchFlag();
+      notifyDone(true, 'Ta vidéo d’ambiance 3h est prête.');
+    } catch (err) {
+      console.error(err);
+      setProg(0, '✗ ' + (err && err.message ? err.message : String(err)), true);
+      if (watch) notifyDone(false, err && err.message ? err.message : 'Veille flux interrompue');
+      // garde watchPending si arrêt volontaire / saturation pour reprise
+      if (!state.stopRequested && watch) await saveProject({ watchPending: true });
+      if (state.stopRequested) await clearWatchFlag();
+    } finally {
+      state.isGenerating = false;
+      state.watchMode = false;
+      state.stopRequested = false;
+      await releaseWakeLock();
+      updateBtn();
+    }
+  }
+
+  generateBtn.addEventListener('click', function () { runPipeline(false); });
+  watchBtn.addEventListener('click', function () { runPipeline(true); });
+  montageBtn.addEventListener('click', function () { runMontageOnly(); });
+  downloadBtn.addEventListener('click', function () {
+    if (!state.finalBlob) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(state.finalBlob);
+    a.download = 'capybara-automne-lofi-3h.mp4';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  });
+
+  /** Charge image + audio depuis /bande-son/ si servi en local (demarrer.sh / .bat). */
+  async function tryLoadBandeSon() {
+    if (IS_FILE) return false;
+    var imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    var audioExts = ['.mp3', '.wav', '.ogg', '.m4a'];
+    var clipExts = ['.mp4', '.webm'];
+    var candidates = [
+      'bande-son/image.jpg', 'bande-son/image.jpeg', 'bande-son/image.png', 'bande-son/image.webp',
+      'bande-son/cover.jpg', 'bande-son/cover.png', 'bande-son/ambiance.jpg', 'bande-son/ambiance.png',
+      'bande-son/capybara.jpg', 'bande-son/capybara.png', 'bande-son/automne.jpg', 'bande-son/automne.png'
+    ];
+    var audioCandidates = [
+      'bande-son/audio.mp3', 'bande-son/audio.wav', 'bande-son/music.mp3', 'bande-son/bande-son.mp3',
+      'bande-son/soundtrack.mp3', 'bande-son/ambiance.mp3', 'bande-son/lofi.mp3'
+    ];
+
+    // Liste du dossier si le serveur le permet, sinon essais de noms connus
+    var listed = [];
+    try {
+      var dirRes = await fetch('bande-son/', { cache: 'no-store' });
+      if (dirRes.ok) {
+        var html = await dirRes.text();
+        var re = /href=["']([^"']+)["']/gi;
+        var m;
+        while ((m = re.exec(html))) {
+          var href = decodeURIComponent(m[1].split('?')[0]);
+          if (href === '../' || href === '/') continue;
+          var name = href.replace(/^\.\//, '').replace(/^bande-son\//, '');
+          if (name && name.indexOf('/') < 0 && name.indexOf('..') < 0) listed.push(name);
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    var imgName = null;
+    var audName = null;
+    var clipName = null;
+    listed.forEach(function (name) {
+      var low = name.toLowerCase();
+      var ext = low.slice(low.lastIndexOf('.'));
+      if (!imgName && imageExts.indexOf(ext) >= 0) imgName = name;
+      if (!audName && audioExts.indexOf(ext) >= 0) audName = name;
+      if (!clipName && clipExts.indexOf(ext) >= 0) clipName = name;
+    });
+
+    async function loadImagePath(p, label) {
+      var res = await fetch(p, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var blob = await res.blob();
+      var dataUrl = await new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve(r.result); };
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      state.imageDataURL = dataUrl;
+      state.imageName = label;
+      imageZone.classList.add('on');
+      imageLabel.textContent = '✓ ' + label + ' (bande-son)';
+      return true;
+    }
+
+    async function loadAudioPath(p, label) {
+      var res = await fetch(p, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var blob = await res.blob();
+      var type = blob.type || 'audio/mpeg';
+      state.audioFile = new File([blob], label, { type: type });
+      state.audioName = label;
+      audioZone.classList.add('on');
+      audioLabel.textContent = '✓ ' + label + ' (bande-son)';
+      return true;
+    }
+
+    var loaded = false;
+    if (imgName) {
+      try {
+        await loadImagePath('bande-son/' + encodeURIComponent(imgName).replace(/%2F/g, '/'), imgName);
+        loaded = true;
+      } catch (e) { console.warn('bande-son image', e); }
+    } else {
+      for (var i = 0; i < candidates.length; i++) {
+        try {
+          var base = candidates[i].split('/').pop();
+          await loadImagePath(candidates[i], base);
+          loaded = true;
+          break;
+        } catch (e) { /* try next */ }
+      }
+    }
+
+    if (audName) {
+      try { await loadAudioPath('bande-son/' + encodeURIComponent(audName).replace(/%2F/g, '/'), audName); }
+      catch (e) { console.warn('bande-son audio', e); }
+    } else {
+      for (var j = 0; j < audioCandidates.length; j++) {
+        try {
+          var ab = audioCandidates[j].split('/').pop();
+          await loadAudioPath(audioCandidates[j], ab);
+          break;
+        } catch (e) { /* try next */ }
+      }
+    }
+
+    if (clipName) {
+      try {
+        var cRes = await fetch('bande-son/' + encodeURIComponent(clipName).replace(/%2F/g, '/'), { cache: 'no-store' });
+        if (cRes.ok) {
+          var cBlob = await cRes.blob();
+          state.clipFile = new File([cBlob], clipName, { type: cBlob.type || 'video/mp4' });
+          state.clipName = clipName;
+          clipZone.classList.add('on');
+          clipLabel.textContent = '✓ ' + clipName + ' (bande-son)';
+          loaded = true;
+        }
+      } catch (e) { console.warn('bande-son clip', e); }
+    }
+
+    if (loaded) {
+      savedBanner.textContent = 'Fichiers chargés depuis bande-son/ — prompt automne cozy prêt.';
+      savedBanner.classList.add('show');
+      updateBtn();
+      await saveProject({ watchPending: false });
+    }
+    return loaded;
+  }
+
+  // Restauration mémoire, puis priorité aux fichiers bande-son/ s'ils existent
+  (async function boot() {
+    var rec = null;
+    try { rec = await restoreProject(); } catch (e) { console.warn(e); }
+    var fromFolder = false;
+    try { fromFolder = await tryLoadBandeSon(); } catch (e) { console.warn(e); }
+    if (fromFolder && rec) {
+      // garde clé / stratégie / prompt mémorisés si pas déjà pris
+      if (rec.apiKey && !apiInput.value) {
+        state.apiKey = rec.apiKey;
+        apiInput.value = rec.apiKey;
+      }
+      if (rec.prompt && promptInput.value === DEFAULT_AGNES_PROMPT) promptInput.value = rec.prompt;
+    }
+    updateBtn();
+    if (rec && rec.watchPending && state.imageDataURL && state.apiKey) {
+      setProg(2, 'Reprise de la veille flux mémorisée…');
+      runPipeline(true);
+    }
+  })();
+
+  updateBtn();
+})();
+</script>
+</body>
+</html>
