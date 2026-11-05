@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lofi Capybara Studio — Ambiances apaisantes</title>
+<style>
+/* 🦦 MODIFICATION LOFI : thème apaisant nature — verts sauge, beiges, bleus crépusculaires */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+--bg:#e8e4dc;--bg2:#f2efe9;--bg3:#dcd8d0;
+--panel:#f7f4ee;--border:#d0ccc4;
+--ink:#3d3d35;--dim:#7a786e;--faint:#b0ada3;
+--acc:#8fad88;--acc2:#c4a882;--acc3:#7a9eb8;
+--ok:#7a9d6e;--err:#c47a6a;--warn:#c4a840;
+--r:16px;--fs:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+--fm:ui-monospace,'SF Mono',Menlo,monospace;
+}
+html,body{background:var(--bg)}
+body{font-family:var(--fs);background:linear-gradient(135deg,#e8e4dc 0%,#e0dcd4 100%);color:var(--ink);min-height:100vh;padding:1.5rem 1rem 24rem;font-size:15px;line-height:1.55;max-width:900px;margin:0 auto}
+header{margin-bottom:2rem;text-align:center;padding:1.5rem 0 1.5rem;position:relative}
+header::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:180px;height:2px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:.6;border-radius:2px}
+h1{font-size:2.2rem;font-weight:300;margin-bottom:.5rem;background:linear-gradient(135deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.02em}
+.subtitle{font-size:.92rem;color:var(--dim);font-style:italic}
+.capy-badge{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;padding:.35rem .9rem;border-radius:999px;background:rgba(143,173,136,.15);border:1px solid var(--acc);color:var(--ink);margin-top:.8rem}
+.toast{position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-120px);background:var(--bg3);color:var(--ink);border:1px solid var(--border);border-left:4px solid var(--acc);padding:.9rem 1.5rem;border-radius:var(--r);font-size:.85rem;box-shadow:0 8px 32px rgba(60,60,50,.15);z-index:1000;opacity:0;transition:transform .35s cubic-bezier(.2,.9,.3,1.2),opacity .35s;max-width:90vw;text-align:center;display:flex;align-items:center;gap:.6rem}
+.toast.visible{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-left-color:var(--ok)}.toast.error{border-left-color:var(--err)}.toast.warn{border-left-color:var(--warn)}
+.banner{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--acc);padding:1.1rem 1.3rem;border-radius:var(--r);font-size:.82rem;color:var(--dim);margin-bottom:1.2rem;line-height:1.65;box-shadow:0 2px 12px rgba(60,60,50,.06)}
+.banner strong{color:var(--ink)}.banner .hl{color:var(--acc);font-weight:600}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:1.3rem 1.4rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(60,60,50,.06)}
+.panel.ok{box-shadow:inset 4px 0 0 var(--ok),0 2px 12px rgba(60,60,50,.06)}
+input[type=password],input[type=text],textarea{width:100%;padding:.9rem 1.1rem;border-radius:12px;border:1px solid var(--border);background:var(--bg2);color:var(--ink);font-family:var(--fs);font-size:.9rem;margin-bottom:.7rem;transition:border-color .2s}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+input:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(143,173,136,.15)}
+.btn{width:100%;padding:.9rem 1.3rem;border-radius:12px;border:1px solid var(--border);background:var(--bg2);color:var(--ink);font-size:.85rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-bottom:.7rem;transition:all .2s}
+.btn:hover{background:var(--bg3);transform:translateY(-1px)}
+.btn-primary{border:none;background:linear-gradient(135deg,var(--acc),#7a9d6e);color:#fff;font-size:1rem;padding:1.2rem;letter-spacing:.12em;box-shadow:0 4px 16px rgba(143,173,136,.3)}
+.btn-primary:hover{box-shadow:0 6px 20px rgba(143,173,136,.4)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-stop{border:1px solid var(--err);color:var(--err);background:transparent;display:none}
+.btn-stop.visible{display:block}
+.btn-download{border:1px solid var(--acc3);color:var(--acc3);background:transparent;margin-top:.8rem}
+.btn-download:hover{background:rgba(122,158,184,.1)}
+.status{font-size:.75rem;padding:.65rem .95rem;border-radius:10px;margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem;background:var(--bg2);color:var(--dim);border:1px solid var(--border)}
+.status.ok{background:rgba(122,157,110,.1);color:var(--ok);border-color:rgba(122,157,110,.3)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex-shrink:0}
+.status.ok .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.hint{font-size:.72rem;color:var(--dim);margin-top:.5rem;line-height:1.5}
+.hint a{color:var(--acc);text-decoration:none;font-weight:600}
+.stat{font-size:.72rem;color:var(--dim);margin-top:.6rem;padding:.55rem .8rem;background:var(--bg2);border-radius:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.3rem;border:1px solid var(--border);font-family:var(--fm)}
+.section{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);margin-bottom:1rem;overflow:hidden;box-shadow:0 2px 12px rgba(60,60,50,.06)}
+.section-header{padding:1rem 1.3rem;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}
+.section-title{font-size:.82rem;text-transform:uppercase;letter-spacing:.18em;color:var(--ink);font-weight:600;display:flex;align-items:center;gap:.6rem}
+.badge{display:inline-block;padding:.18rem .6rem;background:rgba(143,173,136,.12);color:var(--acc);border:1px solid rgba(143,173,136,.3);border-radius:6px;font-size:.6rem;letter-spacing:.12em;font-weight:600}
+.chevron{font-size:.7rem;color:var(--faint);transition:transform .3s}
+.section.open .chevron{transform:rotate(180deg);color:var(--acc)}
+.section-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.section.open .section-body{max-height:8000px}
+.section-content{padding:0 1.3rem 1.3rem}
+.row{margin-bottom:1rem}
+.label{display:block;font-size:.72rem;color:var(--dim);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.12em;font-weight:600}
+select{width:100%;padding:.85rem 1rem;border-radius:12px;border:1px solid var(--border);background:var(--bg2);color:var(--ink);font-size:.88rem;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%238fad88' d='M0 0l5 6 5-6z'/></svg>");background-repeat:no-repeat;background-position:right 1rem center;background-size:10px;transition:border-color .2s}
+select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(143,173,136,.15)}
+select option{background:var(--bg2);color:var(--ink)}
+.phase-bar{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--acc);border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1rem;display:none;box-shadow:0 2px 12px rgba(60,60,50,.06)}
+.phase-bar.visible{display:block}
+.phase-steps{display:flex;gap:.5rem;margin-bottom:.8rem;flex-wrap:wrap}
+.phase-step{flex:1;min-width:60px;padding:.55rem .4rem;border-radius:10px;background:var(--bg2);border:1px solid var(--border);font-size:.55rem;text-transform:uppercase;letter-spacing:.05em;text-align:center;color:var(--faint);font-weight:600;transition:all .3s}
+.phase-step.active{color:#fff;border-color:var(--acc);background:var(--acc);box-shadow:0 2px 8px rgba(143,173,136,.3)}
+.phase-step.done{color:var(--ok);border-color:rgba(122,157,110,.3);background:rgba(122,157,110,.1)}
+.phase-info{font-size:.75rem;font-family:var(--fm);color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem}
+/* 🦦 MODIFICATION LOFI : simplifié — un seul lecteur vidéo centré */
+.lofi-panel{display:none;margin-top:1.5rem}
+.lofi-panel.visible{display:block}
+.lofi-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem 1.4rem;margin-bottom:1rem;box-shadow:0 4px 24px rgba(60,60,50,.1)}
+.lofi-title{font-size:1.5rem;color:var(--ink);margin-bottom:.5rem;text-align:center;font-weight:300;letter-spacing:.02em}
+.lofi-meta{font-size:.72rem;color:var(--dim);text-align:center;letter-spacing:.12em;text-transform:uppercase;margin-bottom:1.2rem;font-family:var(--fm)}
+.lofi-video-container{max-width:720px;margin:0 auto;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:#000;box-shadow:0 4px 20px rgba(60,60,50,.15)}
+.lofi-video-container video{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#000}
+.lofi-video-placeholder{display:flex;align-items:center;justify-content:center;aspect-ratio:16/9;color:var(--faint);font-size:.8rem;font-family:var(--fm);background:var(--bg2);border:2px dashed var(--border)}
+.lofi-prompt-display{font-size:.75rem;color:var(--dim);font-style:italic;text-align:center;margin-top:1rem;padding:.8rem 1rem;background:var(--bg2);border-radius:10px;line-height:1.5;max-width:720px;margin-left:auto;margin-right:auto}
+.lofi-prompt-display .hl{color:var(--acc);font-weight:600;font-style:normal}
+.lofi-image-preview{max-width:320px;margin:0 auto .8rem;border-radius:12px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 12px rgba(60,60,50,.1)}
+.lofi-image-preview img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+.status-bar{position:fixed;bottom:0;left:0;right:0;background:var(--bg3);border-top:1px solid var(--border);color:var(--ink);padding:.9rem 1.2rem;font-size:.78rem;display:flex;align-items:center;gap:.7rem;transform:translateY(100%);transition:transform .35s cubic-bezier(.2,.9,.3,1);z-index:100;font-family:var(--fm);box-shadow:0 -4px 20px rgba(60,60,50,.1)}
+.status-bar.visible{transform:translateY(0)}
+.spinner{width:13px;height:13px;border:2px solid rgba(143,173,136,.2);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.debug-panel{position:fixed;bottom:0;left:0;right:0;height:260px;background:#2a2a25;border-top:2px solid var(--acc);z-index:200;display:flex;flex-direction:column;font-family:var(--fm);box-shadow:0 -8px 32px rgba(60,60,50,.2);transition:height .3s ease}
+.debug-panel.collapsed{height:36px}
+.debug-header{display:flex;justify-content:space-between;align-items:center;padding:.55rem .9rem;background:linear-gradient(90deg,#22221e,#2a2a25);border-bottom:1px solid #3a3a32;flex-shrink:0;cursor:pointer;user-select:none}
+.debug-title{font-size:.72rem;color:var(--acc);letter-spacing:.12em;text-transform:uppercase;font-weight:600;display:flex;align-items:center;gap:.5rem}
+.debug-badge{font-size:.6rem;padding:.1rem .45rem;background:var(--acc);color:#2a2a25;border-radius:4px;font-weight:700}
+.debug-actions{display:flex;gap:.3rem}
+.debug-actions button{background:transparent;border:1px solid #3a3a32;color:#9a988e;font-size:.62rem;padding:.28rem .6rem;border-radius:6px;cursor:pointer;transition:all .2s}
+.debug-actions button:hover{color:var(--acc);border-color:var(--acc)}
+.debug-body{flex:1;overflow-y:auto;padding:.5rem .8rem 1rem;font-size:.72rem;line-height:1.45;color:#c8c6bc}
+.debug-entry{margin-bottom:.3rem;padding:.28rem .45rem;border-left:2px solid transparent;border-radius:4px;word-break:break-word}
+.debug-entry.info{border-left-color:#5a584e}
+.debug-entry.success{border-left-color:var(--ok);background:rgba(122,157,110,.06)}
+.debug-entry.warn{border-left-color:var(--warn);background:rgba(196,168,64,.06)}
+.debug-entry.error{border-left-color:var(--err);background:rgba(196,122,106,.08);color:#e8a898}
+.debug-entry.api{border-left-color:var(--acc)}
+.debug-entry.response{border-left-color:var(--acc2)}
+.debug-entry.state{border-left-color:var(--acc2)}
+.debug-entry.ai{border-left-color:var(--acc)}
+.debug-time{color:#5a584e;margin-right:.5rem;font-size:.65rem}
+.debug-cat{color:var(--acc);font-weight:600;margin-right:.4rem;font-size:.65rem}
+.debug-msg{color:#d8d6cc}
+.debug-data{margin-top:.3rem;padding:.45rem .55rem;background:#1e1e1a;border:1px solid #3a3a32;border-radius:6px;font-size:.68rem;color:#b8d8a8;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-all;line-height:1.4}
+.hidden{display:none!important}
+@media(max-width:480px){h1{font-size:1.9rem}body{padding-bottom:22rem}.debug-panel{height:220px}.phase-step{font-size:.48rem;padding:.4rem .2rem}}
+</style>
+</head>
+<body>
+
+<header>
+<h1>Lofi Capybara Studio</h1>
+<p class="subtitle">Ambiances vidéo apaisantes inspirées de Ghibli · Une capybara vous accompagne</p>
+<div class="capy-badge">🦦 Capybara Lofi</div>
+</header>
+
+<div class="banner">
+<strong>Comment ça marche :</strong> décrivez une scène apaisante en quelques mots (ex. <em>« maison japonaise dans une forêt de sapins sous la pluie »</em>). L'IA enrichit votre idée dans le style <strong class="hl">Studio Ghibli</strong> et ajoute toujours une <strong class="hl">capybara mignonne et apaisante</strong>. Une image puis une vidéo lofi au <strong class="hl">mouvement lent et bouclable</strong> sont générées.
+</div>
+
+<div class="panel" id="api-panel">
+<input type="password" id="api-key-input" placeholder="Collez votre clé API Agnes ici (sk-...)" autocomplete="off" spellcheck="false">
+<button type="button" class="btn" id="api-save-btn">Enregistrer la clé</button>
+<div class="status" id="api-status-line"><span class="dot"></span><span id="api-status-text">Aucune clé API enregistrée</span></div>
+<div class="hint">Clé gratuite sur <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a> → Settings → API Keys</div>
+<div class="stat" id="stat-line"><span>🦦 Vitesse vidéo : <span id="stat-speed">en attente</span></span><span id="stat-samples">0 génération</span></div>
+</div>
+
+<!-- 🦦 MODIFICATION LOFI : zone de saisie utilisateur -->
+<div class="panel">
+<label class="label" style="font-size:.8rem;margin-bottom:.6rem;">Décrivez votre scène apaisante</label>
+<textarea id="user-description" placeholder="Ex. : maison japonaise dans une forêt de sapins sous la pluie, lumière dorée du soir, feuilles qui tombent lentement…" rows="3"></textarea>
+<div class="hint" style="margin-top:.3rem;">💡 Plus la scène est sensorielle (lumière, météo, moment de la journée), plus le résultat est poétique.</div>
+</div>
+
+<button type="button" class="btn btn-primary" id="lofi-btn" disabled>
+🦦 Générer ma vidéo Lofi
+<span style="display:block;font-size:.65rem;letter-spacing:.15em;color:rgba(255,255,255,.7);margin-top:.4rem;font-weight:400;text-transform:none;">Description → Enrichissement IA → Image Ghibli → Vidéo lofi</span>
+</button>
+<button type="button" class="btn btn-stop" id="stop-btn">⏹ Arrêter la génération</button>
+
+<div class="phase-bar" id="phase-bar">
+<div class="phase-steps">
+<div class="phase-step" data-phase="text">1 · Idée</div>
+<div class="phase-step" data-phase="dialogue">2 · Enrichissement IA</div>
+<div class="phase-step" data-phase="images">3 · Image Ghibli</div>
+<div class="phase-step" data-phase="videos">4 · Vidéo lofi</div>
+<div class="phase-step" data-phase="done">5 · Prêt</div>
+</div>
+<div class="phase-info"><span id="phase-detail">En attente</span><span id="phase-eta"></span></div>
+</div>
+
+<!-- 🦦 MODIFICATION LOFI : réglages simplifiés -->
+<div class="section open" id="section-settings">
+<div class="section-header" data-toggle="section-settings"><span class="section-title">⚙️ Réglages</span><span class="chevron">▼</span></div>
+<div class="section-body"><div class="section-content">
+<div class="row">
+<label class="label">Ambiance dominante</label>
+<select id="mood-select">
+<option value="rainy_forest" selected>🌧️ Forêt sous la pluie</option>
+<option value="golden_sunset">🌅 Coucher de soleil doré</option>
+<option value="cozy_room">🕯️ Intérieur douillet</option>
+<option value="japanese_garden">🏯 Jardin japonais</option>
+<option value="mountain_lake">🏔️ Lac de montagne</option>
+<option value="autumn_leaves">🍂 Feuilles d'automne</option>
+<option value="night_stars">🌌 Nuit étoilée</option>
+<option value="ocean_breeze">🌊 Brise océane</option>
+</select>
+</div>
+<div class="row">
+<label class="label">Durée de la vidéo</label>
+<select id="duration-select">
+<option value="5" selected>5 secondes (boucle rapide)</option>
+<option value="6">6 secondes</option>
+<option value="8">8 secondes</option>
+<option value="10">10 secondes (lofi profond)</option>
+</select>
+</div>
+<div class="row">
+<label class="label">Format de la vidéo</label>
+<select id="format-select">
+<option value="16:9" selected>16:9 paysage — ambiance lofi</option>
+<option value="9:16">9:16 portrait — format short</option>
+</select>
+</div>
+</div></div>
+</div>
+
+<!-- 🦦 MODIFICATION LOFI : résultat simplifié — lecteur vidéo centré -->
+<div class="lofi-panel" id="lofi-panel">
+<div class="lofi-card">
+<div class="lofi-title" id="lofi-title">—</div>
+<div class="lofi-meta" id="lofi-meta">Généré par Lofi Capybara Studio</div>
+<div class="lofi-image-preview" id="lofi-image-preview" style="display:none;"><img id="lofi-image" src="" alt="Aperçu image"></div>
+<div class="lofi-video-container" id="lofi-video-container">
+<div class="lofi-video-placeholder" id="lofi-video-placeholder">🦦 La vidéo lofi apparaîtra ici…</div>
+</div>
+<div class="lofi-prompt-display" id="lofi-prompt-display"></div>
+<button type="button" class="btn btn-download" id="download-btn" style="display:none;">⬇️ Télécharger la vidéo</button>
+<span id="raw-expansion-toggle" style="font-size:.62rem;color:var(--acc);cursor:pointer;margin-top:.6rem;border-bottom:1px dotted var(--border);display:inline-block;">▸ Voir la réponse brute de l'expansion IA (JSON)</span>
+<pre id="raw-expansion" style="margin-top:.6rem;padding:.7rem;background:#2a2a25;border:1px solid #3a3a32;border-radius:8px;font-family:var(--fm);font-size:.68rem;color:#b8d8a8;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-all;line-height:1.45;display:none;"></pre>
+</div>
+</div>
+
+<!-- 🦦 MODIFICATION LOFI : journal des médias conservé -->
+<div class="section" id="section-medialog" style="margin-top:1.5rem;">
+<div class="section-header" data-toggle="section-medialog"><span class="section-title">🗂️ Journal des médias générés <span class="badge" id="medialog-count">0</span></span><span class="chevron">▼</span></div>
+<div class="section-body"><div class="section-content">
+<div class="media-log" id="media-log">
+<div style="font-size:.72rem;color:var(--dim);font-family:var(--fm);">Les URLs des images et vidéos apparaîtront ici au fur et à mesure.</div>
+</div>
+</div></div>
+</div>
+
+<div class="status-bar" id="status-bar"><div class="spinner"></div><span id="status-text">Préparation…</span></div>
+
+<div class="toast" id="toast"><span id="toast-icon">✓</span><span id="toast-text">Message</span></div>
+
+<div class="debug-panel" id="debug-panel">
+<div class="debug-header" id="debug-header">
+<div class="debug-title">🖥️ Console de débogage <span class="debug-badge" id="debug-count">0</span></div>
+<div class="debug-actions">
+<button type="button" id="debug-copy-btn">Copier</button>
+<button type="button" id="debug-clear-btn">Effacer</button>
+<button type="button" id="debug-collapse-btn">−</button>
+</div>
+</div>
+<div class="debug-body" id="debug-body"></div>
+</div>
+
+<canvas id="noSleepCanvas" width="2" height="2"></canvas>
+<video id="noSleepVideo" playsinline muted loop></video>
+
+<script>
+const API_BASE='https://apihub.agnes-ai.com/v1';
+const POLL_BASE='https://apihub.agnes-ai.com/agnesapi';
+const MODEL_TEXT='agnes-2.5-flash';
+const MODEL_IMAGE='agnes-image-2.5-flash';
+const MODEL_VIDEO='agnes-video-2.5-flash';
+
+// 🦦 MODIFICATION LOFI : palettes Ghibli/lofi pastel (remplace les palettes saturées)
+const MOODS={
+rainy_forest:{label:'Forêt sous la pluie',desc:'a lush green forest under soft rain, misty atmosphere, warm lamplight glowing through wet leaves, wet earth and moss details'},
+golden_sunset:{label:'Coucher de soleil doré',desc:'a golden hour sunset with warm amber light, long soft shadows, glowing dust motes in the air, nostalgic warmth'},
+cozy_room:{label:'Intérieur douillet',desc:'a cozy wooden interior with warm candlelight, soft blankets, steaming tea, rain visible through a window, amber glow'},
+japanese_garden:{label:'Jardin japonais',desc:'a serene Japanese garden with stone lanterns, koi pond, cherry blossoms, moss-covered rocks, soft diffused daylight'},
+mountain_lake:{label:'Lac de montagne',desc:'a still mountain lake reflecting soft clouds, pine trees, gentle morning mist, cool blue and sage tones'},
+autumn_leaves:{label:'Feuilles d\'automne',desc:'an autumn forest with falling orange and gold leaves, warm late afternoon light, soft breeze, rustic wooden path'},
+night_stars:{label:'Nuit étoilée',desc:'a peaceful night with a starry sky, soft moonlight, silhouetted trees, gentle blue and violet tones, distant fireflies'},
+ocean_breeze:{label:'Brise océane',desc:'a calm ocean shore with gentle waves, soft sea breeze, warm sand, pastel sky, distant seagulls, serene horizon'}
+};
+
+// 🦦 MODIFICATION LOFI : palette unique Ghibli (pastels naturels)
+const GHIBLI_PALETTE='soft pastel palette inspired by Studio Ghibli watercolor backgrounds: sage green #8fad88, warm cream #f2efe9, dusky blue #7a9eb8, soft gold #c4a882, gentle forest greens, muted earth tones, warm amber highlights. Never grey, never desaturated, never neon. Rich but calm. Hand-painted watercolor feel with soft gradients.';
+
+let createImageIntervalMs=4000;let createVideoIntervalMs=75000;let imageAttemptsSinceLastError=0;let videoAttemptsSinceLastError=0;let debugCount=0;let debugEntries=[];let debugCollapsed=false;
+
+const IMAGE_PARALLEL=1;const IMAGE_INTERVAL_MS=3400;const IMAGE_INTERVAL_MIN=3200;const IMAGE_INTERVAL_MAX=12000;const VIDEO_INTERVAL_MIN=62000;const VIDEO_INTERVAL_MAX=90000;const VIDEO_INTERVAL_SAFE=75000;const VIDEO_FIRST_POLL_DELAY_SEC=80;const VIDEO_MAX_POLL_ATTEMPTS=100;const TIMING_CACHE_KEY='lofi_timing_v1';const API_KEY_STORAGE='agnes_api_key';const WAKE_LOCK_PREF='lofi_wakelock_enabled';const DEBUG_MAX_ENTRIES=800;
+
+// 🦦 MODIFICATION LOFI : état simplifié
+const state={userDescription:'',mood:'rainy_forest',durationSeconds:5,format:'16:9',isRunning:false,stopRequested:false,expansion:null,rawExpansionResponse:'',imageUrl:null,videoUrl:null,startTime:0};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+function formatEta(seconds){if(seconds<60)return Math.round(seconds)+'s';const m=Math.floor(seconds/60);const s=Math.round(seconds%60);return m+'m'+(s>0?' '+s+'s':'')}
+function countWords(str){if(!str)return 0;return String(str).trim().split(/\s+/).filter(Boolean).length}
+
+function debugLog(level,category,message,data){const body=document.getElementById('debug-body');if(!body)return;const time=new Date().toLocaleTimeString('fr-FR',{hour12:false});const entry=document.createElement('div');entry.className='debug-entry '+level;let html='<span class="debug-time">'+time+'</span>';html+='<span class="debug-cat">['+esc(category)+']</span>';html+='<span class="debug-msg">'+esc(message)+'</span>';if(data!==undefined&&data!==null){let dataStr;if(typeof data==='string')dataStr=data;else{try{dataStr=JSON.stringify(data,null,2)}catch(e){dataStr=String(data)}}if(dataStr.length>3000)dataStr=dataStr.slice(0,3000)+'\n…[tronqué]';html+='<pre class="debug-data">'+esc(dataStr)+'</pre>'}entry.innerHTML=html;body.appendChild(entry);debugEntries.push({time,level,category,message});if(debugEntries.length>DEBUG_MAX_ENTRIES)debugEntries.shift();while(body.children.length>DEBUG_MAX_ENTRIES)body.removeChild(body.firstChild);body.scrollTop=body.scrollHeight;debugCount++;const countEl=document.getElementById('debug-count');if(countEl)countEl.textContent=debugCount}
+
+function clearDebug(){const body=document.getElementById('debug-body');if(body)body.innerHTML='';debugEntries=[];debugCount=0;const countEl=document.getElementById('debug-count');if(countEl)countEl.textContent='0';debugLog('info','SYSTEM','Console effacée')}
+function copyDebug(){const lines=debugEntries.map(e=>e.time+' ['+e.category+'] '+e.message).join('\n');const finish=(ok)=>{showToast(ok?'Console copiée':'Copie impossible',ok?'success':'error')};try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(lines).then(()=>finish(true)).catch(()=>legacyCopy(lines,finish));return}}catch(e){}legacyCopy(lines,finish)}
+function legacyCopy(text,cb){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.top='0';ta.style.left='0';ta.style.width='2em';ta.style.height='2em';ta.style.padding='0';ta.style.border='none';ta.style.outline='none';ta.style.boxShadow='none';ta.style.background='transparent';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();ta.setSelectionRange(0,text.length);let ok=false;try{ok=document.execCommand('copy')}catch(e){ok=false}document.body.removeChild(ta);cb(ok)}
+function toggleDebugCollapse(){const panel=document.getElementById('debug-panel');const btn=document.getElementById('debug-collapse-btn');if(!panel||!btn)return;debugCollapsed=!debugCollapsed;panel.classList.toggle('collapsed',debugCollapsed);btn.textContent=debugCollapsed?'+':'−'}
+
+let toastTimeout=null;
+function showToast(message,type='success',duration=2500){const toast=document.getElementById('toast');const icon=document.getElementById('toast-icon');const text=document.getElementById('toast-text');if(!toast||!icon||!text)return;toast.classList.remove('visible','success','error','warn');void toast.offsetWidth;const icons={success:'✓',error:'✕',warn:'⚠'};icon.textContent=icons[type]||'✓';text.textContent=message;toast.classList.add(type);requestAnimationFrame(()=>toast.classList.add('visible'));if(toastTimeout)clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>toast.classList.remove('visible'),duration)}
+
+let wakeLockSentinel=null;let wakeLockEnabled=false;let canvasStream=null;let canvasInterval=null;
+function isWakeLockSupported(){return'wakeLock'in navigator&&typeof navigator.wakeLock.request==='function'}
+async function requestWakeLockAPI(){if(!isWakeLockSupported())return false;try{wakeLockSentinel=await navigator.wakeLock.request('screen');wakeLockSentinel.addEventListener('release',()=>{wakeLockSentinel=null});return true}catch(e){debugLog('warn','WAKELOCK','Refusé : '+e.message);return false}}
+async function releaseWakeLockAPI(){if(wakeLockSentinel){try{await wakeLockSentinel.release()}catch(e){}wakeLockSentinel=null}}
+function startCanvasStream(){if(canvasStream)return true;try{const canvas=document.getElementById('noSleepCanvas');const video=document.getElementById('noSleepVideo');if(!canvas||!video)return false;const ctx=canvas.getContext('2d');if(!ctx)return false;ctx.fillStyle='#000000';ctx.fillRect(0,0,canvas.width,canvas.height);if(typeof canvas.captureStream!=='function')return false;canvasStream=canvas.captureStream(1);let toggle=false;canvasInterval=setInterval(()=>{toggle=!toggle;ctx.fillStyle=toggle?'#000000':'#010101';ctx.fillRect(0,0,canvas.width,canvas.height)},1000);video.srcObject=canvasStream;video.muted=true;video.playsInline=true;const p=video.play();if(p&&p.catch)p.catch(()=>{});return true}catch(e){debugLog('warn','WAKELOCK','Canvas fallback échoué : '+e.message);return false}}
+function stopCanvasStream(){if(canvasInterval){clearInterval(canvasInterval);canvasInterval=null}const video=document.getElementById('noSleepVideo');if(video){try{video.pause();video.srcObject=null}catch(e){}}if(canvasStream){try{canvasStream.getTracks().forEach(t=>t.stop())}catch(e){}canvasStream=null}}
+async function activateWakeLock(){let success=false;if(isWakeLockSupported())success=await requestWakeLockAPI();if(!success)success=startCanvasStream();return success}
+async function deactivateWakeLock(){await releaseWakeLockAPI();stopCanvasStream()}
+document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&wakeLockEnabled){await activateWakeLock()}});
+async function ensureWakeLockActive(){if(!wakeLockEnabled)return;if(wakeLockSentinel===null&&canvasStream===null){await activateWakeLock()}}
+
+function loadTimingCache(){try{return JSON.parse(localStorage.getItem(TIMING_CACHE_KEY)||'{}')}catch(e){return{}}}
+function saveTimingCache(c){try{localStorage.setItem(TIMING_CACHE_KEY,JSON.stringify(c))}catch(e){}}
+function recordGenerationTime(key,ms){const c=loadTimingCache();if(!c[key])c[key]=[];c[key].push(ms);if(c[key].length>10)c[key]=c[key].slice(-10);saveTimingCache(c);updateTimingDisplay()}
+function estimateGenerationTime(key,fallbackMs){const c=loadTimingCache();const s=c[key];if(s&&s.length>0){const sorted=[...s].sort((a,b)=>a-b);const mid=Math.floor(sorted.length/2);return sorted.length%2===0?(sorted[mid-1]+sorted[mid])/2:sorted[mid]}return fallbackMs}
+function updateTimingDisplay(){const c=loadTimingCache();const v=c['video']||[];const s=document.getElementById('stat-speed');const t=document.getElementById('stat-samples');if(!s||!t)return;if(v.length===0){s.textContent='en attente';t.textContent='0 génération';return}const avg=v.reduce((a,b)=>a+b,0)/v.length;s.textContent=(avg/1000).toFixed(1)+' s en moyenne';t.textContent=v.length+' génération'+(v.length>1?'s':'')}
+
+function getApiKey(){try{return(localStorage.getItem(API_KEY_STORAGE)||'').trim()}catch(e){return''}}
+function saveApiKey(){const input=document.getElementById('api-key-input');if(!input)return;const key=input.value.trim();if(!key){try{localStorage.removeItem(API_KEY_STORAGE)}catch(e){}updateApiPanel();showToast('Clé supprimée','warn');return}if(!key.startsWith('sk-')){if(!confirm('La clé ne commence pas par "sk-". Sauvegarder ?'))return}try{localStorage.setItem(API_KEY_STORAGE,key);updateApiPanel();showToast('Clé enregistrée ✓','success');debugLog('success','API','Clé : '+key.slice(0,8)+'…'+key.slice(-4));input.blur()}catch(e){showToast('Erreur sauvegarde','error')}}
+function updateApiPanel(){const panel=document.getElementById('api-panel');const input=document.getElementById('api-key-input');const statusLine=document.getElementById('api-status-line');const statusText=document.getElementById('api-status-text');const key=getApiKey();if(!panel||!input||!statusLine||!statusText)return;if(key){panel.classList.add('ok');statusLine.classList.add('ok');statusText.textContent='Clé active · '+key.slice(0,8)+'…'+key.slice(-4);input.value=key;input.placeholder=''}else{panel.classList.remove('ok');statusLine.classList.remove('ok');statusText.textContent='Aucune clé API enregistrée';input.value='';input.placeholder='Collez votre clé API Agnes ici (sk-...)'}updateLofiButton()}
+
+// 🦦 MODIFICATION LOFI : bouton adapté
+function updateLofiButton(){const btn=document.getElementById('lofi-btn');if(!btn)return;const hasKey=!!getApiKey();const hasDesc=(document.getElementById('user-description')?.value.trim().length||0)>3;btn.disabled=!hasKey||!hasDesc||state.isRunning;if(state.isRunning)btn.innerHTML='🦦 Génération en cours…<span style="display:block;font-size:.65rem;letter-spacing:.15em;color:rgba(255,255,255,.7);margin-top:.4rem;font-weight:400;text-transform:none;">Ne fermez pas l\'onglet</span>';else if(!hasKey)btn.innerHTML='🔑 Ajoutez votre clé API<span style="display:block;font-size:.65rem;letter-spacing:.15em;color:rgba(255,255,255,.7);margin-top:.4rem;font-weight:400;text-transform:none;">Pour générer votre vidéo</span>';else if(!hasDesc)btn.innerHTML='✍️ Décrivez une scène<span style="display:block;font-size:.65rem;letter-spacing:.15em;color:rgba(255,255,255,.7);margin-top:.4rem;font-weight:400;text-transform:none;">Pour générer votre vidéo lofi</span>';else btn.innerHTML='🦦 Générer ma vidéo Lofi<span style="display:block;font-size:.65rem;letter-spacing:.15em;color:rgba(255,255,255,.7);margin-top:.4rem;font-weight:400;text-transform:none;">Description → Enrichissement IA → Image Ghibli → Vidéo lofi</span>'}
+
+async function apiFetch(url,options={},label='API',kind='default'){const maxAttempts=kind==='video'?10:kind==='image'?10:8;for(let attempt=0;attempt<maxAttempts;attempt++){if(state.stopRequested)throw new Error('Arrêt demandé');const method=options.method||'GET';let bodyPreview=null;if(options.body){try{const p=JSON.parse(options.body);const c=JSON.parse(JSON.stringify(p));if(c.image&&typeof c.image==='string'&&c.image.length>80)c.image=c.image.slice(0,80)+'…[b64 '+c.image.length+']';if(c.first_frame&&typeof c.first_frame==='string'&&c.first_frame.length>80)c.first_frame=c.first_frame.slice(0,80)+'…[b64 '+c.first_frame.length+']';bodyPreview=c}catch(e){bodyPreview=String(options.body).slice(0,500)}}debugLog('api','REQ '+label,method+' '+url+' (tentative '+(attempt+1)+'/'+maxAttempts+')',bodyPreview);try{const t0=Date.now();const res=await fetch(url,options);const dt=Date.now()-t0;let retryAfter=0;try{retryAfter=parseInt(res.headers.get('Retry-After')||'0',10)||0}catch(e){}let errorText='';if(!res.ok&&([400,401,404,429,500,502,503,504,520].includes(res.status)||kind==='video')){try{errorText=(await res.clone().text()).slice(0,1200)}catch(e){}}debugLog('response','RÉP '+label,'HTTP '+res.status+' en '+dt+'ms',errorText||undefined);if(res.ok){if(kind==='image'){imageAttemptsSinceLastError++;if(imageAttemptsSinceLastError>=4&&createImageIntervalMs>IMAGE_INTERVAL_MIN){createImageIntervalMs=Math.max(IMAGE_INTERVAL_MIN,createImageIntervalMs-250);imageAttemptsSinceLastError=0}}if(kind==='video'){videoAttemptsSinceLastError++;if(videoAttemptsSinceLastError>=2&&createVideoIntervalMs>VIDEO_INTERVAL_MIN){createVideoIntervalMs=Math.max(VIDEO_INTERVAL_MIN,createVideoIntervalMs-3000);videoAttemptsSinceLastError=0}}return res}if([400,401,404].includes(res.status)&&kind!=='video'){throw new Error('HTTP '+res.status+' — '+errorText.slice(0,300))}const queueFull=/video_queue_full|queue is full/i.test(errorText);if(kind==='video'&&queueFull){videoAttemptsSinceLastError=0;const wait=retryAfter>0?retryAfter:Math.min(180,75+attempt*12);debugLog('warn','VIDEO_QUEUE','Queue vidéo saturée — nouvelle tentative dans '+wait+'s');setStatus('File vidéo Agnes saturée — nouvelle tentative dans '+wait+'s');await sleep(wait*1000);continue}if(res.status===429){const wait=retryAfter>0?retryAfter:Math.min(kind==='video'?180:120,kind==='video'?60+attempt*8:10+attempt*12);if(kind==='image')createImageIntervalMs=Math.min(IMAGE_INTERVAL_MAX,createImageIntervalMs+1000);if(kind==='video')createVideoIntervalMs=Math.min(VIDEO_INTERVAL_MAX,createVideoIntervalMs+6000);debugLog('warn','RATELIMIT','429 — attente '+wait+'s');setStatus('Limite API — nouvelle tentative dans '+wait+'s');await sleep(wait*1000);continue}if([500,502,503,504,520].includes(res.status)){const wait=Math.min(kind==='video'?180:60,kind==='video'?20+attempt*10:5+attempt*5);if(res.status===503&&kind==='video')debugLog('warn','SERVICE','503 — service vidéo occupé, conservation du processus');else debugLog('warn','SERVICE','HTTP '+res.status+' — attente '+wait+'s');setStatus('Service occupé — nouvelle tentative dans '+wait+'s');await sleep(wait*1000);continue}return res}catch(e){if(e.message==='Arrêt demandé')throw e;const wait=Math.min(kind==='video'?120:45,kind==='video'?10+attempt*8:3+attempt*4);debugLog('warn','NETWORK',e.message+' — retry dans '+wait+'s');setStatus('Connexion instable — reprise dans '+wait+'s');await sleep(wait*1000)}}throw new Error('Tentatives épuisées pour '+label+' après '+maxAttempts+' essais')}
+
+function escapeControlCharsInStrings(text){let result='';let inString=false;let escape=false;for(let i=0;i<text.length;i++){const ch=text[i];if(escape){result+=ch;escape=false;continue}if(ch==='\\'){result+=ch;escape=true;continue}if(ch==='"'){inString=!inString;result+=ch;continue}if(inString){if(ch==='\n'){result+='\\n';continue}if(ch==='\r'){result+='\\r';continue}if(ch==='\t'){result+='\\t';continue}const code=ch.charCodeAt(0);if(code<32){result+='\\u'+code.toString(16).padStart(4,'0');continue}}result+=ch}return result}
+function balanceJson(text){let openBraces=0,openBrackets=0,inString=false,escape=false;for(let i=0;i<text.length;i++){const ch=text[i];if(escape){escape=false;continue}if(ch==='\\'){escape=true;continue}if(ch==='"'){inString=!inString;continue}if(inString)continue;if(ch==='{')openBraces++;else if(ch==='}')openBraces--;else if(ch==='[')openBrackets++;else if(ch===']')openBrackets--}let result=text;if(inString)result+='"';while(openBrackets>0){result+=']';openBrackets--}while(openBraces>0){result+='}';openBraces--}return result}
+
+// 🦦 MODIFICATION LOFI : salvage adapté au schéma lofi
+function salvageExpansion(text){
+const titleMatch=text.match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+const imgMatch=text.match(/"image_prompt"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+const vidMatch=text.match(/"video_motion_prompt"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+if(!imgMatch&&!vidMatch)return null;
+return{
+title:titleMatch?titleMatch[1].replace(/\\n/g,' ').replace(/\\"/g,'"'):'Ambiance Lofi',
+image_prompt:imgMatch?imgMatch[1].replace(/\\n/g,' ').replace(/\\"/g,'"'):'',
+video_motion_prompt:vidMatch?vidMatch[1].replace(/\\n/g,' ').replace(/\\"/g,'"'):''
+}
+}
+function extractJson(text){if(!text)return null;let c=text.trim();const fm=c.match(/```(?:json)?\s*([\s\S]*?)```/);if(fm)c=fm[1].trim();const fb=c.indexOf('{');if(fb<0){debugLog('error','PARSE','Aucun { trouvé');return null}c=c.slice(fb);try{const r=JSON.parse(c);debugLog('success','PARSE','Stratégie 1 OK');return r}catch(e1){debugLog('warn','PARSE','S1 échouée')}try{const r=JSON.parse(escapeControlCharsInStrings(c));debugLog('success','PARSE','Stratégie 2 OK');return r}catch(e2){debugLog('warn','PARSE','S2 échouée')}try{const lb=c.lastIndexOf('}');if(lb>0){const r=JSON.parse(escapeControlCharsInStrings(c.slice(0,lb+1)));debugLog('success','PARSE','Stratégie 3 OK');return r}}catch(e3){debugLog('warn','PARSE','S3 échouée')}try{const r=JSON.parse(balanceJson(escapeControlCharsInStrings(c)));debugLog('success','PARSE','Stratégie 4 OK');return r}catch(e4){debugLog('warn','PARSE','S4 échouée')}try{const s=salvageExpansion(c);if(s&&(s.image_prompt||s.video_motion_prompt)){debugLog('success','PARSE','Stratégie 5 (regex)');return s}}catch(e5){debugLog('error','PARSE','S5 échouée')}debugLog('error','PARSE','Aucune stratégie n\'a fonctionné');return null}
+
+// 🦦 MODIFICATION LOFI : prompt directeur artistique Ghibli
+function buildExpansionPrompt(userDescription,mood){const m=MOODS[mood]||MOODS.rainy_forest;return[
+'You are an art director for Studio Ghibli-inspired lofi ambience videos.',
+'',
+'USER SCENE IDEA (French):',userDescription,
+'',
+'AMBIENCE (French mood chosen):',m.label,'—',m.desc,
+'',
+'YOUR TASK:',
+'Expand the user idea into a rich, poetic, ultra-detailed visual scene for a single lofi ambience video.',
+'ALWAYS include a cute, calm, peaceful capybara (capybara mascot) somewhere visible in the scene, integrated naturally into the environment.',
+'The mood must be lofi: slow, nostalgic, peaceful, detailed, soothing, hand-painted watercolor, Studio Ghibli / Hayao Miyazaki inspired.',
+'',
+'HARD RULES:',
+'- The image must feel like a Ghibli watercolor background: soft gradients, painterly, detailed, calm, warm.',
+'- The scene must be peaceful and loopable in motion.',
+'- The capybara must appear cute but not intrusive — it can be resting, soaking in water, sitting on a wooden porch, next to a teacup, under a blanket, etc.',
+'- The video motion must be SUBTLE and SLOW: gentle breathing of the capybara, softly falling leaves, drifting mist, slow water ripples, faint swaying grass, floating dust motes.',
+'- No fast movement, no action, no characters running, no camera shake. Perfect seamless loop.',
+'- No readable text, no watermark, no logos.',
+'- Color palette:',GHIBLI_PALETTE,
+'',
+'OUTPUT — strict JSON only, no markdown:',
+'{',
+'  "title": "A short poetic title in French (max 60 chars)",',
+'  "image_prompt": "Ultra-detailed English visual description for an image model. Include: setting, lighting, colors, atmosphere, the capybara (with its location and pose), Ghibli watercolor style, cinematic composition. 150-250 words.",',
+'  "video_motion_prompt": "English description of slow gentle motions for the video model: capybara breathing, leaves falling, mist drifting, water ripples, seamless loop. 60-120 words."',
+'}',
+].join('\n')}
+
+async function generateExpansion(userDescription,mood){setPhase('text','🧠 Enrichissement de votre idée…','');setStatus('L\'IA imagine votre scène…');const prompt=buildExpansionPrompt(userDescription,mood);debugLog('ai','PROMPT LOFI','Prompt envoyé',prompt.slice(0,2500));const body={model:MODEL_TEXT,messages:[{role:'system',content:'You are a Studio Ghibli-inspired art director specialized in lofi ambience videos. You always return strict JSON matching the requested schema exactly. Every scene includes a cute calm capybara. Every scene is peaceful, detailed, watercolor, and loopable with slow gentle motion. No text, no watermark. Return only JSON.'},{role:'user',content:prompt}],temperature:0.85,max_tokens:2000,response_format:{type:'json_object'}};const res=await apiFetch(API_BASE+'/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+getApiKey(),'Content-Type':'application/json'},body:JSON.stringify(body)},'Expansion lofi','text');if(!res.ok){const err=await res.text();debugLog('error','EXPANSION','HTTP '+res.status,err.slice(0,2000));throw new Error('HTTP '+res.status)}const data=await res.json();debugLog('response','RAW EXPANSION','Réponse brute',data);const content=data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;state.rawExpansionResponse=content||'';const rawEl=document.getElementById('raw-expansion');if(rawEl)rawEl.textContent=content||'(vide)';const exp=extractJson(content);if(!exp||!exp.image_prompt)throw new Error('Expansion invalide');
+// 🦦 MODIFICATION LOFI : valeurs par défaut robustes
+if(!exp.title)exp.title='Ambiance Lofi';
+if(!exp.video_motion_prompt)exp.video_motion_prompt='Gentle slow motion: capybara breathing softly, leaves drifting down, faint mist, seamless loop.';
+debugLog('success','EXPANSION','Titre : '+exp.title);return exp}
+
+async function retryTask(name,fn,maxAttempts=3){let lastError=null;for(let i=1;i<=maxAttempts;i++){if(state.stopRequested)throw new Error('Arrêt demandé');try{debugLog('info','RETRY',name+' — essai '+i+'/'+maxAttempts);return await fn()}catch(e){lastError=e;if(e.message==='Arrêt demandé')throw e;debugLog('warn','RETRY',name+' échoué : '+e.message);if(i<maxAttempts){const wait=Math.min(90,8*i*i);setStatus(name+' — reprise automatique dans '+wait+'s');await sleep(wait*1000)}}}throw lastError||new Error(name+' échoué')}
+
+async function generateImage(prompt,format){return retryTask('Image',async()=>{
+// 🦦 MODIFICATION LOFI : ratio adapté (16:9 par défaut ou 9:16)
+const ratio=format==='9:16'?'9:16':'16:9';
+const body={model:MODEL_IMAGE,prompt:prompt,size:'1K',ratio:ratio,n:1};
+const res=await apiFetch(API_BASE+'/images/generations',{method:'POST',headers:{'Authorization':'Bearer '+getApiKey(),'Content-Type':'application/json'},body:JSON.stringify(body)},'Image','image');if(!res.ok){const err=await res.text();throw new Error('HTTP '+res.status+' — '+err.slice(0,500))}const data=await res.json();const item=data.data&&data.data[0];if(!item)throw new Error('Pas de donnée image');if(item.url)return item.url;if(item.b64_json)return'data:image/png;base64,'+item.b64_json;throw new Error('Format image inconnu')},4)}
+
+async function generateVideo(imageUrl,prompt,format){return retryTask('Vidéo',async()=>{
+// 🦦 MODIFICATION LOFI : une seule frame + prompt de mouvement lent
+const aspect=format==='9:16'?'9:16':'16:9';
+const body={model:MODEL_VIDEO,prompt:prompt,seconds:String(state.durationSeconds),mode:'keyframe',size:'720P',aspect_ratio:aspect,first_frame:imageUrl,last_frame:imageUrl};
+debugLog('ai','PROMPT VIDÉO','Envoyé',prompt.slice(0,1200)+'…');
+const res=await apiFetch(API_BASE+'/videos',{method:'POST',headers:{'Authorization':'Bearer '+getApiKey(),'Content-Type':'application/json'},body:JSON.stringify(body)},'Vidéo','video');if(!res.ok){const err=await res.text();throw new Error('HTTP '+res.status+' — '+err.slice(0,500))}const data=await res.json();const videoId=data.video_id||data.id||data.task_id;if(!videoId)throw new Error('Pas de video_id');return videoId},3)}
+
+async function pollVideo(videoId,onProgress){const estimatedMs=estimateGenerationTime('video',90000+state.durationSeconds*7000);const minWait=Math.max(25,Math.min(VIDEO_FIRST_POLL_DELAY_SEC,Math.floor(estimatedMs/1000*0.35)));let remaining=minWait;debugLog('info','POLLING','Attente initiale '+remaining+'s pour '+videoId);while(remaining>0){if(state.stopRequested)throw new Error('Arrêt demandé');await ensureWakeLockActive();onProgress('File vidéo — '+remaining+'s');await sleep(1000);remaining--}let attempt=0;let idleRounds=0;while(attempt<VIDEO_MAX_POLL_ATTEMPTS){if(state.stopRequested)throw new Error('Arrêt demandé');attempt++;const url=POLL_BASE+'?video_id='+encodeURIComponent(videoId)+'&model_name='+encodeURIComponent(MODEL_VIDEO);let res;try{res=await apiFetch(url,{method:'GET',headers:{'Authorization':'Bearer '+getApiKey()}},'Polling','video')}catch(e){debugLog('warn','POLLING','Erreur transitoire : '+e.message);await sleep(Math.min(90000,15000+attempt*1500));continue}let d;try{d=await res.json()}catch(e){debugLog('warn','POLLING','Réponse non JSON, reprise');await sleep(Math.min(60000,10000+attempt*1000));continue}const status=String(d.status||'unknown').toLowerCase();const progress=Number(d.progress||0);onProgress('Création — '+progress+'%');debugLog('response','POLL #'+attempt,'Statut : '+status+' ('+progress+'%)');if(status==='completed'||status==='succeeded'||status==='done'){const videoUrl=d.url||(d.metadata&&d.metadata.url)||(d.output&&d.output.url);if(!videoUrl)throw new Error("Terminé mais pas d'URL");debugLog('success','POLLING','Terminé après '+attempt+' polls');return videoUrl}if(status==='failed'||status==='error'||status==='cancelled'){throw new Error('Échec définitif ('+status+')')}idleRounds++;const wait=attempt<5?8:Math.min(30,10+Math.floor(attempt/5)*3);onProgress('File vidéo — nouvelle vérification dans '+wait+'s');await sleep(wait*1000);if(idleRounds>VIDEO_MAX_POLL_ATTEMPTS)break}throw new Error('Délai maximal de polling dépassé') }
+
+// 🦦 MODIFICATION LOFI : block de style Ghibli unique
+function buildGhibliStyleBlock(){return[
+'VISUAL STYLE: Studio Ghibli / Hayao Miyazaki inspired hand-painted watercolor background. Soft painterly gradients, detailed natural textures, warm nostalgic atmosphere.',
+'COMPOSITION: cinematic, peaceful, balanced, with gentle depth. The capybara is clearly visible, cute, calm.',
+'LIGHTING: soft natural light, warm amber highlights, gentle shadow, no harsh contrast.',
+'COLOR RULE: '+GHIBLI_PALETTE,
+'MANDATORY: a cute peaceful capybara integrated naturally into the scene.',
+'NO readable text, NO watermark, NO logos.'
+].join('\n')}
+
+function buildLofiImagePrompt(exp){return[
+'GHIBLI-STYLE LOFI AMBIENCE KEYFRAME.',
+exp.image_prompt,
+buildGhibliStyleBlock(),
+'Ultra-detailed painterly image, calm and loopable composition.',
+].join('\n')}
+
+// 🦦 MODIFICATION LOFI : prompt vidéo avec mouvement lent imposé
+function buildLofiVideoPrompt(exp){return[
+'LOFI AMBIENCE VIDEO — '+state.durationSeconds+' seconds — seamless loop.',
+'Studio Ghibli inspired watercolor scene with a cute calm capybara.',
+'BASE SCENE: '+exp.image_prompt,
+'GENTLE MOTION: '+exp.video_motion_prompt,
+'ABSOLUTE MOTION RULE: SLOW, GENTLE, SUBTLE motion only. No fast movement, no camera shake, no action. The scene must feel peaceful and loopable.',
+'Perfect seamless loop, calm pacing.',
+'CAMERA: locked-off or extremely slow drift. No cuts.',
+'STYLE: hand-painted Ghibli watercolor, soft gradients, warm nostalgic light.',
+'PALETTE: '+GHIBLI_PALETTE,
+'SOUND: soft ambient nature sounds only — no music, no voice. Wind, birds, water, rustling leaves.',
+'NO readable text, NO watermark, NO logos.'
+].join('\n')}
+
+function createRateLimitedQueue(maxConcurrent,minIntervalMs){let running=0;let lastStart=0;const queue=[];let resolveIdle=null;function tryNext(){if(running>=maxConcurrent)return;if(queue.length===0){if(running===0&&resolveIdle){resolveIdle();resolveIdle=null}return}const now=Date.now();const wait=Math.max(0,lastStart+minIntervalMs-now);if(wait>0){setTimeout(tryNext,wait);return}const task=queue.shift();running++;lastStart=Date.now();task().finally(()=>{running--;setTimeout(tryNext,0)})}return{add(fn){return new Promise((resolve,reject)=>{queue.push(()=>fn().then(resolve,reject));setTimeout(tryNext,0)})},idle(){return new Promise(r=>{if(running===0&&queue.length===0)return r();resolveIdle=r})}}}
+
+function setStatus(text){const bar=document.getElementById('status-bar');const txt=document.getElementById('status-text');if(!bar||!txt)return;if(text){bar.classList.add('visible');txt.textContent=text}else bar.classList.remove('visible')}
+function setPhase(phase,detail,eta){const bar=document.getElementById('phase-bar');if(bar)bar.classList.add('visible');document.querySelectorAll('.phase-step').forEach(el=>{el.classList.remove('active','done');const order=['text','dialogue','images','videos','done'];const curIdx=order.indexOf(phase);const elIdx=order.indexOf(el.dataset.phase);if(elIdx<curIdx)el.classList.add('done');else if(elIdx===curIdx)el.classList.add('active')});const d=document.getElementById('phase-detail');const e=document.getElementById('phase-eta');if(d)d.innerHTML=detail||'';if(e)e.textContent=eta||''}
+
+function addMediaLogEntry(kind,url){const log=document.getElementById('media-log');if(!log)return;const empty=log.querySelector('div[style]');if(empty)empty.remove();const time=new Date().toLocaleTimeString('fr-FR',{hour12:false});const el=document.createElement('div');el.className='media-log-entry';const displayUrl=url.length>120?url.slice(0,120)+'…':url;el.innerHTML='<span style="font-size:.58rem;padding:.15rem .4rem;border-radius:4px;text-transform:uppercase;font-weight:700;background:rgba(143,173,136,.15);color:var(--acc);">'+kind+'</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--acc3);font-size:.66rem;"><a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--acc3);text-decoration:none;">'+esc(displayUrl)+'</a></span><span style="color:var(--faint);font-size:.62rem;">'+time+'</span>';log.appendChild(el);const countEl=document.getElementById('medialog-count');if(countEl)countEl.textContent=String(log.querySelectorAll('.media-log-entry').length)}
+
+// 🦦 MODIFICATION LOFI : pipeline simplifié en 4 étapes
+async function startLofi(){if(state.isRunning)return;if(!getApiKey()){showToast('Ajoutez votre clé API','error');document.getElementById('api-key-input').focus();return}const desc=document.getElementById('user-description').value.trim();if(desc.length<4){showToast('Décrivez une scène (min. 4 caractères)','error');return}
+state.isRunning=true;state.stopRequested=false;state.expansion=null;state.rawExpansionResponse='';state.imageUrl=null;state.videoUrl=null;state.userDescription=desc;
+document.getElementById('lofi-panel').classList.remove('visible');
+document.getElementById('lofi-title').textContent='—';
+document.getElementById('lofi-meta').textContent='Généré par Lofi Capybara Studio';
+document.getElementById('lofi-image-preview').style.display='none';
+document.getElementById('lofi-image').src='';
+document.getElementById('lofi-video-container').innerHTML='<div class="lofi-video-placeholder" id="lofi-video-placeholder">🦦 La vidéo lofi apparaîtra ici…</div>';
+document.getElementById('lofi-prompt-display').innerHTML='';
+document.getElementById('download-btn').style.display='none';
+document.getElementById('raw-expansion').textContent='';
+document.getElementById('media-log').innerHTML='<div style="font-size:.72rem;color:var(--dim);font-family:var(--fm);">Les URLs apparaîtront ici.</div>';
+document.getElementById('medialog-count').textContent='0';
+document.getElementById('stop-btn').classList.add('visible');
+document.getElementById('lofi-btn').disabled=true;
+document.getElementById('phase-bar').classList.add('visible');
+await ensureWakeLockActive();
+const totalStart=Date.now();
+debugLog('state','START','════════════════════════════════════════');
+debugLog('state','START','DÉMARRAGE LOFI CAPYBARA');
+debugLog('state','CONFIG','Description : '+desc);
+debugLog('state','CONFIG','Ambiance : '+MOODS[state.mood].label);
+debugLog('state','CONFIG','Durée : '+state.durationSeconds+'s · Format : '+state.format);
+try{
+// 🦦 MODIFICATION LOFI : Phase 2 — enrichissement IA
+setPhase('dialogue','🧠 Enrichissement de votre idée par l\'IA…','');
+const exp=await generateExpansion(desc,state.mood);state.expansion=exp;
+document.getElementById('lofi-title').textContent=exp.title;
+document.getElementById('lofi-meta').textContent='🦦 Capybara Lofi · '+MOODS[state.mood].label+' · '+state.durationSeconds+'s';
+document.getElementById('lofi-panel').classList.add('visible');
+document.getElementById('lofi-prompt-display').innerHTML='<span class="hl">✨ Scène :</span> '+esc(exp.image_prompt.slice(0,300))+(exp.image_prompt.length>300?'…':'');
+// 🦦 MODIFICATION LOFI : Phase 3 — image unique
+setPhase('images','🎨 Création de l\'image Ghibli…','');
+setStatus('Création de l\'image Ghibli avec la capybara…');
+const imgPrompt=buildLofiImagePrompt(exp);
+try{const imgUrl=await generateImage(imgPrompt,state.format);state.imageUrl=imgUrl;addMediaLogEntry('image',imgUrl);const previewEl=document.getElementById('lofi-image-preview');const imgEl=document.getElementById('lofi-image');if(previewEl&&imgEl){imgEl.src=imgUrl;previewEl.style.display='block'}debugLog('success','IMAGE','Image générée')}catch(e){debugLog('error','IMAGE','Échec : '+e.message);throw e}
+// 🦦 MODIFICATION LOFI : Phase 4 — vidéo unique
+setPhase('videos','🎬 Création de la vidéo lofi au mouvement lent…','');
+setStatus('Création de la vidéo lofi (mouvement lent)…');
+createVideoIntervalMs=VIDEO_INTERVAL_SAFE;videoAttemptsSinceLastError=0;
+const vidPrompt=buildLofiVideoPrompt(exp);
+try{
+const videoId=await generateVideo(state.imageUrl,vidPrompt,state.format);
+debugLog('success','VIDÉO','Tâche : '+videoId);
+const videoUrl=await pollVideo(videoId,(prog)=>{setStatus('Vidéo lofi — '+prog)});
+const elapsed=Date.now()-totalStart;recordGenerationTime('video',elapsed);
+state.videoUrl=videoUrl;addMediaLogEntry('video',videoUrl);
+const container=document.getElementById('lofi-video-container');
+container.innerHTML='';
+const v=document.createElement('video');v.controls=true;v.preload='metadata';v.playsInline=true;v.loop=true;v.src=videoUrl;container.appendChild(v);
+document.getElementById('download-btn').style.display='block';
+document.getElementById('download-btn').onclick=()=>{const a=document.createElement('a');a.href=videoUrl;a.download=(exp.title||'lofi-capybara').replace(/[^a-z0-9]/gi,'_')+'.mp4';a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();document.body.removeChild(a)};
+debugLog('success','VIDÉO','Terminée en '+(elapsed/1000).toFixed(1)+'s')
+}catch(e){debugLog('error','VIDÉO','Échec : '+e.message);throw e}
+setPhase('done','✦ Vidéo Lofi prête ✦','')
+}catch(e){debugLog('error','GLOBAL',e.message);setStatus('Erreur : '+e.message)}
+const totalElapsed=(Date.now()-totalStart)/1000;
+const success=!!state.videoUrl;
+const summary=state.stopRequested?'Arrêté':success?'✦ Vidéo Lofi prête en '+formatEta(totalElapsed)+' ✦':'Échec de génération';
+debugLog('state','FIN',summary);
+debugLog('state','FIN','════════════════════════════════════════');
+setStatus(summary);
+await sleep(4500);setStatus(null);
+state.isRunning=false;state.stopRequested=false;
+document.getElementById('stop-btn').classList.remove('visible');
+updateLofiButton();
+if(success)showToast('🦦 Vidéo lofi générée !','success',4000);else showToast('Génération échouée','error',3500);
+await deactivateWakeLock()}
+
+// 🦦 MODIFICATION LOFI : init adapté
+(function init(){
+const saveBtn=document.getElementById('api-save-btn');if(saveBtn)saveBtn.addEventListener('click',saveApiKey);
+const apiInput=document.getElementById('api-key-input');if(apiInput)apiInput.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();saveApiKey()}});
+const stopBtn=document.getElementById('stop-btn');if(stopBtn)stopBtn.addEventListener('click',()=>{state.stopRequested=true;debugLog('warn','STOP','Arrêt demandé');setStatus('Arrêt en cours…')});
+document.querySelectorAll('[data-toggle]').forEach(header=>{header.addEventListener('click',()=>{document.getElementById(header.dataset.toggle).classList.toggle('open')})});
+const descEl=document.getElementById('user-description');if(descEl)descEl.addEventListener('input',updateLofiButton);
+const moodSelect=document.getElementById('mood-select');if(moodSelect)moodSelect.addEventListener('change',e=>{state.mood=e.target.value});
+const durationSelect=document.getElementById('duration-select');if(durationSelect)durationSelect.addEventListener('change',e=>{state.durationSeconds=parseInt(e.target.value,10)});
+const formatSelect=document.getElementById('format-select');if(formatSelect)formatSelect.addEventListener('change',e=>{state.format=e.target.value});
+const lofiBtn=document.getElementById('lofi-btn');if(lofiBtn)lofiBtn.addEventListener('click',startLofi);
+const debugHeader=document.getElementById('debug-header');if(debugHeader)debugHeader.addEventListener('click',(e)=>{if(e.target.tagName==='BUTTON')return;toggleDebugCollapse()});
+const debugCollapseBtn=document.getElementById('debug-collapse-btn');if(debugCollapseBtn)debugCollapseBtn.addEventListener('click',(e)=>{e.stopPropagation();toggleDebugCollapse()});
+const debugClearBtn=document.getElementById('debug-clear-btn');if(debugClearBtn)debugClearBtn.addEventListener('click',(e)=>{e.stopPropagation();clearDebug()});
+const debugCopyBtn=document.getElementById('debug-copy-btn');if(debugCopyBtn)debugCopyBtn.addEventListener('click',(e)=>{e.stopPropagation();copyDebug()});
+const rawToggle=document.getElementById('raw-expansion-toggle');if(rawToggle){rawToggle.addEventListener('click',()=>{const el=document.getElementById('raw-expansion');if(!el)return;el.style.display=el.style.display==='none'?'block':'none';rawToggle.textContent=el.style.display==='none'?'▸ Voir la réponse brute de l\'expansion IA (JSON)':'▾ Masquer'})}
+try{const saved=localStorage.getItem(WAKE_LOCK_PREF);wakeLockEnabled=saved==='1'}catch(e){}
+if(wakeLockEnabled)activateWakeLock();
+updateApiPanel();updateTimingDisplay();updateLofiButton();
+const savedKey=getApiKey();if(savedKey)document.getElementById('api-key-input').value=savedKey;
+debugLog('success','INIT','Lofi Capybara Studio prêt 🦦');
+debugLog('info','INIT','Pipeline : DESCRIPTION → ENRICHISSEMENT IA → IMAGE GHIBLI → VIDÉO LOFI');
+debugLog('info','INIT','Modèles : '+MODEL_TEXT+' / '+MODEL_IMAGE+' / '+MODEL_VIDEO);
+debugLog('info','INIT','Contrainte : capybara mignonne + mouvement lent + style Ghibli watercolor');
+})();
+</script>
+</body>
+</html>
